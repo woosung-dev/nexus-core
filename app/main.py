@@ -5,6 +5,8 @@ Nexus Core — FastAPI 애플리케이션 진입점.
 import logging
 from contextlib import asynccontextmanager
 
+from fastapi.staticfiles import StaticFiles
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -39,6 +41,9 @@ def create_app() -> FastAPI:
         description="Multi-Persona AI Chatbot Platform — Blessing Q&A 상담 핵심",
         lifespan=lifespan,
     )
+
+    # 정적 파일 서빙 (업로드된 파일)
+    app.mount("/static/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
     # CORS 미들웨어
     app.add_middleware(
