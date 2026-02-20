@@ -15,6 +15,7 @@ dependencies = [
     "openai>=2.21.0",
     "python-multipart>=0.0.22",
     "aiofiles>=24.1.0",
+    "greenlet>=3.3.1",
 ]
 
 [dependency-groups]

@@ -18,6 +18,7 @@ Thumbs.db
 .vscode/
 .cursor/
 .agent/
+.agents/
 .idea/
 
 # docs

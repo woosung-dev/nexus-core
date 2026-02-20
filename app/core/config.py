@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     UPLOAD_DIR: str = "./uploads"
     MAX_UPLOAD_SIZE_MB: int = 10
 
+    # --- RAG (File Search API) ---
+    FILE_SEARCH_STORE_NAME: str = "nexus-core-knowledge-base"
+
     # --- CORS ---
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
