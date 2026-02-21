@@ -4,6 +4,8 @@
 
 from pydantic import BaseModel
 
+from app.schemas.rag import RAGCitation
+
 
 class ChatCompletionRequest(BaseModel):
     """채팅 완성 요청"""
@@ -11,6 +13,7 @@ class ChatCompletionRequest(BaseModel):
     message: str
     session_id: int | None = None  # None이면 새 세션 생성
     stream: bool = True
+    use_rag: bool = False  # True이면 RAG 기반 응답 생성
 
 
 class ChatCompletionResponse(BaseModel):
@@ -18,3 +21,4 @@ class ChatCompletionResponse(BaseModel):
     session_id: int
     content: str
     bot_id: int
+    citations: list[RAGCitation] = []  # RAG 사용 시 인용 정보

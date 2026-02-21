@@ -14,6 +14,7 @@ from sqlmodel import select
 from app.core.database import get_session
 from app.models.bot import Bot
 from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse
+from app.services.rag.factory import get_rag_service
 from app.services.llm.gemini import GeminiService
 from app.services.llm.openai import OpenAIService
 
@@ -39,6 +40,7 @@ async def chat_completions(
     채팅 완성 엔드포인트.
     stream=True (기본값) → SSE 스트리밍 응답
     stream=False → JSON 응답
+    use_rag=True → File Search 기반 RAG 응답 (Non-Streaming)
     """
     # 봇 조회
     result = await session.execute(select(Bot).where(Bot.id == request.bot_id))
@@ -49,6 +51,23 @@ async def chat_completions(
 
     if not bot.is_active:
         raise HTTPException(status_code=400, detail="비활성화된 봇입니다.")
+
+    # RAG 모드
+    if request.use_rag:
+        rag_service = RAGService()
+        rag_response = await rag_service.generate_with_rag(
+            bot_id=request.bot_id,
+            prompt=request.message,
+            system_prompt=bot.system_prompt,
+            model_name=bot.llm_model,
+        )
+
+        return ChatCompletionResponse(
+            session_id=request.session_id or 0,
+            content=rag_response.answer,
+            bot_id=request.bot_id,
+            citations=rag_response.citations,
+        )
 
     # LLM 서비스 선택 (봇 설정 기반)
     llm_service = _get_llm_service(bot.llm_model)
