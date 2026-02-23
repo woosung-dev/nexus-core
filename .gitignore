@@ -22,7 +22,7 @@ Thumbs.db
 .idea/
 
 # docs
-/docs
+docs/
 
 # uploads
 uploads/
