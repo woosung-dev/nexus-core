@@ -1,0 +1,57 @@
+name: Deploy to GCP Cloud Run
+
+on:
+  push:
+    branches:
+      - main # main 브랜치에 코드가 푸시될 때마다 자동 실행
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: asia-northeast3 # 서울 리전. 필요시 asia-northeast1(도쿄) 등으로 변경
+  SERVICE_NAME: nexus-core-api
+  GAR_REPO: nexus-repo # 사전에 GCP Artifact Registry에 만들어둔 레포지토리 이름
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 1. GCP 계정 인증 (JSON 키 방식 사용)
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: "${{ secrets.GCP_SA_KEY }}"
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # 2. Docker가 GCP Artifact Registry(GAR)에 접근할 수 있도록 권한 설정
+      - name: Docker Auth for Artifact Registry
+        run: |-
+          gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      # 3. Docker 이미지 빌드 및 업로드
+      - name: Build and Push Docker image
+        run: |-
+          IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+
+          docker build -t $IMAGE_PATH .
+          docker push $IMAGE_PATH
+
+      # 4. 방금 올린 Docker 이미지를 GCP Cloud Run 서버로 롤아웃 (배포)
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPO }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          # 프로덕션 환경에서 쓸 환경 변수 주입 (로컬의 .env 역할)
+          env_vars: |
+            DATABASE_URL=${{ secrets.SUPABASE_DB_URL }}
+
+            # NOTE: 아래 키벨류는 필수 변수들이며, 추후 GitHub Secrets 탭에 입력해 두어야 합니다.
+            # OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            # GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
