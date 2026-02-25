@@ -12,7 +12,7 @@ from pathlib import Path
 from openai import AsyncOpenAI
 
 from app.core.config import get_settings
-from app.schemas.rag import RAGCitation, RAGResponse
+from app.schemas.rag import DocumentInfo, RAGCitation, RAGResponse
 from app.services.rag.base import BaseRAGService
 
 logger = logging.getLogger(__name__)
@@ -98,8 +98,9 @@ class OpenAIRAGService(BaseRAGService):
             # OpenAI API의 files.create에는 현재 공식적으로 metadata 파라미터가 비동기/동기 구문에서 지원되는지 확인.
             # 지원하지 않는다면 어쩔 수 없지만, 최근 Assistants API V2에서는 지원합니다.
             # 에러를 줄이기 위해 파일을 먼저 업로드 후, 그 결과(file_id)를 통해 File 객체를 업데이트
+            file_data = file_path_obj.read_bytes()
             file_obj = await self._client.files.create(
-                file=file_path_obj,
+                file=(display_name, file_data),
                 purpose="assistants",
             )
             file_id = file_obj.id
@@ -141,6 +142,95 @@ class OpenAIRAGService(BaseRAGService):
         
         except Exception as e:
             logger.error(f"OpenAI RAG 업로드 실패: {e}")
+            raise
+
+    async def list_documents(self, bot_id: int) -> list[DocumentInfo]:
+        """
+        특정 봇의 Vector Store에 속한 문서 목록을 조회한다.
+        OpenAI는 봇별로 Vector Store를 분리하므로 해당 Store의 전체 파일 목록을 반환.
+        """
+        store_id = await self.ensure_store(bot_id=bot_id)
+        documents: list[DocumentInfo] = []
+
+        try:
+            # Vector Store의 파일 목록 조회
+            vs_files = await self._client.vector_stores.files.list(
+                vector_store_id=store_id,
+            )
+
+            async for vs_file in vs_files:
+                # 파일 상세 정보 조회 (파일명 등)
+                display_name = vs_file.id
+                size_bytes = None
+                is_deleted = False
+                try:
+                    file_detail = await self._client.files.retrieve(vs_file.id)
+                    display_name = file_detail.filename or vs_file.id
+                    size_bytes = getattr(file_detail, "bytes", None)
+                except Exception as e:
+                    # 파일 스토리지에서 삭제되어 404 에러가 나는 경우 목록에서 제외
+                    if "404" in str(e) or "No such File object" in str(e):
+                        is_deleted = True
+                    else:
+                        logger.warning(f"OpenAI 파일 상세 조회 실패 ({vs_file.id}): {e}")
+
+                if is_deleted:
+                    continue
+
+                # 생성 시간 변환
+                created_at = None
+                if vs_file.created_at:
+                    from datetime import datetime, timezone
+                    created_at = datetime.fromtimestamp(
+                        vs_file.created_at, tz=timezone.utc
+                    ).isoformat()
+
+                documents.append(
+                    DocumentInfo(
+                        file_id=vs_file.id,
+                        display_name=display_name,
+                        created_at=created_at,
+                        status=vs_file.status or "unknown",
+                        size_bytes=size_bytes,
+                    )
+                )
+
+            logger.info(f"OpenAI 문서 목록 조회 완료: bot_id={bot_id}, count={len(documents)}")
+        except Exception as e:
+            logger.error(f"OpenAI 문서 목록 조회 실패: {e}")
+            raise
+
+        return documents
+
+    async def delete_document(self, bot_id: int, file_id: str) -> None:
+        """
+        특정 봇의 Vector Store에서 문서를 삭제한다.
+        Vector Store 연결과 파일 스토리지 객체를 모두 삭제.
+
+        Args:
+            bot_id: 문서가 속한 봇 ID
+            file_id: 삭제할 파일 ID (e.g., "file-abc123")
+        """
+        store_id = await self.ensure_store(bot_id=bot_id)
+
+        try:
+            # 1. Vector Store에서 파일 연결 해제
+            await self._client.vector_stores.files.delete(
+                vector_store_id=store_id,
+                file_id=file_id,
+            )
+            logger.info(f"OpenAI Vector Store 파일 연결 해제: {file_id}")
+
+            # 2. 파일 스토리지에서도 삭제 (비용 절감)
+            try:
+                await self._client.files.delete(file_id=file_id)
+                logger.info(f"OpenAI 파일 스토리지 삭제 완료: {file_id}")
+            except Exception as e:
+                logger.warning(f"OpenAI 파일 스토리지 삭제 실패 (무시 가능): {e}")
+
+            logger.info(f"OpenAI 문서 삭제 완료: bot_id={bot_id}, file_id={file_id}")
+        except Exception as e:
+            logger.error(f"OpenAI 문서 삭제 실패: {e}")
             raise
 
     async def generate_with_rag(
@@ -231,8 +321,8 @@ class OpenAIRAGService(BaseRAGService):
             # OpenAI는 주석(annotation) 형태로 file_citation을 제공함
             if annotations:
                 for idx, annotation in enumerate(annotations):
-                    # 주석을 문서 내에서 제거하거나 변경할 수 있음
-                    answer_text = answer_text.replace(annotation.text, f"[{idx + 1}]")
+                    # 주석을 문서 내에서 제거하거나 변경할 수 있음 (식구님께 드리는 편지 형식에 방해되지 않도록 숫자 각주를 완전히 제거함)
+                    answer_text = answer_text.replace(annotation.text, "")
                     if file_citation := getattr(annotation, "file_citation", None):
                         try:
                             # 실제 원본 파일 이름을 알기 위해 file_id로 조회 시도
