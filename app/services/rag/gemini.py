@@ -6,14 +6,14 @@ Gemini File Search API 기반 RAG 서비스.
 """
 
 import logging
-import time as _time
+from datetime import datetime, timezone
 from pathlib import Path
 
 from google import genai
 from google.genai import types
 
 from app.core.config import get_settings
-from app.schemas.rag import RAGCitation, RAGResponse
+from app.schemas.rag import DocumentInfo, RAGCitation, RAGResponse
 from app.services.rag.base import BaseRAGService
 
 logger = logging.getLogger(__name__)
@@ -40,8 +40,8 @@ class GeminiRAGService(BaseRAGService):
 
         # 기존 Store 검색
         try:
-            stores = self._client.file_search_stores.list()
-            for store in stores:
+            stores = await self._client.aio.file_search_stores.list()
+            async for store in stores:
                 if store.display_name == self._store_name:
                     self._store_resource_name = store.name
                     logger.info(f"기존 Store 발견: {store.name}")
@@ -50,8 +50,8 @@ class GeminiRAGService(BaseRAGService):
             logger.warning(f"Store 목록 조회 실패: {e}")
 
         # 새 Store 생성
-        store = self._client.file_search_stores.create(
-            config={"display_name": self._store_name}
+        store = await self._client.aio.file_search_stores.create(
+            config={"display_name": self._store_name},
         )
         self._store_resource_name = store.name
         logger.info(f"새 Store 생성: {store.name}")
@@ -77,35 +77,123 @@ class GeminiRAGService(BaseRAGService):
         """
         store_name = await self.ensure_store()
 
-        operation = self._client.file_search_stores.upload_to_file_search_store(
-            file=file_path,
-            file_search_store_name=store_name,
-            config={
-                "display_name": display_name,
-                "custom_metadata": [
-                    {"key": "bot_id", "numeric_value": bot_id},
-                ],
-            },
-        )
-
-        # 인덱싱 완료 대기 (최대 60초)
-        max_wait = 60
-        elapsed = 0
-        while not operation.done and elapsed < max_wait:
-            _time.sleep(2)
-            elapsed += 2
-            operation = self._client.operations.get(operation)
-
-        if not operation.done:
-            logger.warning(
-                f"문서 인덱싱이 아직 진행 중: {display_name} (bot_id={bot_id})"
+        try:
+            await self._client.aio.file_search_stores.upload_to_file_search_store(
+                file=file_path,
+                file_search_store_name=store_name,
+                config={
+                    "display_name": display_name,
+                    "custom_metadata": [
+                        {"key": "bot_id", "numeric_value": bot_id},
+                    ],
+                },
             )
-        else:
+
             logger.info(
-                f"문서 업로드 및 인덱싱 완료: {display_name} (bot_id={bot_id})"
+                f"Gemini 문서 업로드 완료: {display_name} (bot_id={bot_id}). "
+                f"인덱싱은 Gemini 서버에서 백그라운드로 처리됩니다."
             )
+        except Exception as e:
+            logger.error(f"Gemini 문서 업로드 실패: {display_name} (bot_id={bot_id}). Error: {e}")
+            raise
 
         return display_name
+
+    async def list_documents(self, bot_id: int) -> list[DocumentInfo]:
+        """
+        특정 봇에 속한 문서 목록을 조회한다.
+        Store의 전체 문서를 가져온 후 bot_id 메타데이터로 필터링.
+        """
+        store_name = await self.ensure_store()
+        documents: list[DocumentInfo] = []
+
+        try:
+            # Store 내 문서 목록 조회
+            doc_list = await self._client.aio.file_search_stores.documents.list(
+                parent=store_name,
+            )
+
+            async for doc in doc_list:
+                # 메타데이터에서 bot_id 필터링
+                is_target = False
+                if hasattr(doc, "custom_metadata") and doc.custom_metadata:
+                    for meta in doc.custom_metadata:
+                        if meta.key == "bot_id" and meta.numeric_value == bot_id:
+                            is_target = True
+                            break
+
+                if is_target:
+                    # 생성 시간 처리
+                    created_at = None
+                    if hasattr(doc, "create_time") and doc.create_time:
+                        if isinstance(doc.create_time, datetime):
+                            created_at = doc.create_time.isoformat()
+                        else:
+                            created_at = str(doc.create_time)
+
+                    documents.append(
+                        DocumentInfo(
+                            file_id=(doc.name or "").rsplit("/", 1)[-1],
+                            display_name=doc.display_name or "unknown",
+                            created_at=created_at,
+                            status="completed",
+                            size_bytes=getattr(doc, "size_bytes", None),
+                        )
+                    )
+
+            logger.info(f"Gemini 문서 목록 조회 완료: bot_id={bot_id}, count={len(documents)}")
+        except Exception as e:
+            logger.error(f"Gemini 문서 목록 조회 실패: {e}")
+            raise
+
+        return documents
+
+    async def delete_document(self, bot_id: int, file_id: str) -> None:
+        """
+        특정 봇의 문서를 Store에서 삭제한다.
+
+        Args:
+            bot_id: 문서가 속한 봇 ID (검증용)
+            file_id: 삭제할 문서의 짧은 ID (e.g., "2022ver-txt-e9u4ujeowola")
+        """
+        store_name = await self.ensure_store()
+        # 짧은 ID를 전체 리소스 이름으로 복원
+        full_doc_name = f"{store_name}/documents/{file_id}"
+
+        try:
+            # 문서 소유권 확인 (bot_id 검증)
+            doc_list = await self._client.aio.file_search_stores.documents.list(
+                parent=store_name,
+            )
+
+            found = False
+            async for doc in doc_list:
+                doc_short_id = (doc.name or "").rsplit("/", 1)[-1]
+                if doc_short_id == file_id:
+                    # bot_id 메타데이터 검증
+                    if hasattr(doc, "custom_metadata") and doc.custom_metadata:
+                        for meta in doc.custom_metadata:
+                            if meta.key == "bot_id" and meta.numeric_value == bot_id:
+                                found = True
+                                break
+                    break
+
+            if not found:
+                raise ValueError(
+                    f"해당 봇(bot_id={bot_id})에 속한 문서를 찾을 수 없습니다: {file_id}"
+                )
+
+            # 문서 삭제 (force=True: 인덱싱된 콘텐츠 포함 강제 삭제)
+            await self._client.aio.file_search_stores.documents.delete(
+                name=full_doc_name,
+                config={"force": True},
+            )
+            logger.info(f"Gemini 문서 삭제 완료: bot_id={bot_id}, file_id={file_id}")
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error(f"Gemini 문서 삭제 실패: {e}")
+            raise
 
     async def generate_with_rag(
         self,
@@ -147,6 +235,7 @@ class GeminiRAGService(BaseRAGService):
             ],
         )
 
+        # generate_content는 이미 async 지원 (aio)
         response = await self._client.aio.models.generate_content(
             model=actual_model_name,
             contents=prompt,
