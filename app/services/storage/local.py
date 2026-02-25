@@ -21,8 +21,9 @@ class LocalFileStorage(FileStorageService):
 
     async def upload(self, file_data: bytes, filename: str, content_type: str) -> str:
         """파일을 로컬 디스크에 저장하고 상대 경로 반환"""
-        # 파일명 충돌 방지를 위해 UUID 접두사 추가
-        unique_name = f"{uuid.uuid4().hex[:8]}_{filename}"
+        # 파일명은 UUID + 확장자만 사용 (한글 등 비ASCII 문자로 인한 인코딩 오류 방지)
+        ext = Path(filename).suffix if filename else ""
+        unique_name = f"{uuid.uuid4().hex}{ext}"
         file_path = self._upload_dir / unique_name
 
         async with aiofiles.open(file_path, "wb") as f:
