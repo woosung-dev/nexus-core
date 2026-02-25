@@ -20,6 +20,8 @@ class BotResponse(BaseModel):
     is_verified: bool = False
     is_new: bool = False
     plan_required: PlanType = PlanType.FREE
+    llm_model: str = ""
+    system_prompt: str = ""
 
 
 class BotListResponse(BaseModel):
@@ -39,7 +41,7 @@ class BotCreateRequest(BaseModel):
     is_new: bool = False
     plan_required: PlanType = PlanType.FREE
     system_prompt: str = ""
-    llm_model: str = "gemini-2.0-flash"
+    llm_model: str = "gemini-2.5-flash"
 
 
 class BotUpdateRequest(BaseModel):

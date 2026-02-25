@@ -54,7 +54,7 @@ async def chat_completions(
 
     # RAG 모드
     if request.use_rag:
-        rag_service = RAGService()
+        rag_service = get_rag_service(provider=bot.llm_model)
         rag_response = await rag_service.generate_with_rag(
             bot_id=request.bot_id,
             prompt=request.message,

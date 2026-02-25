@@ -17,6 +17,22 @@ class RAGResponse(BaseModel):
     citations: list[RAGCitation] = []
 
 
+class DocumentInfo(BaseModel):
+    """개별 문서 정보"""
+    file_id: str
+    display_name: str
+    created_at: str | None = None
+    status: str | None = None
+    size_bytes: int | None = None
+
+
+class DocumentListResponse(BaseModel):
+    """봇 전용 문서 목록 응답"""
+    bot_id: int
+    documents: list[DocumentInfo] = []
+    total: int = 0
+
+
 class DocumentUploadResponse(BaseModel):
     """문서 업로드 응답"""
     file_name: str

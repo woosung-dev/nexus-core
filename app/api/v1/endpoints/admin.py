@@ -13,13 +13,44 @@ from sqlmodel import select
 from app.core.config import get_settings
 from app.core.database import get_session
 from app.models.bot import Bot
-from app.schemas.bot import BotCreateRequest, BotResponse, BotUpdateRequest
-from app.schemas.rag import DocumentUploadResponse
+from app.schemas.bot import BotCreateRequest, BotListResponse, BotResponse, BotUpdateRequest
+from app.schemas.rag import DocumentListResponse, DocumentUploadResponse
 from app.services.rag.factory import get_rag_service
 from app.services.storage.local import LocalFileStorage
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin/bots", tags=["Admin - 봇 관리"])
+
+
+@router.get("", response_model=BotListResponse)
+async def list_bots(
+    session: AsyncSession = Depends(get_session),
+) -> BotListResponse:
+    """봇 전체 목록 조회 (활성 봇만)"""
+    result = await session.execute(
+        select(Bot).where(Bot.is_active == True).order_by(Bot.id)
+    )
+    bots = result.scalars().all()
+
+    return BotListResponse(
+        bots=[BotResponse.model_validate(bot) for bot in bots],
+        total=len(bots),
+    )
+
+
+@router.get("/{bot_id}", response_model=BotResponse)
+async def get_bot(
+    bot_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> BotResponse:
+    """봇 단일 상세 조회"""
+    result = await session.execute(select(Bot).where(Bot.id == bot_id))
+    bot = result.scalar_one_or_none()
+
+    if not bot:
+        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+
+    return BotResponse.model_validate(bot)
 
 
 @router.post("", response_model=BotResponse, status_code=201)
@@ -82,6 +113,38 @@ async def delete_bot(
 
     logger.info(f"봇 비활성화: id={bot.id}")
 
+# ── 문서 관리 ──────────────────────────────────────────────
+
+@router.get(
+    "/{bot_id}/documents",
+    response_model=DocumentListResponse,
+)
+async def list_bot_documents(
+    bot_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> DocumentListResponse:
+    """
+    봇 전용 문서 목록 조회.
+    해당 봇에 업로드된 모든 RAG 참고 문서의 목록을 반환한다.
+    """
+    # 봇 존재 확인
+    result = await session.execute(select(Bot).where(Bot.id == bot_id))
+    bot = result.scalar_one_or_none()
+    if not bot:
+        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+
+    # RAG 서비스에서 문서 목록 조회
+    rag = get_rag_service(provider=bot.llm_model)
+    documents = await rag.list_documents(bot_id=bot_id)
+
+    logger.info(f"봇 문서 목록 조회: bot_id={bot_id}, count={len(documents)}")
+
+    return DocumentListResponse(
+        bot_id=bot_id,
+        documents=documents,
+        total=len(documents),
+    )
+
 
 @router.post(
     "/{bot_id}/documents",
@@ -95,7 +158,7 @@ async def upload_bot_document(
 ) -> DocumentUploadResponse:
     """
     봇 전용 참고 문서 업로드.
-    로컬에 저장 후 Google File Search Store에 메타데이터(bot_id) 포함 업로드.
+    로컬에 저장 후 RAG Store에 메타데이터(bot_id) 포함 업로드.
     """
     # 봇 존재 확인
     result = await session.execute(select(Bot).where(Bot.id == bot_id))
@@ -136,3 +199,31 @@ async def upload_bot_document(
         display_name=display_name,
         bot_id=bot_id,
     )
+
+
+@router.delete("/{bot_id}/documents/{file_id}", status_code=204)
+async def delete_bot_document(
+    bot_id: int,
+    file_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """
+    봇 전용 문서 삭제.
+    RAG Store에서 해당 문서를 제거한다.
+    """
+    # 봇 존재 확인
+    result = await session.execute(select(Bot).where(Bot.id == bot_id))
+    bot = result.scalar_one_or_none()
+    if not bot:
+        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+
+    # RAG 서비스에서 문서 삭제
+    rag = get_rag_service(provider=bot.llm_model)
+    try:
+        await rag.delete_document(bot_id=bot_id, file_id=file_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    logger.info(f"봇 문서 삭제 완료: bot_id={bot_id}, file_id={file_id}")
+
+

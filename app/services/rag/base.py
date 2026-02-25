@@ -6,7 +6,7 @@ RAG 서비스 추상 인터페이스.
 
 from abc import ABC, abstractmethod
 
-from app.schemas.rag import RAGResponse
+from app.schemas.rag import DocumentInfo, RAGResponse
 
 
 class BaseRAGService(ABC):
@@ -42,6 +42,30 @@ class BaseRAGService(ABC):
         ...
 
     @abstractmethod
+    async def list_documents(self, bot_id: int) -> list[DocumentInfo]:
+        """
+        특정 봇에 속한 문서 목록을 조회한다.
+
+        Args:
+            bot_id: 검색 대상 봇 ID
+
+        Returns:
+            해당 봇에 속한 문서 목록
+        """
+        ...
+
+    @abstractmethod
+    async def delete_document(self, bot_id: int, file_id: str) -> None:
+        """
+        특정 봇의 문서를 삭제한다.
+
+        Args:
+            bot_id: 문서가 속한 봇 ID
+            file_id: 삭제할 파일의 ID/리소스명
+        """
+        ...
+
+    @abstractmethod
     async def generate_with_rag(
         self,
         bot_id: int,
@@ -67,3 +91,4 @@ class BaseRAGService(ABC):
              답변과 인용 정보가 포함된 RAGResponse 객체
         """
         ...
+
