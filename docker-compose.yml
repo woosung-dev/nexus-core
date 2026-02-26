@@ -42,5 +42,43 @@ services:
       # 최초 구동 시 스키마 자동 생성 스크립트 실행
       - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
 
+  # 🟢 Next.js 일반 사용자 웹 서비스 (Nexus Portal)
+  client:
+    build:
+      context: ./frontend-client
+      dockerfile: Dockerfile
+    container_name: nexus_client
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Next.js 앱에서 백엔드 API 서버를 호출할 주소 (웹 브라우저 기준)
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+    depends_on:
+      - api
+    volumes:
+      # 호스트의 소스코드를 컨테이너에 마운트 (Next.js 핫 리로드)
+      - ./frontend-client:/app
+      - /app/node_modules
+      - /app/.next
+
+  # 🔴 Next.js 어드민 대시보드
+  admin:
+    build:
+      context: ./frontend-admin
+      dockerfile: Dockerfile
+    container_name: nexus_admin
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+    depends_on:
+      - api
+    volumes:
+      - ./frontend-admin:/app
+      - /app/node_modules
+      - /app/.next
+
 volumes:
   postgres_data:
