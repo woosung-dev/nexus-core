@@ -15,6 +15,7 @@ settings = get_settings()
 # 비동기 엔진 생성
 engine = create_async_engine(
     settings.DATABASE_URL,
+    connect_args={"server_settings": {"search_path": settings.DB_SCHEMA}},
     echo=settings.DEBUG,
     future=True,
 )

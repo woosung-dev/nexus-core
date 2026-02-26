@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     # --- 데이터베이스 ---
     DATABASE_URL: str
+    DB_SCHEMA: str = "public"
 
     # --- AI API 키 ---
     GEMINI_API_KEY: str
