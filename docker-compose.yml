@@ -4,7 +4,7 @@ services:
   # 애플리케이션 서버 (로컬 개발용)
   api:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
     container_name: nexus_api
     restart: unless-stopped
@@ -14,12 +14,12 @@ services:
       # 로컬 DB 연결 주소 (기본값 설정. .env 파일의 값을 우선 참조함)
       - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://nexus_user:nexus_pass@db:5432/nexus_core}
     env_file:
-      - .env
+      - ./backend/.env
     depends_on:
       - db
     volumes:
       # 호스트의 소스코드를 컨테이너에 마운트 (핫 리로드용)
-      - .:/app
+      - ./backend:/app
       # 도커 이미지가 빌드해둔 리눅스용 .venv 환경이 호스트 파일에 의해 덮어씌워지지 않도록 보호
       - /app/.venv
     # 가상환경이 보호되었으므로 내부 uvicorn 명령어로 실행 가능
@@ -39,6 +39,8 @@ services:
       - POSTGRES_DB=nexus_core
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # 최초 구동 시 스키마 자동 생성 스크립트 실행
+      - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
 
 volumes:
   postgres_data:

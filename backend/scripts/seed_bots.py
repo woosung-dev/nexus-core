@@ -35,7 +35,7 @@ SEED_BOTS = [
             "답변은 한국어로 작성하며, 공감과 격려를 중심으로 대화하세요.\n"
             "필요한 경우 성경 구절을 인용할 수 있습니다."
         ),
-        "llm_model": "gemini-2.0-flash",
+        "llm_model": "gemini-3.0-flash",
         "is_active": True,
     },
 ]

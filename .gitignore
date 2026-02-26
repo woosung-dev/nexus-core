@@ -1,28 +1,17 @@
-# Python-generated files
-__pycache__/
-*.py[oc]
-build/
-dist/
-wheels/
-*.egg-info
+# Mac OS
+.DS_Store
 
-# Virtual environments
-.venv/
-venv/
+# IDEs and Editors
+.vscode/
+.cursor/
+.idea/
+.agents/
+.agent/
 
 # Environment variables
 .env
+.env.local
 
-# system editer
-Thumbs.db
-.vscode/
-.cursor/
-.agent/
-.agents/
-.idea/
-
-# docs
-docs/
-
-# uploads
-uploads/
+# Build / Logs
+logs/
+*.log

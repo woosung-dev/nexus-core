@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - "main"
+    paths:
+      - "backend/**"
+  workflow_dispatch:
 
 env:
   PROJECT_ID: "developer-project-488310" # GCP 프로젝트 ID
@@ -39,6 +42,7 @@ jobs:
       - name: "Build and Push Container"
         run: |-
           DOCKER_TAG="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE }}:${{ github.sha }}"
+          cd backend
           docker build --tag "${DOCKER_TAG}" .
           docker push "${DOCKER_TAG}"
 
