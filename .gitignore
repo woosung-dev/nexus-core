@@ -7,6 +7,8 @@
 .idea/
 .agents/
 .agent/
+.claude/
+skills-lock.json
 
 # Environment variables
 .env
