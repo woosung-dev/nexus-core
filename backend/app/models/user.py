@@ -1,5 +1,6 @@
 """
 User 모델.
+Supabase OAuth 연동을 위해 supabase_uid, provider 필드를 포함합니다.
 """
 
 from datetime import datetime
@@ -15,8 +16,12 @@ class User(SQLModel, table=True):
     __tablename__ = "users"
 
     id: int | None = Field(default=None, primary_key=True)
+    supabase_uid: str | None = Field(
+        default=None, unique=True, index=True, max_length=255
+    )
     email: str = Field(max_length=255, unique=True, index=True)
-    hashed_password: str = Field(max_length=255)
+    hashed_password: str | None = Field(default=None, max_length=255)
+    provider: str | None = Field(default=None, max_length=50)
     plan_type: PlanType = Field(default=PlanType.FREE)
     avatar_url: str | None = Field(default=None, max_length=500)
     is_active: bool = Field(default=True)

@@ -37,6 +37,12 @@ class Settings(BaseSettings):
     # --- RAG (File Search API) ---
     FILE_SEARCH_STORE_NAME: str = "nexus-core-knowledge-base"
 
+    # --- Auth (Provider-Agnostic) ---
+    # JWKS URL로 JWT 서명 검증. 인증 플랫폼 교체 시 이 URL만 바꾸면 됩니다.
+    # Supabase: https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
+    # Auth0:    https://<domain>.auth0.com/.well-known/jwks.json
+    AUTH_JWKS_URL: str
+
     # --- CORS ---
     CORS_ORIGINS: list[str] = ["http://localhost:3000"]
 
