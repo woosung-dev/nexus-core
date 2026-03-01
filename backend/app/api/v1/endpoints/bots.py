@@ -38,3 +38,25 @@ async def list_bots(
     bot_responses = [BotResponse.model_validate(b) for b in bots]
 
     return BotListResponse(bots=bot_responses, total=len(bot_responses))
+
+
+@router.get("/categories", response_model=list[str])
+async def list_bot_categories(
+    session: AsyncSession = Depends(get_session),
+) -> list[str]:
+    """
+    등록된 봇들의 모든 태그(tags)를 수합하여 유니크한 카테고리 목록을 반환한다.
+    """
+    # 모든 활성화된 봇의 태그 리스트를 가져옴
+    statement = select(Bot.tags).where(Bot.is_active == True)  # noqa: E712
+    result = await session.execute(statement)
+    tags_data = result.scalars().all()
+
+    unique_tags = set()
+    for tags in tags_data:
+        if tags and isinstance(tags, list):
+            for t in tags:
+                unique_tags.add(t)
+
+    # 가나다순 정렬하여 반환
+    return sorted(list(unique_tags))
