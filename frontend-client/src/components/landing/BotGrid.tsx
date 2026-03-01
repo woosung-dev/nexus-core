@@ -1,7 +1,8 @@
-import { BotCard, BotData } from "./BotCard";
+import { BotCard } from "./BotCard";
+import { BotResponse } from "@/types/api";
 
 interface BotGridProps {
-  bots: BotData[];
+  bots: BotResponse[];
   title?: string;
 }
 
