@@ -33,7 +33,9 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # .env의 DATABASE_URL을 Alembic 설정에 주입
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+# ConfigParser의 보간(Interpolation) 문법 충돌을 막기 위해 % 문자를 %%로 이스케이프해야 합니다 (비밀번호 특수문자 대응)
+escaped_url = settings.DATABASE_URL.replace("%", "%%")
+config.set_main_option("sqlalchemy.url", escaped_url)
 
 # 모든 모델의 메타데이터를 autogenerate에 사용
 target_metadata = SQLModel.metadata
@@ -42,6 +44,12 @@ target_metadata = SQLModel.metadata
 # 이 설정이 없으면 Alembic이 public 스키마에 테이블을 생성합니다
 for table in target_metadata.tables.values():
     table.schema = settings.DB_SCHEMA
+
+def include_name(name, type_, parent_names):
+    if type_ == "schema":
+        # Only consider our designated schema
+        return name == settings.DB_SCHEMA
+    return True
 
 
 def run_migrations_offline() -> None:
@@ -53,6 +61,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         include_schemas=True,
+        include_name=include_name,
         version_table_schema=settings.DB_SCHEMA,
     )
 
@@ -66,6 +75,7 @@ def do_run_migrations(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         include_schemas=True,
+        include_name=include_name,
         version_table_schema=settings.DB_SCHEMA,
     )
 

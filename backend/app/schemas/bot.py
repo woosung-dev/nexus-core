@@ -15,7 +15,7 @@ class BotResponse(BaseModel):
     id: int
     name: str
     description: str
-    icon_url: str | None = None
+    image_url: str | None = None
     tags: list[str] = []
     is_verified: bool = False
     is_new: bool = False
@@ -30,12 +30,18 @@ class BotListResponse(BaseModel):
     total: int
 
 
+class BotImageUploadResponse(BaseModel):
+    """봇 이미지 업로드 응답"""
+    bot_id: int
+    image_url: str
+
+
 # --- Admin 요청 ---
 class BotCreateRequest(BaseModel):
     """봇 생성 요청 (Admin)"""
     name: str
     description: str
-    icon_url: str | None = None
+    image_url: str | None = None
     tags: list[str] = []
     is_verified: bool = False
     is_new: bool = False
@@ -48,7 +54,7 @@ class BotUpdateRequest(BaseModel):
     """봇 수정 요청 (Admin) — 부분 업데이트"""
     name: str | None = None
     description: str | None = None
-    icon_url: str | None = None
+    image_url: str | None = None
     tags: list[str] | None = None
     is_verified: bool | None = None
     is_new: bool | None = None

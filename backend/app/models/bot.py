@@ -7,6 +7,7 @@ Bot 모델 — 마켓플레이스 확장 가능한 구조.
 from datetime import datetime
 
 from sqlmodel import JSON, Column, Field, SQLModel
+from sqlalchemy import Enum as SAEnum
 
 from app.models.enums import PlanType
 
@@ -15,17 +16,21 @@ class Bot(SQLModel, table=True):
     """AI 봇 모델 — 마켓플레이스 카드 UI와 매핑"""
 
     __tablename__ = "bots"
+    __table_args__ = {"schema": "nexus_core"}
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=100, index=True)
     description: str = Field(max_length=500)
-    icon_url: str | None = Field(default=None, max_length=500)
+    image_url: str | None = Field(default=None, max_length=500)
 
     # 마켓플레이스 메타데이터
     tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
     is_verified: bool = Field(default=False)
     is_new: bool = Field(default=False)
-    plan_required: PlanType = Field(default=PlanType.FREE)
+    plan_required: PlanType = Field(
+        default=PlanType.FREE,
+        sa_column=Column(SAEnum(PlanType, name="plantype", schema="nexus_core"))
+    )
 
     # AI 관련 설정 — 봇마다 다른 모델/프롬프트 사용 가능
     system_prompt: str = Field(default="")
