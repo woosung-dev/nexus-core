@@ -17,3 +17,6 @@ skills-lock.json
 # Build / Logs
 logs/
 *.log
+
+# docs
+/docs

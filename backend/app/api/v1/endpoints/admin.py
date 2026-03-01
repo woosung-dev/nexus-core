@@ -13,7 +13,7 @@ from sqlmodel import select
 from app.core.config import get_settings
 from app.core.database import get_session
 from app.models.bot import Bot
-from app.schemas.bot import BotCreateRequest, BotListResponse, BotResponse, BotUpdateRequest
+from app.schemas.bot import BotCreateRequest, BotListResponse, BotResponse, BotUpdateRequest, BotImageUploadResponse
 from app.schemas.rag import DocumentListResponse, DocumentUploadResponse
 from app.services.rag.factory import get_rag_service
 from app.services.storage.local import LocalFileStorage
@@ -112,6 +112,71 @@ async def delete_bot(
     session.add(bot)
 
     logger.info(f"봇 비활성화: id={bot.id}")
+
+
+@router.post(
+    "/{bot_id}/image",
+    response_model=BotImageUploadResponse,
+    status_code=201,
+)
+async def upload_bot_image(
+    bot_id: int,
+    file: UploadFile,
+    session: AsyncSession = Depends(get_session),
+) -> BotImageUploadResponse:
+    """
+    봇 메인 대표 이미지(아이콘) 업로드.
+    로컬에 저장 후 봇의 `image_url` 필드를 업데이트한다.
+    """
+    # 봇 존재 확인
+    result = await session.execute(select(Bot).where(Bot.id == bot_id))
+    bot = result.scalar_one_or_none()
+    if not bot:
+        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+
+    # 파일 크기 제한 확인
+    settings = get_settings()
+    file_data = await file.read()
+    if len(file_data) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=413,
+            detail=f"파일 크기가 {settings.MAX_UPLOAD_SIZE_MB}MB를 초과합니다.",
+        )
+
+    # 단순 확장자 검증 (이미지 한정)
+    content_type = file.content_type or "application/octet-stream"
+    if not content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다.")
+
+    # 로컬 저장
+    storage = LocalFileStorage()
+    local_path = await storage.upload(
+        file_data=file_data,
+        filename=file.filename or "unknown_image.png",
+        content_type=content_type,
+    )
+
+    # 프론트엔드가 접근 가능한 정적 서빙 경로 URL 생성 ("/uploads/...")
+    # *storage.upload()는 "uploads/~~"를 반환하므로, 앞에 "/static/"를 붙이거나 
+    # FastAPI mount 경로와 일치하도록 가공합니다.
+    # main.py에서 mount("/static/uploads", directory="uploads") 기준
+    # file_path에서 'uploads/' 제거하고 조합
+    relative_path = local_path.replace("uploads/", "")
+    public_url = f"/static/uploads/{relative_path}"
+
+    # DB 업데이트
+    bot.image_url = public_url
+    bot.updated_at = datetime.utcnow()
+    session.add(bot)
+    await session.commit()
+    await session.refresh(bot)
+
+    logger.info(f"봇 이미지 업로드 완료: bot_id={bot_id}, url={public_url}")
+
+    return BotImageUploadResponse(
+        bot_id=bot_id,
+        image_url=public_url,
+    )
 
 # ── 문서 관리 ──────────────────────────────────────────────
 
