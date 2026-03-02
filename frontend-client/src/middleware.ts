@@ -24,14 +24,12 @@ export async function middleware(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          // Request 쿠키에도 설정하여, 이후 서버 컴포넌트에서 갱신된 값을 읽을 수 있도록 함
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({
             request,
           });
-          // Response 쿠키에도 설정하여 브라우저에 전달
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options)
           );

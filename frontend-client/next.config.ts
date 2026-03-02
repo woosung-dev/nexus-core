@@ -1,82 +1,47 @@
 import type { NextConfig } from "next";
 
-/**
- * 환경 변수(NEXT_PUBLIC_API_URL)에서 백엔드 호스트 정보를 추출합니다.
- * 예: http://localhost:8080/api/v1 -> hostname: localhost, port: 8080
- */
-const getBackendHostInfo = () => {
-  const defaultValues = {
-    protocol: "http" as const,
-    hostname: "localhost",
-    port: "8080",
-  };
-
-  try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    if (!apiUrl) return defaultValues;
-    
-    const url = new URL(apiUrl);
-    return {
-      protocol: (url.protocol.replace(":", "") || "http") as "http" | "https",
-      hostname: url.hostname || "localhost",
-      port: url.port || (url.protocol === "https:" ? "" : "80"),
-    };
-  } catch (error) {
-    console.warn("Invalid NEXT_PUBLIC_API_URL, using defaults:", error);
-    return defaultValues;
-  }
-};
-
-const hostInfo = getBackendHostInfo();
-
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
+      // Cloud Run 배포 주소 직접 지정 (와일드카드 활용)
       {
-        protocol: hostInfo.protocol,
-        hostname: hostInfo.hostname,
-        port: hostInfo.port,
+        protocol: "https",
+        hostname: "nexus-core-58481128769.asia-northeast3.run.app",
         pathname: "/static/uploads/**",
       },
-      // 로컬 개발 시 호스트명(localhost 등) 외에 127.0.0.1로 직접 접근하는 경우도 허용합니다. (동적 포트 반영)
+      // 로컬 개발 환경
       {
-        protocol: hostInfo.protocol,
+        protocol: "http",
         hostname: "127.0.0.1",
-        port: hostInfo.port,
+        port: "8080",
         pathname: "/static/uploads/**",
-      },
-      // 소셜 서비스(Google, GitHub 등) 프로필 이미지 허용
-      {
-        protocol: "https",
-        hostname: "lh3.googleusercontent.com",
-        pathname: "/**",
-      },
-      {
-        protocol: "https",
-        hostname: "avatars.githubusercontent.com",
-        pathname: "/**",
       },
       {
         protocol: "http",
-        hostname: "k.kakaocdn.net",
-        pathname: "/**",
+        hostname: "localhost",
+        port: "8080",
+        pathname: "/static/uploads/**",
       },
-      {
-        protocol: "https",
-        hostname: "k.kakaocdn.net",
-        pathname: "/**",
-      },
+      // 소셜 서비스 프로필 이미지
+      { protocol: "https", hostname: "lh3.googleusercontent.com", pathname: "/**" },
+      { protocol: "https", hostname: "avatars.githubusercontent.com", pathname: "/**" },
+      { protocol: "http", hostname: "k.kakaocdn.net", pathname: "/**" },
+      { protocol: "https", hostname: "k.kakaocdn.net", pathname: "/**" },
     ],
   },
   async rewrites() {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+    // /api/v1을 안전하게 제거하여 베이스 URL 추출
+    const backendBase = apiUrl.replace(/\/api\/v1\/?$/, "");
+
     return [
       {
         source: "/api/v1/:path*",
-        destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/:path*`,
+        destination: `${apiUrl}/:path*`,
       },
       {
         source: "/static/uploads/:path*",
-        destination: `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1").replace("/api/v1", "")}/static/uploads/:path*`,
+        destination: `${backendBase}/static/uploads/:path*`,
       },
     ];
   },
