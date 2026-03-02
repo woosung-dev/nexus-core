@@ -1,57 +1,8 @@
-import { createServerClient } from "@supabase/ssr";
+// [테스트] Supabase 제거 - 배포 원인 파악용 (배포 성공 확인 후 원복 예정)
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  });
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value)
-          );
-          response = NextResponse.next({
-            request,
-          });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          );
-        },
-      },
-    }
-  );
-
-  // 세션 갱신 및 유저 확인
-  const { data: { user } } = await supabase.auth.getUser();
-
-  const { pathname } = request.nextUrl;
-
-  // 보호된 라우트 접근 제어
-  if (!user && (pathname.startsWith("/mypage") || pathname.startsWith("/chat"))) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
-  }
-
-  // 로그인 시 로그인/가입 페이지 접근 차단
-  if (user && (pathname === "/login" || pathname === "/signup")) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    return NextResponse.redirect(url);
-  }
-
-  return response;
+  return NextResponse.next();
 }
 
 export const config = {
