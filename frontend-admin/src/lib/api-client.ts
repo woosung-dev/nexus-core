@@ -5,7 +5,7 @@ import axios from "axios"
  * 모든 API 호출은 이 인스턴스를 통해 수행한다.
  */
 export const apiClient = axios.create({
-  baseURL: typeof window !== "undefined" ? "/api/v1" : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080/api/v1"),
+  baseURL: typeof window !== "undefined" ? "" : (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"),
   headers: {
     "Content-Type": "application/json",
   },
