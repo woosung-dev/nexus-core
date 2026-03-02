@@ -6,7 +6,7 @@ import { ChatLayout } from '../ChatLayout';
 export default async function ChatRoomPage({
   params,
 }: {
-  params: Promise<{ session_id: string }> | { session_id: string };
+  params: Promise<{ session_id: string }>;
 }) {
   const queryClient = getQueryClient();
   const resolvedParams = await params;
