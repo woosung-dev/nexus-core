@@ -1,24 +1,8 @@
-import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { getQueryClient } from '@/lib/get-query-client';
-import { serverFetch } from '@/lib/api-server';
 import { ChatLayout } from './ChatLayout';
 
-export default async function NewChatPage() {
-  const queryClient = getQueryClient();
+// 빌드 시 정적 최적화(SSG)를 방지하고 런타임에 항상 서버 사이드에서 실행되도록 설정
+export const dynamic = "force-dynamic";
 
-  // 사이드바용 세션 목록 prefetch (에러 무시, 캐싱)
-  try {
-    await queryClient.prefetchQuery({
-      queryKey: ['chats'],
-      queryFn: () => serverFetch('/chats'),
-    });
-  } catch (error) {
-    console.error("Failed to prefetch chats:", error);
-  }
-
-  return (
-    <HydrationBoundary state={dehydrate(queryClient)}>
-      <ChatLayout />  {/* sessionId 없음 = 새 채팅 */}
-    </HydrationBoundary>
-  );
+export default function NewChatPage() {
+  return <ChatLayout />;
 }
