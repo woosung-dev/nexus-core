@@ -13,7 +13,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import Link from "next/link"
-import { Plus } from "lucide-react"
+import { Loader2, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,23 +25,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useBots } from "@/features/bots/hooks"
+import type { BotResponse } from "@/features/bots/types"
 
 // --- 봇 Data Table 컴포넌트 ---
-interface BotsDataTableProps<TData, TValue> {
-  columns: ColumnDef<TData, TValue>[]
-  data: TData[]
+interface BotsDataTableProps<TValue> {
+  columns: ColumnDef<BotResponse, TValue>[]
 }
 
-export function BotsDataTable<TData, TValue>({
+export function BotsDataTable<TValue>({
   columns,
-  data,
-}: BotsDataTableProps<TData, TValue>) {
+}: BotsDataTableProps<TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] =
     React.useState<ColumnFiltersState>([])
 
+  // 실제 API에서 데이터 로드
+  const { data, isLoading, isError, error } = useBots()
+  const bots = data?.bots ?? []
+
   const table = useReactTable({
-    data,
+    data: bots,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -95,7 +99,28 @@ export function BotsDataTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {/* 로딩 상태 */}
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
+                </TableCell>
+              </TableRow>
+            ) : isError ? (
+              /* 에러 상태 */
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center text-destructive"
+                >
+                  데이터를 불러오는 데 실패했습니다.{" "}
+                  {error instanceof Error ? `(${error.message})` : ""}
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}

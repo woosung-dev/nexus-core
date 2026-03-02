@@ -4,7 +4,9 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useWatch } from "react-hook-form"
-import { X } from "lucide-react"
+import { ImagePlus, X } from "lucide-react"
+
+import { useCreateBot } from "@/features/bots/hooks"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -44,6 +46,10 @@ import {
 export function BotForm() {
   const router = useRouter()
   const [tagInput, setTagInput] = React.useState("")
+  const [imageFile, setImageFile] = React.useState<File | null>(null)
+  const [imagePreview, setImagePreview] = React.useState<string | null>(null)
+  const imageInputRef = React.useRef<HTMLInputElement>(null)
+  const { mutate: createBot, isPending } = useCreateBot()
 
   const form = useForm<BotFormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod v4 타입과 @hookform/resolvers 간 호환성 이슈 (런타임 정상 동작)
@@ -81,12 +87,24 @@ export function BotForm() {
     )
   }
 
-  // 폼 제출
+  // 이미지 파일 선택 처리
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImageFile(file)
+    setImagePreview(URL.createObjectURL(file))
+  }
+
+  // 이미지 선택 취소
+  function handleImageRemove() {
+    setImageFile(null)
+    setImagePreview(null)
+    if (imageInputRef.current) imageInputRef.current.value = ""
+  }
+
+  // 폼 제출 — useCreateBot 훅으로 API 호출
   function onSubmit(values: BotFormValues) {
-    // TODO: API 연동 시 React Query mutation으로 교체
-    console.log("봇 생성 데이터:", values)
-    alert("봇 생성 완료! (콘솔 확인)")
-    router.push("/bots")
+    createBot({ request: values, imageFile })
   }
 
   return (
@@ -100,6 +118,58 @@ export function BotForm() {
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* 봇 대표 이미지 업로드 */}
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium leading-none">
+                대표 이미지 <span className="text-muted-foreground">(선택)</span>
+              </span>
+              <div className="flex items-center gap-4">
+                {/* 미리보기 박스 */}
+                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
+                  {imagePreview ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={imagePreview}
+                        alt="봇 이미지 미리보기"
+                        className="h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleImageRemove}
+                        className="absolute right-1 top-1 rounded-full bg-background/80 p-0.5 shadow hover:bg-background"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </>
+                  ) : (
+                    <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                {/* 파일 선택 */}
+                <div className="flex flex-col gap-1.5">
+                  <input
+                    ref={imageInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleImageChange}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => imageInputRef.current?.click()}
+                  >
+                    이미지 선택
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    {imageFile ? imageFile.name : "PNG, JPG, WEBP 권장"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* 봇 이름 */}
             <FormField
               control={form.control}
@@ -259,7 +329,9 @@ export function BotForm() {
 
             {/* 버튼 */}
             <div className="flex gap-3 pt-4">
-              <Button type="submit">저장</Button>
+              <Button type="submit" disabled={isPending}>
+                {isPending ? "저장 중..." : "저장"}
+              </Button>
               <Button
                 type="button"
                 variant="outline"

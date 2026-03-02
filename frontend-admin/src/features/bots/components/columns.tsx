@@ -13,10 +13,49 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import type { Bot } from "../schemas"
+import { useDeleteBot } from "@/features/bots/hooks"
+import type { BotResponse } from "@/features/bots/types"
+
+// --- 삭제 액션 셀 (훅 사용을 위해 별도 컴포넌트로 분리) ---
+function BotActionCell({ bot }: { bot: BotResponse }) {
+  const { mutate: deleteBot, isPending } = useDeleteBot()
+
+  function handleDelete() {
+    if (confirm(`'${bot.name}' 봇을 삭제하시겠습니까?`)) {
+      deleteBot(bot.id)
+    }
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="h-8 w-8 p-0">
+          <span className="sr-only">메뉴 열기</span>
+          <MoreHorizontal className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>작업</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => navigator.clipboard.writeText(String(bot.id))}
+        >
+          ID 복사
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={handleDelete}
+          disabled={isPending}
+          className="text-destructive"
+        >
+          {isPending ? "삭제 중..." : "삭제"}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
 
 // --- 봇 테이블 컬럼 정의 ---
-export const columns: ColumnDef<Bot>[] = [
+export const columns: ColumnDef<BotResponse>[] = [
   {
     accessorKey: "name",
     header: ({ column }) => (
@@ -68,44 +107,19 @@ export const columns: ColumnDef<Bot>[] = [
     ),
   },
   {
-    accessorKey: "is_active",
+    accessorKey: "is_verified",
     header: "상태",
     cell: ({ row }) => {
-      const isActive = row.getValue("is_active") as boolean
+      const isVerified = row.getValue("is_verified") as boolean
       return (
-        <Badge variant={isActive ? "default" : "secondary"}>
-          {isActive ? "활성" : "비활성"}
+        <Badge variant={isVerified ? "default" : "secondary"}>
+          {isVerified ? "인증됨" : "미인증"}
         </Badge>
       )
     },
   },
   {
     id: "actions",
-    cell: ({ row }) => {
-      const bot = row.original
-      return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">메뉴 열기</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>작업</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={() => navigator.clipboard.writeText(bot.id)}
-            >
-              ID 복사
-            </DropdownMenuItem>
-            <DropdownMenuItem>수정</DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive">
-              삭제
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )
-    },
+    cell: ({ row }) => <BotActionCell bot={row.original} />,
   },
 ]
