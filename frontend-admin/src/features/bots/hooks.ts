@@ -68,18 +68,38 @@ export function useCreateBot() {
   })
 }
 
-/** 봇 수정 훅 */
+/** 봇 수정 훅 — 메타데이터 및 이미지 변경 동시 처리 */
 export function useUpdateBot(id: number) {
   const queryClient = useQueryClient()
+  const router = useRouter()
 
   return useMutation({
-    mutationFn: (request: BotUpdateRequest) => updateBot(id, request),
+    mutationFn: async ({
+      request,
+      imageFile,
+    }: {
+      request: BotUpdateRequest
+      imageFile?: File | null
+    }) => {
+      // ① 메타데이터 업데이트
+      const bot = await updateBot(id, request)
+
+      // ② 이미지가 변경되었으면 순차 업로드
+      if (imageFile) {
+        await uploadBotImage(id, imageFile)
+      }
+
+      return bot
+    },
     onSuccess: () => {
+      // 목록·상세 캐시 모두 무효화
       queryClient.invalidateQueries({ queryKey: botKeys.lists() })
       queryClient.invalidateQueries({ queryKey: botKeys.detail(id) })
+      router.push("/bots")
     },
   })
 }
+
 
 /** 봇 삭제 훅 */
 export function useDeleteBot() {

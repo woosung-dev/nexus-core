@@ -1,7 +1,8 @@
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
-import { ArrowUpDown, MoreHorizontal } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Pencil } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -18,6 +19,7 @@ import type { BotResponse } from "@/features/bots/types"
 
 // --- 삭제 액션 셀 (훅 사용을 위해 별도 컴포넌트로 분리) ---
 function BotActionCell({ bot }: { bot: BotResponse }) {
+  const router = useRouter()
   const { mutate: deleteBot, isPending } = useDeleteBot()
 
   function handleDelete() {
@@ -42,6 +44,14 @@ function BotActionCell({ bot }: { bot: BotResponse }) {
         >
           ID 복사
         </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => router.push(`/bots/${bot.id}/edit`)}
+          className="gap-2"
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          수정
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleDelete}
           disabled={isPending}
