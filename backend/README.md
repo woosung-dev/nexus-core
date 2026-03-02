@@ -19,7 +19,7 @@
 ### 1. 환경 설정
 
 ```bash
-# .env 파일 생성
+# .env 파일 생성0
 cp .env.example .env
 ```
 
