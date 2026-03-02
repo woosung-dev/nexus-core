@@ -119,53 +119,81 @@ export function BotForm() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {/* 봇 대표 이미지 업로드 */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3 pb-2">
               <span className="text-sm font-medium leading-none">
                 대표 이미지 <span className="text-muted-foreground">(선택)</span>
               </span>
-              <div className="flex items-center gap-4">
-                {/* 미리보기 박스 */}
-                <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg border bg-muted flex items-center justify-center">
+              <div className="flex items-start gap-6">
+                {/* 프리뷰 박스 - 사이즈 확대 및 스타일 강화 */}
+                <div className="group relative h-40 w-40 shrink-0 overflow-hidden rounded-2xl border-2 border-dashed bg-muted transition-all hover:border-primary/50 flex flex-col items-center justify-center gap-2">
                   {imagePreview ? (
                     <>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={imagePreview}
                         alt="봇 이미지 미리보기"
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
                       />
-                      <button
-                        type="button"
-                        onClick={handleImageRemove}
-                        className="absolute right-1 top-1 rounded-full bg-background/80 p-0.5 shadow hover:bg-background"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
+                      <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={handleImageRemove}
+                        >
+                          제거
+                        </Button>
+                      </div>
                     </>
                   ) : (
-                    <ImagePlus className="h-8 w-8 text-muted-foreground" />
+                    <>
+                      <ImagePlus className="h-10 w-10 text-muted-foreground/60" />
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                        Preview
+                      </span>
+                    </>
                   )}
                 </div>
-                {/* 파일 선택 */}
-                <div className="flex flex-col gap-1.5">
-                  <input
-                    ref={imageInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleImageChange}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => imageInputRef.current?.click()}
-                  >
-                    이미지 선택
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    {imageFile ? imageFile.name : "PNG, JPG, WEBP 권장"}
-                  </p>
+
+                {/* 가이드 및 버튼 */}
+                <div className="flex flex-col gap-3 py-1">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-semibold text-foreground">
+                      Bot Avatar
+                    </h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      클라이언트 채팅 목록과 대화창 상단에
+                      <br />
+                      표시될 봇의 얼굴입니다.
+                      <br />
+                      <span className="font-medium text-primary/70">
+                        정사각형(1:1) 비율을 권장합니다.
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-2">
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageChange}
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      이미지 선택
+                    </Button>
+                    <p className="text-[11px] font-mono text-muted-foreground truncate max-w-[180px]">
+                      {imageFile ? imageFile.name : "선택된 파일 없음"}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
