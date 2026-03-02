@@ -5,21 +5,25 @@ import type { NextConfig } from "next";
  * 예: http://localhost:8080/api/v1 -> hostname: localhost, port: 8080
  */
 const getBackendHostInfo = () => {
+  const defaultValues = {
+    protocol: "http" as const,
+    hostname: "localhost",
+    port: "8080",
+  };
+
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    if (!apiUrl) return defaultValues;
+    
     const url = new URL(apiUrl);
     return {
-      protocol: url.protocol.replace(":", "") as "http" | "https",
-      hostname: url.hostname,
+      protocol: (url.protocol.replace(":", "") || "http") as "http" | "https",
+      hostname: url.hostname || "localhost",
       port: url.port || (url.protocol === "https:" ? "" : "80"),
     };
-  } catch {
-    // 기본값 (로컬 개발 서버)
-    return {
-      protocol: "http" as const,
-      hostname: "localhost",
-      port: "8080",
-    };
+  } catch (error) {
+    console.warn("Invalid NEXT_PUBLIC_API_URL, using defaults:", error);
+    return defaultValues;
   }
 };
 
@@ -69,6 +73,10 @@ const nextConfig: NextConfig = {
       {
         source: "/api/v1/:path*",
         destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1"}/:path*`,
+      },
+      {
+        source: "/static/uploads/:path*",
+        destination: `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1").replace("/api/v1", "")}/static/uploads/:path*`,
       },
     ];
   },

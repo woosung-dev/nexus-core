@@ -10,10 +10,7 @@ export function BotCard({ bot }: { bot: BotResponse }) {
   const getFullImageUrl = (path?: string) => {
     if (!path) return undefined;
     if (path.startsWith('http')) return path;
-    
-    // API URL이 http://localhost:8080/api/v1 형태이므로 /api/v1을 제거하여 베이스 URL 획득
-    const backendBase = process.env.NEXT_PUBLIC_API_URL?.replace('/api/v1', '') || 'http://localhost:8080';
-    return `${backendBase}${path}`;
+    return path;
   };
 
   const imageUrl = getFullImageUrl(bot.image_url ?? undefined);

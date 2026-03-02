@@ -65,7 +65,7 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
         ...(currentSessionId ? { session_id: currentSessionId } : {})
       };
 
-      const fullUrl = `${process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8080/api/v1"}/chats/completions`;
+      const fullUrl = "/api/v1/chats/completions";
       console.log(`[useChatStream] Sending request to: ${fullUrl}`, payload);
 
       const response = await fetch(fullUrl, {
