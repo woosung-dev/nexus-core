@@ -59,6 +59,7 @@ jobs:
             DB_SCHEMA=nexus_core
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+            AUTH_JWKS_URL=${{ secrets.AUTH_JWKS_URL }}
             DEBUG=false
             UPLOAD_DIR=/tmp
 

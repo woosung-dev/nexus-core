@@ -8,12 +8,13 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import select, col
 
 from app.core.config import get_settings
 from app.core.database import get_session
 from app.models.bot import Bot
 from app.models.user import User
+from app.models.enums import PlanType
 from app.schemas.bot import BotCreateRequest, BotListResponse, BotResponse, BotUpdateRequest, BotImageUploadResponse
 from app.schemas.rag import DocumentListResponse, DocumentUploadResponse
 from app.schemas.user import UserAdminUpdateRequest, UserListResponse, UserResponse
@@ -314,13 +315,13 @@ async def list_users(
 
     # 이메일 검색 (부분 일치)
     if email:
-        statement = statement.where(User.email.ilike(f"%{email}%"))  # type: ignore[attr-defined]
+        statement = statement.where(col(User.email).ilike(f"%{email}%"))  # type: ignore[attr-defined]
 
     # 플랜 타입 필터
     if plan_type:
         statement = statement.where(User.plan_type == plan_type)
 
-    statement = statement.order_by(User.created_at.desc())  # type: ignore[attr-defined]
+    statement = statement.order_by(col(User.created_at).desc())  # type: ignore[attr-defined]
 
     result = await session.execute(statement)
     users = result.scalars().all()
