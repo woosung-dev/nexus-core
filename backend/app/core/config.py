@@ -3,8 +3,10 @@ Nexus Core 애플리케이션 설정.
 pydantic-settings 기반 환경변수 관리.
 """
 
+import json
 from functools import lru_cache
 
+from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -44,7 +46,23 @@ class Settings(BaseSettings):
     AUTH_JWKS_URL: str
 
     # --- CORS ---
-    CORS_ORIGINS: list[str] = ["http://localhost:3000"]
+    # 환경변수에서는 콤마 구분 문자열로 주입 (예: "http://a.com,http://b.com")
+    # JSON 배열 형식도 지원 (예: '["http://a.com","http://b.com"]')
+    CORS_ORIGINS: str = "http://localhost:3000"
+
+    @computed_field
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """CORS_ORIGINS 문자열을 리스트로 변환하여 반환."""
+        raw = self.CORS_ORIGINS.strip()
+        # JSON 배열 형식인 경우
+        if raw.startswith("["):
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError:
+                pass
+        # 콤마 구분 문자열인 경우
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
 
 @lru_cache
