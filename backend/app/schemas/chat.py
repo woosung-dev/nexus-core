@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 from app.models.enums import MessageRole
 from app.schemas.bot import BotResponse
+from app.schemas.rag import RAGCitation
 
 
 class ChatCompletionRequest(BaseModel):
@@ -25,7 +26,7 @@ class ChatCompletionResponse(BaseModel):
     session_id: int
     content: str
     bot_id: int
-    citations: list[dict] | None = None  # RAG 인용구 출처
+    citations: list[RAGCitation] | None = None  # RAG 인용구 출처
 
 
 class ChatSessionResponse(BaseModel):
