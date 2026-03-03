@@ -1,19 +1,20 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, User } from "lucide-react";
+import { Bot, User, Sparkles, Loader2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useQuery } from "@tanstack/react-query";
 import { useChatStore } from "@/store/useChatStore";
 import api from "@/lib/api";
+import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
 import { MessageResponse } from "@/types/api";
 
 export function ChatArea({ sessionId }: { sessionId?: string }) {
   const { isStreaming, streamingText, optimisticUserMessage } = useChatStore();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
 
-  // sessionId가 있을 때만 메시지를 가져옵니다.
   const { data: messages = [] } = useQuery<MessageResponse[]>({
     queryKey: ['messages', sessionId],
     queryFn: async () => {
@@ -23,9 +24,16 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
     enabled: !!sessionId,
   });
 
-  // 메시지가 추가되거나 스트리밍 중일 때 하단으로 스크롤
+  // 스크롤 위치 감지
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const bottomThreshold = 50;
+    const isBottom = target.scrollHeight - target.scrollTop <= target.clientHeight + bottomThreshold;
+    setIsAtBottom(isBottom);
+  };
+
   useEffect(() => {
-    if (scrollRef.current) {
+    if (scrollRef.current && isAtBottom) {
       const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
         scrollContainer.scrollTo({
@@ -34,112 +42,167 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
         });
       }
     }
-  }, [messages.length, streamingText, optimisticUserMessage]);
+  }, [messages.length, streamingText, optimisticUserMessage, isAtBottom]);
 
   return (
-    <ScrollArea ref={scrollRef} className="flex-1 min-h-0 px-4 sm:px-8 bg-black relative">
-      {/* Background Ambience */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-[120px] pointer-events-none" />
+    <ScrollArea 
+      ref={scrollRef} 
+      className="flex-1 min-h-0 bg-linear-to-b from-sky-50/50 via-white to-white relative"
+      onScroll={handleScroll}
+    >
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(245,158,11,0.05),transparent_70%)] pointer-events-none" />
       
-      <div className="w-full max-w-4xl mx-auto py-8 flex flex-col gap-8 relative z-10">
-        {!sessionId && messages.length === 0 && !optimisticUserMessage && !isStreaming && (
-          <div className="flex-1 flex items-center justify-center min-h-[50vh]">
-             <p className="text-zinc-500 animate-in fade-in duration-500">새로운 대화를 시작해보세요.</p>
-          </div>
-        )}
+      <div className="w-full max-w-3xl mx-auto py-12 px-4 sm:px-6 flex flex-col relative z-10">
+        <LayoutGroup>
+          {!sessionId && messages.length === 0 && !optimisticUserMessage && !isStreaming && (
+            <motion.div 
+              layout
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex-1 flex flex-col items-center justify-center min-h-[60vh] text-center"
+            >
+              <div className="w-16 h-16 bg-white rounded-3xl flex items-center justify-center border border-amber-100 mb-6 shadow-xl backdrop-blur-xl">
+                <Sparkles className="w-8 h-8 text-amber-500 animate-pulse" />
+              </div>
+              <h3 className="text-xl font-bold text-zinc-800 mb-2">무엇을 도와드릴까요?</h3>
+              <p className="text-zinc-500 text-sm max-w-[280px]">식구님의 고민을 하늘의 지혜로 함께 풀어드립니다.</p>
+            </motion.div>
+          )}
 
-        {/* Real Messages Rendering */}
-        {messages.map((msg, idx) => {
-          const isUser = msg.role === "user";
-          const formattedTime = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          <div className="flex flex-col gap-10">
+            <AnimatePresence mode="popLayout" initial={false}>
+              {messages.map((msg, idx) => {
+                const isUser = msg.role === "user";
+                const formattedTime = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-          return (
-            <div key={msg.id || idx} className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}>
-              <div className={`flex gap-4 max-w-[85%] sm:max-w-[75%] ${isUser ? "flex-row-reverse" : "flex-row"}`}>
-                
-                {/* Avatar */}
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 shadow-sm ${
-                  isUser 
-                    ? "bg-linear-to-br from-amber-400 to-amber-600 ring-2 ring-amber-500/20" 
-                    : "bg-zinc-900 border border-zinc-800"
-                }`}>
-                  {isUser ? (
-                    <User className="w-4 h-4 text-black/80" />
-                  ) : (
-                    <Bot className="w-4 h-4 text-amber-500" />
-                  )}
-                </div>
-
-                {/* Bubble Config */}
-                <div className="flex flex-col gap-2 min-w-0">
-                  <div className={`px-5 py-4 rounded-2xl text-[15px] leading-relaxed wrap-break-word shadow-sm ${
-                    isUser 
-                      ? "bg-linear-to-br from-amber-500 to-amber-600 text-black rounded-tr-sm whitespace-pre-wrap" 
-                      : "bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-tl-sm ring-1 ring-white/5"
-                  }`}>
-                    {isUser ? (
-                      msg.content
-                    ) : (
-                      <div className="prose prose-invert prose-zinc max-w-none prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-zinc-800 prose-headings:text-zinc-100 prose-a:text-amber-500 hover:prose-a:text-amber-400">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                          {msg.content}
-                        </ReactMarkdown>
+                return (
+                  <motion.div
+                    key={msg.id || `msg-${idx}`}
+                    layout
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    className={`flex w-full group ${isUser ? "justify-end" : "justify-start"}`}
+                  >
+                    <div className={`flex gap-4 max-w-[92%] sm:max-w-[85%] ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+                      {/* Avatar */}
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-1 shadow-lg border transition-transform duration-300 group-hover:scale-110 ${
+                        isUser 
+                          ? "bg-linear-to-br from-amber-400 to-amber-500 border-amber-300 text-white" 
+                          : "bg-white border-zinc-100 text-amber-500"
+                      }`}>
+                        {isUser ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5 font-bold" />}
                       </div>
-                    )}
-                  </div>
-                  <span className={`text-[11px] text-zinc-500 px-1 ${isUser ? "text-right" : "text-left"}`}>
-                     {formattedTime}
-                  </span>
-                </div>
 
-              </div>
-            </div>
-          );
-        })}
-
-        {/* Optimistic User Message */}
-        {optimisticUserMessage && (
-          <div className="flex w-full justify-end">
-            <div className="flex gap-4 max-w-[85%] sm:max-w-[75%] flex-row-reverse">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 shadow-sm bg-linear-to-br from-amber-400 to-amber-600 ring-2 ring-amber-500/20">
-                <User className="w-4 h-4 text-black/80" />
-              </div>
-              <div className="flex flex-col gap-2 min-w-0">
-                <div className="px-5 py-4 rounded-2xl whitespace-pre-wrap text-[15px] leading-relaxed wrap-break-word shadow-sm bg-linear-to-br from-amber-500 to-amber-600 text-black rounded-tr-sm">
-                  {optimisticUserMessage}
-                </div>
-                <span className="text-[11px] text-zinc-500 px-1 text-right">
-                   방금 전
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Temporary Streaming Message Bubble */}
-        {isStreaming && (
-          <div className="flex w-full justify-start">
-            <div className="flex gap-4 max-w-[85%] sm:max-w-[75%] flex-row">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 shadow-sm bg-zinc-900 border border-zinc-800">
-                <Bot className="w-4 h-4 text-amber-500" />
-              </div>
-              <div className="flex flex-col gap-2 min-w-0">
-                <div className={`px-5 py-4 rounded-2xl text-[15px] leading-relaxed wrap-break-word shadow-sm bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-tl-sm ring-1 ring-white/5 ${!streamingText ? "whitespace-pre-wrap" : ""}`}>
-                  {streamingText ? (
-                    <div className="prose prose-invert prose-zinc max-w-none prose-p:leading-relaxed prose-pre:bg-black/50 prose-pre:border prose-pre:border-zinc-800 prose-headings:text-zinc-100 prose-a:text-amber-500 hover:prose-a:text-amber-400">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                        {streamingText}
-                      </ReactMarkdown>
+                      {/* Content Area */}
+                      <div className={`flex flex-col gap-2 min-w-0 ${isUser ? "items-end" : "items-start"}`}>
+                        <div className={`relative px-5 py-3.5 rounded-[20px] text-[15px] leading-relaxed shadow-sm border transition-all duration-300 ${
+                          isUser 
+                            ? "bg-linear-to-br from-amber-400 to-amber-500 border-amber-300 text-white rounded-tr-sm shadow-amber-200/50" 
+                            : "bg-white border-zinc-100 text-zinc-800 rounded-tl-sm hover:border-amber-200"
+                        }`}>
+                          {isUser ? (
+                            <span className="whitespace-pre-wrap font-medium">{msg.content}</span>
+                          ) : (
+                            <div className="prose prose-zinc max-w-none prose-p:leading-relaxed prose-pre:bg-zinc-50 prose-pre:border prose-pre:zinc-100 prose-code:text-amber-600 prose-headings:text-zinc-900 prose-a:text-amber-500">
+                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                {msg.content}
+                              </ReactMarkdown>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight">
+                            {isUser ? "You" : "Nexus Bot"}
+                          </span>
+                          <span className="text-[10px] text-zinc-300">•</span>
+                          <span className="text-[10px] font-medium text-zinc-400">
+                             {formattedTime}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    <span className="animate-pulse">...</span>
-                  )}
-                </div>
-              </div>
-            </div>
+                  </motion.div>
+                );
+              })}
+
+              {/* Optimistic User Message - 질문이 위로 올라가는 효과의 주인공 */}
+              {optimisticUserMessage && (
+                <motion.div
+                  key="optimistic-user"
+                  layout
+                  initial={{ opacity: 0, y: 100, scale: 0.9 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 200,
+                    damping: 20
+                  }}
+                  className="flex w-full justify-end"
+                >
+                  <div className="flex gap-4 max-w-[92%] sm:max-w-[85%] flex-row-reverse">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-1 shadow-lg bg-linear-to-br from-amber-400 to-amber-500 border border-amber-300 text-white">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="px-5 py-3.5 rounded-[20px] bg-linear-to-br from-amber-400 to-amber-500 border border-amber-300 text-white rounded-tr-sm shadow-sm shadow-amber-200/50 whitespace-pre-wrap text-[15px] leading-relaxed font-medium">
+                        {optimisticUserMessage}
+                      </div>
+                      <span className="text-[10px] text-zinc-400 font-bold tracking-tight uppercase px-1">Sending...</span>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+
+              {/* Streaming/Loading Bot Presence - 질문 바로 아래에서 대기 중인 모습 */}
+              {isStreaming && (
+                <motion.div
+                  key="bot-loading"
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                  className="flex w-full justify-start"
+                >
+                  <div className="flex gap-4 max-w-[92%] sm:max-w-[85%] flex-row">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-1 shadow-lg bg-white border border-zinc-100 text-amber-500 relative">
+                      <Bot className="w-5 h-5" />
+                      <div className="absolute -inset-1 bg-amber-500/5 rounded-xl animate-pulse -z-10" />
+                    </div>
+                    <div className="flex flex-col gap-2.5 min-w-0 w-full">
+                      <div className="px-5 py-3.5 rounded-[20px] bg-white border border-zinc-100 text-zinc-800 rounded-tl-sm backdrop-blur-xl shadow-sm min-h-[58px] flex items-center">
+                        {streamingText ? (
+                          <div className="prose prose-zinc max-w-none prose-p:leading-relaxed prose-code:text-amber-600 prose-a:text-amber-500 w-full">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {streamingText}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-3 text-zinc-400 italic text-[14px]">
+                            <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                            <span>Nexus Core가 생각 중입니다...</span>
+                          </div>
+                        )}
+                      </div>
+                      {!streamingText && (
+                        <div className="flex gap-2.5 px-1 items-center">
+                           <div className="h-1 w-10 bg-zinc-100 rounded-full overflow-hidden">
+                              <div className="h-full bg-amber-400/60 w-1/2 animate-[shimmer_1.5s_infinite]" />
+                           </div>
+                           <span className="text-[10px] text-zinc-400 font-bold tracking-tight uppercase">Analyzing context</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
-        )}
+        </LayoutGroup>
       </div>
     </ScrollArea>
   );
 }
+
+

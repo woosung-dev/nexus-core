@@ -60,7 +60,7 @@ export function LandingClient() {
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-background selection:bg-amber-500/30">
+    <div className="min-h-screen flex flex-col bg-linear-to-b from-white to-amber-50/50 selection:bg-amber-200">
       <Header />
       
       <main className="flex-1 flex flex-col items-center w-full relative">

@@ -18,7 +18,7 @@ export function BotGrid({ bots, title }: BotGridProps) {
   return (
     <div className="w-full px-4 mb-20">
       {title && (
-        <h2 className="text-2xl font-bold mb-6 text-foreground">{title}</h2>
+        <h2 className="text-2xl font-bold mb-6 text-zinc-900">{title}</h2>
       )}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {bots.map((bot) => (

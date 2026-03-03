@@ -55,19 +55,19 @@ export function SearchAndFilter({
             value={localQuery}
             onChange={(e) => setLocalQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full h-14 pl-12 pr-28 bg-zinc-900/50 border-zinc-800 rounded-xl text-md focus-visible:ring-amber-500/50 focus-visible:border-amber-500 transition-all placeholder:text-zinc-500"
+            className="w-full h-14 pl-12 pr-28 bg-white border-zinc-200 rounded-xl text-md text-zinc-900 focus-visible:ring-amber-500/30 focus-visible:border-amber-400 transition-all placeholder:text-zinc-400 shadow-sm"
           />
           {localQuery && (
             <button 
               onClick={clearSearch}
-              className="absolute right-[90px] top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors p-1"
+              className="absolute right-[90px] top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors p-1"
             >
               <X className="h-4 w-4" />
             </button>
           )}
           <Button 
             onClick={handleSearch}
-            className="absolute right-2 top-1/2 -translate-y-1/2 h-10 px-4 bg-amber-500 hover:bg-amber-600 text-black font-semibold rounded-lg shadow-lg shadow-amber-500/10"
+            className="absolute right-2 top-1/2 -translate-y-1/2 h-10 px-4 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg shadow-lg shadow-amber-500/10"
           >
             검색
           </Button>
@@ -80,9 +80,9 @@ export function SearchAndFilter({
           {isLoading ? (
             // Skeleton Loading State
             <>
-              <div className="h-10 w-24 rounded-full bg-zinc-800 animate-pulse" />
+              <div className="h-10 w-24 rounded-full bg-zinc-200 animate-pulse" />
               {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-10 w-20 rounded-full bg-zinc-800/50 animate-pulse" />
+                <div key={i} className="h-10 w-20 rounded-full bg-zinc-100 animate-pulse" />
               ))}
             </>
           ) : (
@@ -93,8 +93,8 @@ export function SearchAndFilter({
                 variant={activeCategory === category ? "default" : "outline"}
                 className={`rounded-full px-6 transition-all ${
                   activeCategory === category 
-                    ? "bg-amber-500 hover:bg-amber-600 text-black font-semibold shadow-md shadow-amber-500/20 border-transparent" 
-                    : "bg-zinc-900/40 border-zinc-800 text-zinc-300 hover:text-white hover:border-zinc-700"
+                    ? "bg-amber-500 hover:bg-amber-600 text-white font-semibold shadow-md shadow-amber-500/20 border-transparent" 
+                    : "bg-white border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:border-zinc-300 hover:bg-zinc-50 shadow-sm"
                 }`}
                 onClick={() => onCategoryChange?.(category)}
               >

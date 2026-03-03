@@ -26,7 +26,7 @@ export function ProfileSection() {
 
   if (isLoading) {
     return (
-      <section className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-8 relative overflow-hidden backdrop-blur-xl flex items-center justify-center min-h-[300px]">
+      <section className="bg-white/90 border border-amber-100 shadow-sm rounded-xl p-8 relative overflow-hidden backdrop-blur-xl flex items-center justify-center min-h-[300px]">
         <Loader2 className="w-8 h-8 animate-spin text-amber-500" />
       </section>
     );
@@ -41,20 +41,20 @@ export function ProfileSection() {
   const displayName = user.email.split('@')[0];
 
   return (
-    <section className="bg-zinc-950/80 border border-zinc-800 rounded-xl p-8 relative overflow-hidden backdrop-blur-xl">
+    <section className="bg-white/90 border border-amber-100 shadow-sm rounded-xl p-8 relative overflow-hidden backdrop-blur-xl">
       {/* Background Subtle Glow */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full blur-[80px] pointer-events-none" />
 
       <div className="flex items-center justify-between mb-8 z-10 relative">
-        <h2 className="text-xl font-bold text-white">프로필 정보</h2>
-        <Button variant="outline" size="sm" className="bg-zinc-900 border-zinc-800 text-white hover:bg-zinc-800 hover:text-white transition-colors h-9 px-4">
-          <Pen className="w-4 h-4 mr-2 text-zinc-400" />
+        <h2 className="text-xl font-bold text-zinc-900">프로필 정보</h2>
+        <Button variant="outline" size="sm" className="bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 hover:text-zinc-900 transition-colors h-9 px-4 shadow-sm">
+          <Pen className="w-4 h-4 mr-2 text-zinc-500" />
           수정
         </Button>
       </div>
 
       <div className="flex items-center gap-6 mb-10 z-10 relative">
-        <div className="w-24 h-24 rounded-full bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(245,158,11,0.2)] overflow-hidden relative">
+        <div className="w-24 h-24 rounded-full bg-linear-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0 shadow-[0_0_20px_rgba(245,158,11,0.2)] overflow-hidden relative">
           {user.avatar_url ? (
             <Image 
               src={user.avatar_url} 
@@ -67,23 +67,23 @@ export function ProfileSection() {
           )}
         </div>
         <div className="flex flex-col">
-          <h3 className="text-2xl font-bold text-white mb-1">{displayName}</h3>
-          <p className="text-sm text-zinc-400">{user.email}</p>
+          <h3 className="text-2xl font-bold text-zinc-900 mb-1">{displayName}</h3>
+          <p className="text-sm text-zinc-500">{user.email}</p>
         </div>
       </div>
 
       <div className="space-y-6 z-10 relative">
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-zinc-400">플랜</label>
-          <p className="text-base text-white capitalize">{user.plan_type.toLowerCase()}</p>
+          <label className="text-sm font-medium text-zinc-500">플랜</label>
+          <p className="text-base text-zinc-900 capitalize">{user.plan_type.toLowerCase()}</p>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-zinc-400">연동 계정</label>
-          <p className="text-base text-white capitalize">{user.provider || "Standard"}</p>
+          <label className="text-sm font-medium text-zinc-500">연동 계정</label>
+          <p className="text-base text-zinc-900 capitalize">{user.provider || "Standard"}</p>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-zinc-400">가입일</label>
-          <p className="text-base text-white">
+          <label className="text-sm font-medium text-zinc-500">가입일</label>
+          <p className="text-base text-zinc-900">
             {(() => {
               const date = new Date(user.created_at);
               const year = date.getFullYear();

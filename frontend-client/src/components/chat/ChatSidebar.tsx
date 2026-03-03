@@ -27,18 +27,18 @@ export function ChatSidebar({ className }: { className?: string }) {
   };
 
   return (
-    <aside className={`bg-zinc-950 flex flex-col h-full border-r border-zinc-900 w-80 shrink-0 ${className}`}>
+    <aside className={`bg-slate-50 flex flex-col h-full border-r border-zinc-200 w-80 shrink-0 ${className}`}>
       {/* Sidebar Header */}
-      <div className="p-4 border-b border-zinc-900 shrink-0">
+      <div className="p-4 border-b border-zinc-200 shrink-0">
         <div className="flex items-center justify-between mb-4">
           <Link href="/" className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-linear-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0">
               <Bolt className="w-4 h-4 text-black" fill="currentColor" />
             </div>
-            <span className="font-bold text-lg text-white tracking-tight">AI Chat Hub</span>
+            <span className="font-bold text-lg text-zinc-900 tracking-tight">AI Chat Hub</span>
           </Link>
           <Link href="/" passHref>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400 hover:text-white rounded-lg">
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg">
               <PenSquare className="w-4 h-4" />
             </Button>
           </Link>
@@ -49,7 +49,7 @@ export function ChatSidebar({ className }: { className?: string }) {
           <input 
             type="text" 
             placeholder="대화 검색..." 
-            className="w-full h-10 bg-black border border-zinc-800 rounded-lg pl-9 pr-4 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 transition-colors"
+            className="w-full h-10 bg-white border border-zinc-200 rounded-lg pl-9 pr-4 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:border-amber-400 shadow-sm transition-colors"
           />
         </div>
       </div>
@@ -65,11 +65,11 @@ export function ChatSidebar({ className }: { className?: string }) {
               <Link 
                 href={`/chat/${chat.id}`} 
                 key={chat.id} 
-                className="text-left bg-zinc-900/40 hover:bg-zinc-800/60 p-3 rounded-xl transition-colors border border-transparent hover:border-zinc-800 group block"
+                className="text-left bg-white/60 hover:bg-white p-3 rounded-xl transition-all border border-transparent hover:border-amber-200 hover:shadow-sm shadow-zinc-100 group block"
               >
                 <div className="flex items-center gap-3 mb-1">
                   {/* Bot Avatar */}
-                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border border-zinc-800 bg-linear-to-br from-zinc-800 to-zinc-900 relative overflow-hidden">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border border-zinc-100 bg-white relative overflow-hidden shadow-sm">
                     {imageUrl ? (
                       <Image 
                         src={imageUrl} 
@@ -83,7 +83,7 @@ export function ChatSidebar({ className }: { className?: string }) {
                     )}
                   </div>
                   <div className="flex flex-col min-w-0 flex-1">
-                    <span className="font-semibold text-sm text-zinc-200 group-hover:text-amber-500 transition-colors truncate">
+                    <span className="font-semibold text-sm text-zinc-800 group-hover:text-amber-600 transition-colors truncate">
                       {chat.title || "새로운 대화"}
                     </span>
                     <div className="flex items-center justify-between text-[11px] mt-0.5">
@@ -99,7 +99,7 @@ export function ChatSidebar({ className }: { className?: string }) {
                           </>
                         )}
                       </span>
-                      <span className="text-zinc-600 shrink-0 ml-2" suppressHydrationWarning>{formattedDate}</span>
+                      <span className="text-zinc-500 shrink-0 ml-2" suppressHydrationWarning>{formattedDate}</span>
                     </div>
                   </div>
                 </div>
@@ -110,15 +110,15 @@ export function ChatSidebar({ className }: { className?: string }) {
       </ScrollArea>
 
       {/* Bottom Profile Link */}
-      <div className="p-4 border-t border-zinc-900 shrink-0">
-        <Link href="/mypage" className="flex items-center gap-3 p-3 bg-zinc-900/40 hover:bg-zinc-800/80 rounded-xl transition-colors border border-transparent hover:border-zinc-800">
+      <div className="p-4 border-t border-zinc-200 shrink-0">
+        <Link href="/mypage" className="flex items-center gap-3 p-3 bg-white/60 hover:bg-white rounded-xl transition-all border border-transparent hover:border-amber-200 hover:shadow-sm shadow-zinc-100">
           {/* Default User Avatar */}
-          <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border border-zinc-800 bg-linear-to-br from-zinc-800 to-zinc-900 overflow-hidden">
+          <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 border border-zinc-100 bg-white overflow-hidden shadow-sm">
             <User className="w-3.5 h-3.5 text-amber-500" />
           </div>
           <div className="flex flex-col">
-            <span className="text-sm font-medium text-white">마이페이지</span>
-            <span className="text-xs text-zinc-400">설정 및 정보</span>
+            <span className="text-sm font-medium text-zinc-900">마이페이지</span>
+            <span className="text-xs text-zinc-500">설정 및 정보</span>
           </div>
         </Link>
       </div>

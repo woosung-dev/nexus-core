@@ -23,15 +23,15 @@ export default function Header() {
   if (isAuthPage) return null;
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b border-amber-100/50 bg-white/90 backdrop-blur supports-backdrop-filter:bg-white/70">
       <div className="container flex h-16 max-w-screen-2xl items-center px-4 md:px-8 mx-auto">
         <div className="flex flex-1 items-center justify-between">
           {/* Logo & Brand */}
           <Link href="/" className="group flex items-center space-x-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 group-hover:border-amber-500/50 transition-all">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-200 group-hover:bg-amber-500/20 group-hover:border-amber-300 transition-all">
               <span className="font-bold text-amber-500">N</span>
             </div>
-            <span className="font-bold inline-block text-lg tracking-tight shrink-0 group-hover:text-amber-500 transition-colors">
+            <span className="font-bold inline-block text-lg text-zinc-900 tracking-tight shrink-0 group-hover:text-amber-600 transition-colors">
               Nexus Core
             </span>
           </Link>
@@ -45,7 +45,7 @@ export default function Header() {
                   variant="ghost"
                   size="sm"
                   asChild
-                  className="text-muted-foreground hover:text-foreground hidden sm:inline-flex"
+                  className="text-zinc-600 hover:text-amber-600 hover:bg-amber-50 hidden sm:inline-flex"
                 >
                   <Link href="/chat">
                     <MessageSquare className="h-4 w-4 mr-2" />
@@ -73,7 +73,7 @@ export default function Header() {
                   variant="ghost"
                   size="icon"
                   asChild
-                  className="text-muted-foreground hover:text-foreground sm:hidden"
+                  className="text-zinc-600 hover:text-amber-600 hover:bg-amber-50 sm:hidden"
                 >
                   <Link href="/mypage" aria-label="마이페이지">
                     <User className="h-5 w-5" />
@@ -83,7 +83,7 @@ export default function Header() {
                 <Button
                   size="sm"
                   asChild
-                  className="font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
+                  className="font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors shadow-sm"
                 >
                   <Link href="/login">로그인</Link>
                 </Button>

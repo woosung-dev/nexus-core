@@ -48,20 +48,20 @@ export function ChatHeader({ onMenuClick, sessionId, botId }: ChatHeaderProps) {
   const imageUrl = getFullImageUrl(currentBot?.image_url);
 
   return (
-    <header className="h-[76px] shrink-0 border-b border-zinc-900 bg-zinc-950/80 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 sticky top-0 z-20">
+    <header className="h-[76px] shrink-0 border-b border-amber-100/50 bg-white/90 backdrop-blur-md flex items-center justify-between px-4 sm:px-6 sticky top-0 z-20">
       <div className="flex items-center gap-4">
         {/* Mobile Menu Trigger */}
         <Button 
           variant="ghost" 
           size="icon" 
           onClick={onMenuClick}
-          className="lg:hidden text-zinc-400 hover:text-white hover:bg-zinc-800 -ml-2"
+          className="lg:hidden text-zinc-500 hover:text-amber-600 hover:bg-amber-50 -ml-2"
         >
           <Menu className="w-5 h-5" />
         </Button>
 
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center shrink-0 overflow-hidden relative">
+          <div className="w-10 h-10 rounded-full bg-white border border-amber-200 flex items-center justify-center shrink-0 overflow-hidden relative shadow-sm">
             {imageUrl ? (
               <Image 
                 src={imageUrl} 
@@ -78,13 +78,13 @@ export function ChatHeader({ onMenuClick, sessionId, botId }: ChatHeaderProps) {
             )}
           </div>
           <div className="flex flex-col">
-            <h2 className="text-base font-bold text-white leading-tight">{displayName}</h2>
-            <span className="text-xs text-zinc-400">{displayCategory}</span>
+            <h2 className="text-base font-bold text-zinc-900 leading-tight">{displayName}</h2>
+            <span className="text-xs text-zinc-500">{displayCategory}</span>
           </div>
         </div>
       </div>
 
-      <Button variant="ghost" size="icon" className="text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-full">
+      <Button variant="ghost" size="icon" className="text-zinc-500 hover:text-amber-600 hover:bg-amber-50 rounded-full">
         <MoreVertical className="w-5 h-5" />
       </Button>
     </header>

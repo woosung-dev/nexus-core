@@ -67,16 +67,16 @@ export function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md bg-zinc-950/80 backdrop-blur-xl border-zinc-800 shadow-2xl relative overflow-hidden">
+    <Card className="w-full max-w-md bg-white/90 backdrop-blur-xl border border-amber-100 shadow-xl shadow-amber-500/5 relative overflow-hidden">
       {/* Subtle Glow Effect */}
       <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none" />
       <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-amber-500/10 rounded-full blur-[80px] pointer-events-none" />
 
       <CardHeader className="space-y-1 pb-6 z-10 relative">
-        <CardTitle className="text-3xl font-bold tracking-tight text-center text-foreground">
+        <CardTitle className="text-3xl font-bold tracking-tight text-center text-zinc-900">
           Welcome back
         </CardTitle>
-        <CardDescription className="text-center text-muted-foreground w-full">
+        <CardDescription className="text-center text-zinc-500 w-full">
           이메일과 비밀번호를 입력하여 로그인하세요.
         </CardDescription>
       </CardHeader>
@@ -91,7 +91,7 @@ export function LoginForm() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-zinc-300">
+            <Label htmlFor="email" className="text-zinc-700 font-medium">
               이메일 계정
             </Label>
             <Input
@@ -102,17 +102,17 @@ export function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               required
               disabled={isLoading}
-              className="bg-zinc-900/50 border-zinc-800 focus-visible:ring-amber-500/50 focus-visible:border-amber-500 transition-all h-12"
+              className="bg-zinc-50 border-zinc-200 text-zinc-900 focus-visible:ring-amber-500/30 focus-visible:border-amber-400 transition-all h-12 shadow-sm"
             />
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <Label htmlFor="password" className="text-zinc-300">
+              <Label htmlFor="password" className="text-zinc-700 font-medium">
                 비밀번호
               </Label>
               <Link
                 href="/forgot-password"
-                className="text-sm font-medium text-muted-foreground hover:text-amber-500 transition-colors"
+                className="text-sm font-medium text-zinc-500 hover:text-amber-500 transition-colors"
                 tabIndex={-1}
               >
                 비밀번호를 잊으셨나요?
@@ -125,13 +125,13 @@ export function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               required
               disabled={isLoading}
-              className="bg-zinc-900/50 border-zinc-800 focus-visible:ring-amber-500/50 focus-visible:border-amber-500 transition-all h-12"
+              className="bg-zinc-50 border-zinc-200 text-zinc-900 focus-visible:ring-amber-500/30 focus-visible:border-amber-400 transition-all h-12 shadow-sm"
             />
           </div>
           <Button
             type="submit"
             disabled={isLoading}
-            className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-black font-bold text-md mt-6 transition-all shadow-[0_0_15px_rgba(245,158,11,0.3)] hover:shadow-[0_0_25px_rgba(245,158,11,0.5)]"
+            className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-bold text-md mt-6 transition-all shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30"
           >
             {isLoading ? (
               <Loader2 className="h-5 w-5 animate-spin" />
@@ -143,10 +143,10 @@ export function LoginForm() {
 
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-zinc-800" />
+            <span className="w-full border-t border-zinc-200" />
           </div>
           <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-zinc-950 px-2 text-muted-foreground">
+            <span className="bg-white px-2 text-zinc-400 font-semibold">
               Or continue with
             </span>
           </div>
@@ -158,7 +158,7 @@ export function LoginForm() {
             variant="outline"
             disabled={!!oauthLoading}
             onClick={() => handleOAuthLogin("google")}
-            className="w-full h-12 bg-zinc-900/30 border-zinc-800 hover:bg-zinc-800 hover:text-white transition-all text-zinc-300"
+            className="w-full h-12 bg-white border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 transition-all text-zinc-700 shadow-sm"
           >
             {oauthLoading === "google" ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -194,7 +194,7 @@ export function LoginForm() {
             variant="outline"
             disabled={!!oauthLoading}
             onClick={() => handleOAuthLogin("kakao")}
-            className="w-full h-12 bg-[#FEE500]/10 border-[#FEE500]/30 hover:bg-[#FEE500]/20 hover:text-[#3C1E1E] transition-all text-[#FEE500]"
+            className="w-full h-12 bg-[#FEE500]/90 border-[#FEE500] hover:bg-[#FEE500] hover:text-[#3C1E1E] transition-all text-[#3C1E1E] font-semibold shadow-sm"
           >
             {oauthLoading === "kakao" ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
@@ -215,8 +215,8 @@ export function LoginForm() {
         </div>
       </CardContent>
 
-      <CardFooter className="flex justify-center z-10 relative border-t border-border/40 pt-6 mt-2 pb-8">
-        <p className="text-sm text-muted-foreground text-center">
+      <CardFooter className="flex justify-center z-10 relative border-t border-zinc-100 pt-6 mt-2 pb-8">
+        <p className="text-sm text-zinc-500 text-center">
           계정이 없으신가요?{" "}
           <Link
             href="/signup"

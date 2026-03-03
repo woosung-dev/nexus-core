@@ -1,10 +1,21 @@
-import { useState, KeyboardEvent } from "react";
-import { Send } from "lucide-react";
+import { useState, KeyboardEvent, useRef, useEffect } from "react";
+import { ArrowUp, CornerDownLeft } from "lucide-react";
 import { useChatStream } from "@/hooks/useChatStream";
+import { motion, AnimatePresence } from "framer-motion";
 
 export function ChatInput({ sessionId, botId }: { sessionId?: string; botId?: string }) {
   const [input, setInput] = useState("");
   const { sendMessage, isStreaming } = useChatStream({ sessionId });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // 메시지 전송 후 높이 초기화
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "inherit";
+      const scrollHeight = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = `${Math.min(scrollHeight, 200)}px`;
+    }
+  }, [input]);
 
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;
@@ -12,35 +23,68 @@ export function ChatInput({ sessionId, botId }: { sessionId?: string; botId?: st
     setInput("");
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
+      if (window.innerWidth > 768) { // 데스크탑에서만 엔터로 전송
+        e.preventDefault();
+        handleSend();
+      }
     }
   };
 
+  const isEmpty = !input.trim();
+
   return (
-    <div className="shrink-0 border-t border-zinc-900 bg-zinc-950 p-4 sm:px-6">
-      <div className="max-w-4xl mx-auto flex gap-3 relative">
-        <div className="relative flex-1">
-          <input 
-            type="text" 
+    <div className="shrink-0 bg-white/80 backdrop-blur-xl border-t border-amber-100/30 pb-8 pt-4 px-4 sm:px-6 relative z-20">
+      <div className="max-w-3xl mx-auto">
+        <div className={`relative flex items-end gap-2 bg-white border transition-all duration-300 rounded-[32px] p-1.5 shadow-lg shadow-amber-500/5 ${
+          isEmpty ? "border-zinc-200 shadow-zinc-200/5" : "border-amber-400 ring-4 ring-amber-500/5 shadow-amber-500/10"
+        }`}>
+          <textarea 
+            ref={textareaRef}
+            rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="메시지를 입력하세요..." 
-            className="w-full bg-black border border-zinc-800 rounded-xl px-4 py-4 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:border-amber-500/50 transition-colors shadow-sm min-h-[56px]"
+            placeholder="AI에게 무엇이든 물어보세요..." 
+            className="flex-1 bg-transparent border-0 focus:ring-0 focus:outline-none text-[15px] text-zinc-900 placeholder:text-zinc-400 py-3 pl-4 pr-4 resize-none max-h-[200px] leading-relaxed scrollbar-hide overflow-y-auto"
             disabled={isStreaming}
           />
+          
+          <div className="flex items-center gap-2 pr-1 pb-1">
+            <AnimatePresence>
+              {!isEmpty && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="hidden md:flex items-center gap-1.5 px-2 py-1 bg-zinc-50 rounded-lg text-[10px] text-zinc-400 border border-zinc-100"
+                >
+                  <CornerDownLeft className="w-3 h-3" />
+                  <span>Enter</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <button 
+              onClick={handleSend}
+              disabled={isEmpty || isStreaming}
+              className={`w-10 h-10 shrink-0 flex items-center justify-center rounded-2xl transition-all duration-300 ${
+                isEmpty || isStreaming
+                  ? "bg-zinc-50 text-zinc-300 grayscale cursor-not-allowed"
+                  : "bg-linear-to-br from-amber-400 to-amber-500 text-white shadow-lg shadow-amber-100 hover:scale-105 active:scale-95"
+              }`}
+            >
+              <ArrowUp className={`w-6 h-6 transition-transform duration-300 ${isStreaming ? "animate-pulse" : ""}`} />
+            </button>
+          </div>
         </div>
-        <button 
-          onClick={handleSend}
-          disabled={!input.trim() || isStreaming}
-          className="w-14 h-[56px] shrink-0 bg-amber-500 hover:bg-amber-400 text-black flex items-center justify-center rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_0_15px_rgba(245,158,11,0.2)]"
-        >
-          <Send className="w-5 h-5 ml-1" />
-        </button>
+        
+        <p className="mt-3 text-[10px] text-center text-zinc-400 font-bold tracking-tight">
+            Nexus Core는 실수를 할 수 있습니다. 중요한 정보를 확인하세요.
+        </p>
       </div>
     </div>
   );
 }
+

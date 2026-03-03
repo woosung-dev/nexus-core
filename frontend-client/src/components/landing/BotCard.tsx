@@ -17,13 +17,13 @@ export function BotCard({ bot }: { bot: BotResponse }) {
 
   return (
     <Link href={`/chat/new/${bot.id}`} className="block h-full group">
-      <Card className="relative overflow-hidden bg-zinc-950 border-zinc-800 hover:border-amber-500/50 transition-all duration-300 flex flex-col h-full cursor-pointer">
+      <Card className="relative overflow-hidden bg-white border-zinc-100 shadow-sm hover:border-amber-300 hover:shadow-amber-100/50 transition-all duration-300 flex flex-col h-full cursor-pointer">
         
         {/* Background Glow Effect on Hover */}
         <div className="absolute inset-0 bg-linear-to-b from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
       {/* Image Section */}
-      <div className="relative w-full aspect-video bg-zinc-900 overflow-hidden">
+      <div className="relative w-full aspect-video bg-zinc-50 overflow-hidden">
         {imageUrl ? (
           <Image 
             src={imageUrl} 
@@ -33,18 +33,18 @@ export function BotCard({ bot }: { bot: BotResponse }) {
             className="object-cover transition-transform duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-zinc-800/50 text-zinc-500">
+          <div className="w-full h-full flex items-center justify-center bg-zinc-100 text-zinc-400">
             <span className="font-semibold">{bot.name.charAt(0)}</span>
           </div>
         )}
         
         <div className="absolute top-3 left-3 flex gap-2">
           {bot.is_verified && (
-            <Badge className="bg-amber-500 text-black hover:bg-amber-600 font-bold border-none">
+            <Badge className="bg-amber-500 text-white hover:bg-amber-600 font-bold border-none shadow-sm">
               Official
             </Badge>
           )}
-          <Badge variant="secondary" className="bg-black/50 backdrop-blur-md text-zinc-300 border-zinc-700">
+          <Badge variant="secondary" className="bg-white/90 backdrop-blur-md text-zinc-700 border-zinc-200 shadow-sm">
             {bot.tags?.[0] || 'AI Bot'}
           </Badge>
         </div>
@@ -54,7 +54,7 @@ export function BotCard({ bot }: { bot: BotResponse }) {
         <div className="flex justify-between items-start">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 min-w-0">
-              <h3 className="font-bold text-lg text-foreground truncate group-hover:text-amber-500 transition-colors">
+              <h3 className="font-bold text-lg text-zinc-900 truncate group-hover:text-amber-500 transition-colors">
                 {bot.name}
               </h3>
               {bot.is_verified && (
@@ -67,21 +67,21 @@ export function BotCard({ bot }: { bot: BotResponse }) {
             </div>
 
           </div>
-          <button className="text-muted-foreground hover:text-foreground transition-colors p-1 -mr-2 -mt-1 rounded-md shrink-0">
+          <button className="text-zinc-400 hover:text-zinc-700 transition-colors p-1 -mr-2 -mt-1 rounded-md shrink-0">
             <MoreVertical className="h-4 w-4" />
           </button>
         </div>
       </CardHeader>
 
       <CardContent className="p-4 pt-5 grow flex flex-col">
-        <p className="text-sm text-zinc-400 line-clamp-2 leading-relaxed">
+        <p className="text-sm text-zinc-600 line-clamp-2 leading-relaxed">
           {bot.description}
         </p>
         
         {/* Tags */}
         <div className="flex flex-wrap gap-1.5 mt-3">
           {bot.tags.map(tag => (
-            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-800/50 text-zinc-400 border border-zinc-800">
+            <span key={tag} className="text-[10px] px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-500 border border-zinc-200">
               #{tag}
             </span>
           ))}
