@@ -23,6 +23,13 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { faqFormSchema, type FaqFormValues } from "@/features/faqs/schemas"
 import type { FaqResponse } from "@/features/faqs/types"
@@ -33,7 +40,9 @@ interface FaqFormDialogProps {
   onOpenChange: (open: boolean) => void
   /** null이면 등록(create) 모드, 객체면 수정(edit) 모드 */
   initialData: FaqResponse | null
-  onSubmit: (values: { question: string; answer: string; threshold: number }) => void
+  bots: { id: number; name: string }[]
+  selectedBotIdForCreate: number | null
+  onSubmit: (values: { bot_id: number; question: string; answer: string; threshold: number }) => void
   isPending: boolean
 }
 
@@ -41,6 +50,8 @@ export function FaqFormDialog({
   open,
   onOpenChange,
   initialData,
+  bots,
+  selectedBotIdForCreate,
   onSubmit,
   isPending,
 }: FaqFormDialogProps) {
@@ -51,6 +62,7 @@ export function FaqFormDialog({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Zod v4 타입과 @hookform/resolvers 간 호환성 이슈 (런타임 정상 동작)
     resolver: zodResolver(faqFormSchema as any),
     defaultValues: {
+      bot_id: 0,
       question: "",
       answer: "",
       threshold: 0.8,
@@ -61,21 +73,24 @@ export function FaqFormDialog({
   useEffect(() => {
     if (open && initialData) {
       form.reset({
+        bot_id: initialData.bot_id,
         question: initialData.question,
         answer: initialData.answer,
         threshold: initialData.threshold,
       })
     } else if (open && !initialData) {
       form.reset({
+        bot_id: selectedBotIdForCreate || 0,
         question: "",
         answer: "",
         threshold: 0.8,
       })
     }
-  }, [open, initialData, form])
+  }, [open, initialData, form, selectedBotIdForCreate])
 
   function handleSubmit(values: FaqFormValues) {
     onSubmit({
+      bot_id: values.bot_id,
       question: values.question,
       answer: values.answer,
       threshold: values.threshold,
@@ -101,6 +116,47 @@ export function FaqFormDialog({
             onSubmit={form.handleSubmit(handleSubmit)}
             className="space-y-4"
           >
+            {/* 봇 선택 */}
+            <FormField
+              control={form.control}
+              name="bot_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>대상 봇</FormLabel>
+                  {isEditMode ? (
+                    <FormControl>
+                      <Input
+                        disabled
+                        value={
+                          bots.find((b) => b.id === field.value)?.name ??
+                          "알 수 없는 봇"
+                        }
+                      />
+                    </FormControl>
+                  ) : (
+                    <Select
+                      onValueChange={(val) => field.onChange(Number(val))}
+                      value={field.value ? String(field.value) : ""}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="봇을 선택해 주세요" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {bots.map((bot) => (
+                          <SelectItem key={bot.id} value={String(bot.id)}>
+                            {bot.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
             {/* 질문 */}
             <FormField
               control={form.control}

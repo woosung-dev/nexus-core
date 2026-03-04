@@ -345,3 +345,34 @@ class OpenAIRAGService(BaseRAGService):
         except Exception as e:
             logger.error(f"OpenAI RAG 응답 생성 실패: {e}")
             raise
+
+    async def generate_stream_with_rag(
+        self,
+        bot_id: int,
+        prompt: str,
+        system_prompt: str = "",
+        model_name: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+    ):
+        """
+        RAG 기반 스트리밍 응답 생성 (OpenAI Assistants API 폴백).
+        OpenAI Assistants API는 native chunking이 제한적이므로,
+        완전한 응답을 받아 청크(단어 단위)로 나누어 yield한다.
+        """
+        # OpenAI RAG는 내부 Assistants API 특성상 Streaming이 제한적.
+        # 전체 응답을 받아서 단어 단위로 나누어 스트리밍 흉내냄.
+        rag_response = await self.generate_with_rag(
+            bot_id=bot_id,
+            prompt=prompt,
+            system_prompt=system_prompt,
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+        # 단어 단위로 yield (스트리밍 체감 효과)
+        import asyncio
+        words = rag_response.answer.split(" ")
+        for i, word in enumerate(words):
+            yield word if i == len(words) - 1 else word + " "
+            await asyncio.sleep(0)  # 이벤트 루프 양보

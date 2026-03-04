@@ -27,6 +27,7 @@ class ChatCompletionResponse(BaseModel):
     content: str
     bot_id: int
     citations: list[RAGCitation] | None = None  # RAG 인용구 출처
+    source: str | None = None  # 응답 소스: "faq_override" | "rag" | "llm"
 
 
 class ChatSessionResponse(BaseModel):

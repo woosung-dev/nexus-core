@@ -2,6 +2,7 @@ import { z } from "zod"
 
 // ─── FAQ 등록/수정 폼 Zod 스키마 ─────────────────────────────────
 export const faqFormSchema = z.object({
+  bot_id: z.number().min(1, { message: "봇을 선택해 주세요." }),
   question: z
     .string()
     .min(2, { message: "질문은 최소 2자 이상이어야 합니다." }),

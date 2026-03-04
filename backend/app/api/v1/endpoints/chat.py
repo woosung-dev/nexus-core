@@ -10,7 +10,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, desc
+from sqlmodel import select, desc, func
 
 from app.api.deps import get_current_user
 from app.core.database import get_session
@@ -28,6 +28,7 @@ from app.schemas.chat import (
 from app.services.rag.factory import get_rag_service
 from app.services.llm.gemini import GeminiService
 from app.services.llm.openai import OpenAIService
+from app.services.faq_service import search_faq_override
 
 logger = logging.getLogger(__name__)
 
@@ -64,10 +65,9 @@ async def list_chat_sessions(
     result = await session.execute(statement)
     rows = result.all()
 
-    # 전체 개수 조회
-    count_statement = select(ChatSession.id).where(ChatSession.user_id == current_user.id)
-    count_result = await session.execute(count_statement)
-    total = len(count_result.scalars().all())
+    # 전체 개수 조회 — func.count()로 DB 레벨 집계 (메모리 로드 없음)
+    count_statement = select(func.count()).where(ChatSession.user_id == current_user.id)
+    total = await session.scalar(count_statement)
 
     session_responses = []
     for chat_sess, bot_obj in rows:
@@ -184,41 +184,120 @@ async def chat_completions(
         session.add(chat_session)
         await session.flush()  # ID 확보
 
-    # 3. 사용자 메시지 DB에 즉시 저장
+    # 3. 사용자 메시지 DB에 저장 (commit 없이 flush만 → AI 메시지와 1회 commit으로 통합)
     user_msg = Message(
         session_id=chat_session.id,
         role=MessageRole.USER,
         content=request.message,
     )
     session.add(user_msg)
-    await session.commit()
+    await session.flush()  # ID 확보, 트랜잭션 유지
 
-    # 4. (분기) RAG 처리 (Non-Streaming)
-    if request.use_rag:
-        rag_service = get_rag_service(provider=bot.llm_model)
-        rag_response = await rag_service.generate_with_rag(
-            bot_id=request.bot_id,
-            prompt=request.message,
-            system_prompt=bot.system_prompt,
-            model_name=bot.llm_model,
-        )
+    # 3.5 ★ FAQ Override 검색 (시맨틱 라우팅)
+    # LLM/RAG 호출 전에 pgvector 코사인 유사도로 FAQ 테이블 검색
+    faq_match = await search_faq_override(
+        session=session,
+        bot_id=request.bot_id,
+        query_text=request.message,
+    )
 
-        # AI 응답 DB 저장
+    if faq_match:
+        # FAQ 매칭 성공 → LLM 호출 없이 즉시 응답 (비용 절약 + 환각 방지)
         ai_msg = Message(
             session_id=chat_session.id,
             role=MessageRole.ASSISTANT,
-            content=rag_response.answer,
+            content=faq_match.answer,
         )
         session.add(ai_msg)
         chat_session.updated_at = datetime.now()
         await session.commit()
 
+        logger.info(
+            f"FAQ Override 응답: faq_id={faq_match.faq_id}, "
+            f"similarity={faq_match.similarity}"
+        )
+
         return ChatCompletionResponse(
             session_id=chat_session.id,
-            content=rag_response.answer,
+            content=faq_match.answer,
             bot_id=request.bot_id,
-            citations=rag_response.citations,
+            source="faq_override",
         )
+
+    # 4. (분기) RAG 처리
+    if request.use_rag:
+        rag_service = get_rag_service(provider=bot.llm_model)
+
+        if request.stream:
+            # RAG SSE 스트리밍 응답
+            async def rag_event_generator():
+                full_response_content = ""
+                try:
+                    meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
+                    yield f"data: {meta_data}\n\n"
+
+                    async for chunk in rag_service.generate_stream_with_rag(
+                        bot_id=request.bot_id,
+                        prompt=request.message,
+                        system_prompt=bot.system_prompt,
+                        model_name=bot.llm_model,
+                    ):
+                        full_response_content += chunk
+                        data = json.dumps({"content": chunk}, ensure_ascii=False)
+                        yield f"data: {data}\n\n"
+
+                    yield "data: [DONE]\n\n"
+
+                    # 스트리밍 완료 후 1회 commit
+                    ai_msg = Message(
+                        session_id=chat_session.id,
+                        role=MessageRole.ASSISTANT,
+                        content=full_response_content,
+                    )
+                    session.add(ai_msg)
+                    chat_session.updated_at = datetime.now()
+                    await session.commit()
+
+                except Exception as e:
+                    logger.error(f"RAG 스트리밍 오류: {e}")
+                    error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
+                    yield f"data: {error_data}\n\n"
+
+            return StreamingResponse(
+                rag_event_generator(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",
+                },
+            )
+        else:
+            # RAG Non-Streaming 응답
+            rag_response = await rag_service.generate_with_rag(
+                bot_id=request.bot_id,
+                prompt=request.message,
+                system_prompt=bot.system_prompt,
+                model_name=bot.llm_model,
+            )
+
+            # AI 응답 DB 저장 — user_msg flush와 함께 1회 commit
+            ai_msg = Message(
+                session_id=chat_session.id,
+                role=MessageRole.ASSISTANT,
+                content=rag_response.answer,
+            )
+            session.add(ai_msg)
+            chat_session.updated_at = datetime.now()
+            await session.commit()
+
+            return ChatCompletionResponse(
+                session_id=chat_session.id,
+                content=rag_response.answer,
+                bot_id=request.bot_id,
+                citations=rag_response.citations,
+                source="rag",
+            )
 
     # 5. 일반 LLM 처리
     llm_service = _get_llm_service(bot.llm_model)
@@ -287,4 +366,5 @@ async def chat_completions(
             session_id=chat_session.id,
             content=content,
             bot_id=request.bot_id,
+            source="llm",
         )

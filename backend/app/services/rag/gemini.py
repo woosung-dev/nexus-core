@@ -266,3 +266,43 @@ class GeminiRAGService(BaseRAGService):
             answer=response.text or "",
             citations=citations,
         )
+
+    async def generate_stream_with_rag(
+        self,
+        bot_id: int,
+        prompt: str,
+        system_prompt: str = "",
+        model_name: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+    ):
+        """
+        RAG 기반 스트리밍 응답 생성.
+        Gemini generate_content_stream을 사용하여 청크를 즉시 yield한다.
+        """
+        from collections.abc import AsyncGenerator
+
+        actual_model_name = model_name or "gemini-2.5-flash"
+        store_name = await self.ensure_store()
+
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt or None,
+            temperature=temperature,
+            max_output_tokens=max_tokens,
+            tools=[
+                types.Tool(
+                    file_search=types.FileSearch(
+                        file_search_store_names=[store_name],
+                        metadata_filter=f"bot_id = {bot_id}",
+                    )
+                )
+            ],
+        )
+
+        async for chunk in await self._client.aio.models.generate_content_stream(
+            model=actual_model_name,
+            contents=prompt,
+            config=config,
+        ):
+            if chunk.text:
+                yield chunk.text

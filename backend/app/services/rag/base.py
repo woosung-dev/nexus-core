@@ -5,8 +5,9 @@ RAG 서비스 추상 인터페이스.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import AsyncGenerator
 
-from app.schemas.rag import DocumentInfo, RAGResponse
+from app.schemas.rag import DocumentInfo, RAGCitation, RAGResponse
 
 
 class BaseRAGService(ABC):
@@ -89,6 +90,34 @@ class BaseRAGService(ABC):
 
         Returns:
              답변과 인용 정보가 포함된 RAGResponse 객체
+        """
+        ...
+
+    @abstractmethod
+    async def generate_stream_with_rag(
+        self,
+        bot_id: int,
+        prompt: str,
+        system_prompt: str = "",
+        model_name: str | None = None,
+        temperature: float = 0.7,
+        max_tokens: int = 2048,
+    ) -> AsyncGenerator[str, None]:
+        """
+        RAG 기반 스트리밍 응답 생성 (SSE용).
+        bot_id에 해당하는 문서만 검색하여 컨텍스트로 사용하며,
+        텍스트 청크를 순차적으로 yield한다.
+
+        Args:
+            bot_id: 검색 대상 봇 ID
+            prompt: 사용자 질문
+            system_prompt: 시스템 프롬프트
+            model_name: 사용할 모델
+            temperature: 응답 다양성
+            max_tokens: 최대 토큰 수
+
+        Yields:
+            텍스트 청크 (str)
         """
         ...
 

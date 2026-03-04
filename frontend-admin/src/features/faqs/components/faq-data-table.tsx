@@ -46,23 +46,16 @@ import { FaqFormDialog } from "./faq-form-dialog"
 export function FaqDataTable() {
   // 봇 목록 (봇 선택 Select용)
   const { data: botsData, isLoading: isBotsLoading } = useBots()
-  const bots = botsData?.bots ?? []
+  const bots = React.useMemo(() => botsData?.bots ?? [], [botsData?.bots])
 
   // 선택된 봇 ID
   const [selectedBotId, setSelectedBotId] = React.useState<number | null>(null)
 
-  // 봇 목록 로드 완료 시 첫 번째 봇 자동 선택
-  const firstBotId = bots[0]?.id ?? null
-  React.useEffect(() => {
-    if (firstBotId !== null && selectedBotId === null) {
-      setSelectedBotId(firstBotId)
-    }
-  }, [firstBotId, selectedBotId])
+  // 명시적 선택을 유도하기 위해 첫 번째 봇 자동 선택 기능을 제거합니다.
 
   // FAQ 목록 조회 (선택된 봇 기준)
-  const { data: faqsData, isLoading: isFaqsLoading, isError, error } =
-    useFaqs(selectedBotId)
-  const faqs = faqsData?.faqs ?? []
+  const { data: faqsData, isLoading: isFaqsLoading, isError, error } = useFaqs(selectedBotId)
+  const faqs = React.useMemo(() => faqsData?.faqs ?? [], [faqsData?.faqs])
 
   // Mutation 훅 — selectedBotId가 null이면 0으로 대체 (실제 호출 시 이미 선택됨)
   const { mutate: createFaq, isPending: isCreating } = useCreateFaq()
@@ -83,40 +76,46 @@ export function FaqDataTable() {
     React.useState<ColumnFiltersState>([])
 
   // --- 이벤트 핸들러 ---
-  function handleOpenCreate() {
+  const handleOpenCreate = React.useCallback(() => {
     setEditingFaq(null)
     setDialogOpen(true)
-  }
+  }, [])
 
-  function handleOpenEdit(faq: FaqResponse) {
+  const handleOpenEdit = React.useCallback((faq: FaqResponse) => {
     setEditingFaq(faq)
     setDialogOpen(true)
-  }
+  }, [])
 
-  function handleDelete(id: number) {
-    deleteFaqMutate(id)
-  }
+  const handleDelete = React.useCallback(
+    (id: number) => {
+      deleteFaqMutate(id)
+    },
+    [deleteFaqMutate]
+  )
 
-  function handleFormSubmit(values: {
-    question: string
-    answer: string
-    threshold: number
-  }) {
-    if (editingFaq) {
-      // 수정 모드
-      updateFaqMutate(
-        { id: editingFaq.id, request: values },
-        { onSuccess: () => setDialogOpen(false) }
-      )
-    } else {
-      // 등록 모드
-      if (!selectedBotId) return
-      createFaq(
-        { bot_id: selectedBotId, ...values },
-        { onSuccess: () => setDialogOpen(false) }
-      )
-    }
-  }
+  const handleFormSubmit = React.useCallback(
+    (values: {
+      bot_id: number
+      question: string
+      answer: string
+      threshold: number
+    }) => {
+      if (editingFaq) {
+        // 수정 모드
+        updateFaqMutate(
+          { id: editingFaq.id, request: values },
+          { onSuccess: () => setDialogOpen(false) }
+        )
+      } else {
+        // 등록 모드
+        createFaq(
+          values,
+          { onSuccess: () => setDialogOpen(false) }
+        )
+      }
+    },
+    [editingFaq, updateFaqMutate, createFaq]
+  )
 
   // --- 컬럼 생성 (콜백 주입) ---
   const columns: ColumnDef<FaqResponse>[] = React.useMemo(
@@ -126,8 +125,7 @@ export function FaqDataTable() {
         onDelete: handleDelete,
         isDeleting,
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isDeleting]
+    [isDeleting, handleOpenEdit, handleDelete]
   )
 
   // --- 테이블 인스턴스 ---
@@ -179,7 +177,7 @@ export function FaqDataTable() {
           />
         </div>
 
-        <Button onClick={handleOpenCreate} disabled={!selectedBotId}>
+        <Button onClick={handleOpenCreate}>
           <Plus className="mr-2 h-4 w-4" />새 FAQ 추가
         </Button>
       </div>
@@ -291,6 +289,8 @@ export function FaqDataTable() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         initialData={editingFaq}
+        bots={bots}
+        selectedBotIdForCreate={selectedBotId}
         onSubmit={handleFormSubmit}
         isPending={isCreating || isUpdating}
       />
