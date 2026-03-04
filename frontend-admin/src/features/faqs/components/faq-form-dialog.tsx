@@ -53,7 +53,7 @@ export function FaqFormDialog({
     defaultValues: {
       question: "",
       answer: "",
-      threshold: "0.80",
+      threshold: 0.8,
     },
   })
 
@@ -63,23 +63,22 @@ export function FaqFormDialog({
       form.reset({
         question: initialData.question,
         answer: initialData.answer,
-        threshold: String(initialData.threshold),
+        threshold: initialData.threshold,
       })
     } else if (open && !initialData) {
       form.reset({
         question: "",
         answer: "",
-        threshold: "0.80",
+        threshold: 0.8,
       })
     }
   }, [open, initialData, form])
 
-  // threshold를 string → number로 변환하여 상위로 전달
   function handleSubmit(values: FaqFormValues) {
     onSubmit({
       question: values.question,
       answer: values.answer,
-      threshold: Number(values.threshold),
+      threshold: values.threshold,
     })
   }
 

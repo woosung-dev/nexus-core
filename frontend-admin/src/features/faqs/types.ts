@@ -22,14 +22,15 @@ export type FaqListResponse = {
   total: number
 }
 
-// POST /api/v1/admin/faqs — FAQ 등록 요청
+// POST /api/v1/admin/bots/{bot_id}/faqs — FAQ 등록 요청
 export type FaqCreateRequest = {
   bot_id: number
   question: string
   answer: string
   threshold?: number
-  is_active?: boolean
 }
 
 // PUT /api/v1/admin/faqs/:id — FAQ 수정 요청 (부분 업데이트)
-export type FaqUpdateRequest = Partial<Omit<FaqCreateRequest, "bot_id">>
+export type FaqUpdateRequest = Partial<Omit<FaqCreateRequest, "bot_id">> & {
+  is_active?: boolean
+}
