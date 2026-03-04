@@ -19,6 +19,7 @@ from alembic import context
 from app.models.user import User  # noqa: F401
 from app.models.bot import Bot  # noqa: F401
 from app.models.chat import ChatSession, Message  # noqa: F401
+from app.models.faq import Faq  # noqa: F401
 from sqlmodel import SQLModel
 
 from app.core.config import get_settings
