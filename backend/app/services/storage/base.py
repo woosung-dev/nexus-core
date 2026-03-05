@@ -1,6 +1,11 @@
 """
 파일 스토리지 서비스 추상 인터페이스.
-LocalFileStorage → S3FileStorage로 교체 가능하도록 설계.
+팩토리(factory.py)를 통해 환경변수 STORAGE_PROVIDER에 따라
+Local / Supabase Storage / Cloudflare R2 구현체로 교체된다.
+
+★ 규격: upload() 메서드는 반드시 **절대 URL**을 반환해야 한다.
+   - Local: /static/uploads/{filename} (서버 상대 경로)
+   - Cloud: https://... (퍼블릭 URL)
 """
 
 from abc import ABC, abstractmethod

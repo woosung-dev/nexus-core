@@ -21,7 +21,8 @@ from app.schemas.faq import FaqCreateRequest, FaqListResponse, FaqResponse, FaqU
 from app.schemas.rag import DocumentListResponse, DocumentUploadResponse
 from app.schemas.user import UserAdminUpdateRequest, UserListResponse, UserResponse
 from app.services.rag.factory import get_rag_service
-from app.services.storage.local import LocalFileStorage
+from app.services.storage.base import FileStorageService
+from app.services.storage.factory import get_storage_service
 from app.utils.embeddings import get_embedding
 logger = logging.getLogger(__name__)
 
@@ -130,10 +131,11 @@ async def upload_bot_image(
     bot_id: int,
     file: UploadFile,
     session: AsyncSession = Depends(get_session),
+    storage: FileStorageService = Depends(get_storage_service),
 ) -> BotImageUploadResponse:
     """
     봇 메인 대표 이미지(아이콘) 업로드.
-    로컬에 저장 후 봇의 `image_url` 필드를 업데이트한다.
+    스토리지에 저장 후 봇의 `image_url` 필드를 업데이트한다.
     """
     # 봇 존재 확인
     result = await session.execute(select(Bot).where(Bot.id == bot_id))
@@ -155,21 +157,12 @@ async def upload_bot_image(
     if not content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다.")
 
-    # 로컬 저장
-    storage = LocalFileStorage()
-    local_path = await storage.upload(
+    # 스토리지 업로드 (구현체에 따라 로컬/Supabase/R2로 분기)
+    public_url = await storage.upload(
         file_data=file_data,
         filename=file.filename or "unknown_image.png",
         content_type=content_type,
     )
-
-    # 프론트엔드가 접근 가능한 정적 서빙 경로 URL 생성 ("/uploads/...")
-    # *storage.upload()는 "uploads/~~"를 반환하므로, 앞에 "/static/"를 붙이거나 
-    # FastAPI mount 경로와 일치하도록 가공합니다.
-    # main.py에서 mount("/static/uploads", directory="uploads") 기준
-    # file_path에서 'uploads/' 제거하고 조합
-    relative_path = local_path.replace("uploads/", "")
-    public_url = f"/static/uploads/{relative_path}"
 
     # DB 업데이트
     bot.image_url = public_url
@@ -229,10 +222,11 @@ async def upload_bot_document(
     bot_id: int,
     file: UploadFile,
     session: AsyncSession = Depends(get_session),
+    storage: FileStorageService = Depends(get_storage_service),
 ) -> DocumentUploadResponse:
     """
     봇 전용 참고 문서 업로드.
-    로컬에 저장 후 RAG Store에 메타데이터(bot_id) 포함 업로드.
+    스토리지에 저장 후 RAG Store에 메타데이터(bot_id) 포함 업로드.
     """
     # 봇 존재 확인
     result = await session.execute(select(Bot).where(Bot.id == bot_id))
@@ -249,9 +243,8 @@ async def upload_bot_document(
             detail=f"파일 크기가 {settings.MAX_UPLOAD_SIZE_MB}MB를 초과합니다.",
         )
 
-    # 로컬 저장
-    storage = LocalFileStorage()
-    local_path = await storage.upload(
+    # 스토리지 업로드 (구현체에 따라 로컬/Supabase/R2로 분기)
+    stored_path = await storage.upload(
         file_data=file_data,
         filename=file.filename or "unknown",
         content_type=file.content_type or "application/octet-stream",
@@ -262,7 +255,7 @@ async def upload_bot_document(
     display_name = file.filename or "unknown"
     await rag.upload_document(
         bot_id=bot_id,
-        file_path=local_path,
+        file_path=stored_path,
         display_name=display_name,
     )
 

@@ -32,9 +32,22 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str
     OPENAI_API_KEY: str | None = None
 
-    # --- 파일 업로드 ---
-    UPLOAD_DIR: str = "./uploads"
+    # --- 파일 스토리지 ---
+    STORAGE_PROVIDER: str = "supabase"  # "supabase" | "r2"
     MAX_UPLOAD_SIZE_MB: int = 10
+
+    # --- Cloudflare R2 ---
+    R2_ACCOUNT_ID: str | None = None
+    R2_ACCESS_KEY_ID: str | None = None
+    R2_SECRET_ACCESS_KEY: str | None = None
+    R2_BUCKET_NAME: str | None = None
+    R2_PUBLIC_URL: str | None = None  # 커스텀 도메인 또는 r2.dev URL
+    
+    # --- Supabase Storage ---
+    SUPABASE_URL: str | None = None
+    SUPABASE_SERVICE_KEY: str | None = None
+    SUPABASE_STORAGE_BUCKET: str = "uploads"
+
 
     # --- RAG (File Search API) ---
     FILE_SEARCH_STORE_NAME: str = "nexus-core-knowledge-base"
