@@ -98,7 +98,7 @@ async def run_migrations_online() -> None:
         },
     )
 
-    async with connectable.connect() as connection:
+    async with connectable.begin() as connection:
         # nexus_core 스키마가 없으면 생성 (멱등성 보장)
         await connection.execute(
             sqlalchemy.text(f"CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}")
