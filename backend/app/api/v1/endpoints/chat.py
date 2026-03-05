@@ -8,12 +8,13 @@ import logging
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, desc, func
 
 from app.api.deps import get_current_user
 from app.core.database import get_session
+from app.crud import crud_chat
+from app.core.exceptions import BotNotFoundError, NotFoundError, NexusException
 from app.models.bot import Bot
 from app.models.chat import ChatSession, Message
 from app.models.enums import MessageRole
@@ -25,22 +26,14 @@ from app.schemas.chat import (
     ChatSessionResponse,
     MessageResponse,
 )
-from app.services.rag.factory import get_rag_service
-from app.services.llm.gemini import GeminiService
-from app.services.llm.openai import OpenAIService
-from app.services.faq_service import search_faq_override
+from app.services.chat_service import ChatService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/chats", tags=["채팅"])
 
 
-def _get_llm_service(model_name: str):
-    """봇의 llm_model 설정에 따라 적절한 LLM 서비스 반환"""
-    if model_name.startswith("gpt"):
-        return OpenAIService(model_name=model_name)
-    # 기본값: Gemini
-    return GeminiService(model_name=model_name)
+# Removed _get_llm_service (moved to ChatService)
 
 
 @router.get("", response_model=ChatSessionListResponse)
@@ -54,20 +47,9 @@ async def list_chat_sessions(
     현재 로그인한 사용자의 채팅 세션 목록을 조회합니다.
     최근 업데이트된 순서(updated_at DESC)로 정렬됩니다.
     """
-    statement = (
-        select(ChatSession, Bot)
-        .outerjoin(Bot, ChatSession.bot_id == Bot.id)
-        .where(ChatSession.user_id == current_user.id)
-        .order_by(desc(ChatSession.updated_at))
-        .offset(offset)
-        .limit(limit)
+    rows, total = await crud_chat.get_user_chat_sessions(
+        session, current_user.id, limit, offset
     )
-    result = await session.execute(statement)
-    rows = result.all()
-
-    # 전체 개수 조회 — func.count()로 DB 레벨 집계 (메모리 로드 없음)
-    count_statement = select(func.count()).where(ChatSession.user_id == current_user.id)
-    total = await session.scalar(count_statement)
 
     session_responses = []
     for chat_sess, bot_obj in rows:
@@ -94,14 +76,11 @@ async def create_chat_session(
         result = await session.execute(select(Bot).where(Bot.id == bot_id))
         bot_obj = result.scalar_one_or_none()
         if not bot_obj:
-            raise HTTPException(status_code=404, detail="지정된 봇을 찾을 수 없습니다.")
+            raise BotNotFoundError()
 
-    chat_session = ChatSession(
-        user_id=current_user.id,
-        bot_id=bot_id,
-        title=title,
+    chat_session = await crud_chat.create_chat_session(
+        session=session, user_id=current_user.id, bot_id=bot_id, title=title
     )
-    session.add(chat_session)
     await session.commit()
     await session.refresh(chat_session)
 
@@ -122,21 +101,18 @@ async def list_messages(
     특정 채팅 세션의 메시지 기록을 조회합니다.
     """
     # 세션 소유권 검증
-    result = await session.execute(select(ChatSession).where(ChatSession.id == session_id))
-    chat_session = result.scalar_one_or_none()
+    chat_session = await crud_chat.get_chat_session_by_id(session, session_id)
 
     if not chat_session:
-        raise HTTPException(status_code=404, detail="채팅 세션을 찾을 수 없습니다.")
+        raise NotFoundError("채팅 세션을 찾을 수 없습니다.")
     if chat_session.user_id != current_user.id:
-        raise HTTPException(status_code=403, detail="권한이 없습니다.")
+        raise NexusException(
+            error_code="FORBIDDEN", 
+            message="접근 권한이 없습니다.", 
+            status_code=status.HTTP_403_FORBIDDEN
+        )
 
-    statement = (
-        select(Message)
-        .where(Message.session_id == session_id)
-        .order_by(Message.created_at)
-    )
-    msg_result = await session.execute(statement)
-    messages = msg_result.scalars().all()
+    messages = await crud_chat.get_session_messages(session, session_id)
 
     return [MessageResponse.model_validate(m) for m in messages]
 
@@ -157,214 +133,37 @@ async def chat_completions(
     bot = result.scalar_one_or_none()
 
     if not bot:
-        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+        raise BotNotFoundError()
     if not bot.is_active:
-        raise HTTPException(status_code=400, detail="비활성화된 봇입니다.")
+        raise ValidationError("비활성화된 봇입니다.")
 
     # 2. 세션 검증 또는 신규 생성
     chat_session = None
 
     if request.session_id:
-        sess_result = await session.execute(
-            select(ChatSession).where(ChatSession.id == request.session_id)
-        )
-        chat_session = sess_result.scalar_one_or_none()
+        chat_session = await crud_chat.get_chat_session_by_id(session, request.session_id)
         if not chat_session:
-            raise HTTPException(status_code=404, detail="세션을 찾을 수 없습니다.")
+            raise NotFoundError("세션을 찾을 수 없습니다.")
         if chat_session.user_id != current_user.id:
-            raise HTTPException(status_code=403, detail="세션 접근 권한이 없습니다.")
+            raise NexusException(
+                error_code="FORBIDDEN", 
+                message="세션 접근 권한이 없습니다.", 
+                status_code=status.HTTP_403_FORBIDDEN
+            )
     else:
         # 새 세션 생성
         title = request.message[:20] + "..." if len(request.message) > 20 else request.message
-        chat_session = ChatSession(
-            user_id=current_user.id,
-            bot_id=request.bot_id,
-            title=title
+        chat_session = await crud_chat.create_chat_session(
+            session=session, user_id=current_user.id, bot_id=request.bot_id, title=title
         )
-        session.add(chat_session)
-        await session.flush()  # ID 확보
 
-    # 3. 사용자 메시지 DB에 저장 (commit 없이 flush만 → AI 메시지와 1회 commit으로 통합)
-    user_msg = Message(
-        session_id=chat_session.id,
-        role=MessageRole.USER,
-        content=request.message,
-    )
-    session.add(user_msg)
-    await session.flush()  # ID 확보, 트랜잭션 유지
-
-    # 3.5 ★ FAQ Override 검색 (시맨틱 라우팅)
-    # LLM/RAG 호출 전에 pgvector 코사인 유사도로 FAQ 테이블 검색
-    faq_match = await search_faq_override(
-        session=session,
-        bot_id=request.bot_id,
-        query_text=request.message,
+    # 3. 사용자 메시지 DB에 저장 (commit 없이 flush만)
+    await crud_chat.create_message(
+        session=session, session_id=chat_session.id, role=MessageRole.USER, content=request.message
     )
 
-    if faq_match:
-        # FAQ 매칭 성공 → LLM 호출 없이 즉시 응답 (비용 절약 + 환각 방지)
-        ai_msg = Message(
-            session_id=chat_session.id,
-            role=MessageRole.ASSISTANT,
-            content=faq_match.answer,
-        )
-        session.add(ai_msg)
-        chat_session.updated_at = datetime.now()
-        await session.commit()
-
-        logger.info(
-            f"FAQ Override 응답: faq_id={faq_match.faq_id}, "
-            f"similarity={faq_match.similarity}"
-        )
-
-        return ChatCompletionResponse(
-            session_id=chat_session.id,
-            content=faq_match.answer,
-            bot_id=request.bot_id,
-            source="faq_override",
-        )
-
-    # 4. (분기) RAG 처리
-    if request.use_rag:
-        rag_service = get_rag_service(provider=bot.llm_model)
-
-        if request.stream:
-            # RAG SSE 스트리밍 응답
-            async def rag_event_generator():
-                full_response_content = ""
-                try:
-                    meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
-                    yield f"data: {meta_data}\n\n"
-
-                    async for chunk in rag_service.generate_stream_with_rag(
-                        bot_id=request.bot_id,
-                        prompt=request.message,
-                        system_prompt=bot.system_prompt,
-                        model_name=bot.llm_model,
-                    ):
-                        full_response_content += chunk
-                        data = json.dumps({"content": chunk}, ensure_ascii=False)
-                        yield f"data: {data}\n\n"
-
-                    yield "data: [DONE]\n\n"
-
-                    # 스트리밍 완료 후 1회 commit
-                    ai_msg = Message(
-                        session_id=chat_session.id,
-                        role=MessageRole.ASSISTANT,
-                        content=full_response_content,
-                    )
-                    session.add(ai_msg)
-                    chat_session.updated_at = datetime.now()
-                    await session.commit()
-
-                except Exception as e:
-                    logger.error(f"RAG 스트리밍 오류: {e}")
-                    error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
-                    yield f"data: {error_data}\n\n"
-
-            return StreamingResponse(
-                rag_event_generator(),
-                media_type="text/event-stream",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "X-Accel-Buffering": "no",
-                },
-            )
-        else:
-            # RAG Non-Streaming 응답
-            rag_response = await rag_service.generate_with_rag(
-                bot_id=request.bot_id,
-                prompt=request.message,
-                system_prompt=bot.system_prompt,
-                model_name=bot.llm_model,
-            )
-
-            # AI 응답 DB 저장 — user_msg flush와 함께 1회 commit
-            ai_msg = Message(
-                session_id=chat_session.id,
-                role=MessageRole.ASSISTANT,
-                content=rag_response.answer,
-            )
-            session.add(ai_msg)
-            chat_session.updated_at = datetime.now()
-            await session.commit()
-
-            return ChatCompletionResponse(
-                session_id=chat_session.id,
-                content=rag_response.answer,
-                bot_id=request.bot_id,
-                citations=rag_response.citations,
-                source="rag",
-            )
-
-    # 5. 일반 LLM 처리
-    llm_service = _get_llm_service(bot.llm_model)
-
-    if request.stream:
-        # SSE 스트리밍 응답
-        async def event_generator():
-            full_response_content = ""
-            try:
-                # 클라이언트에게 활성화된 session_id를 가장 먼저 알려줌 (새로고침/리다이렉트 용도)
-                meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
-                yield f"data: {meta_data}\n\n"
-
-                async for chunk in llm_service.generate_stream(
-                    prompt=request.message,
-                    system_prompt=bot.system_prompt,
-                ):
-                    full_response_content += chunk
-                    data = json.dumps({"content": chunk}, ensure_ascii=False)
-                    yield f"data: {data}\n\n"
-                    
-                yield "data: [DONE]\n\n"
-
-                # 스트리밍이 완전히 정상 종료된 후 1회 DB 기록 & updated_at 갱신
-                ai_msg = Message(
-                    session_id=chat_session.id,
-                    role=MessageRole.ASSISTANT,
-                    content=full_response_content,
-                )
-                session.add(ai_msg)
-                chat_session.updated_at = datetime.now()
-                await session.commit()
-
-            except Exception as e:
-                logger.error(f"스트리밍 오류: {e}")
-                error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
-                yield f"data: {error_data}\n\n"
-                # 주의: 오류 발생 시 불완전한 메시지는 저장하지 않음 (롤백 처리됨)
-
-        return StreamingResponse(
-            event_generator(),
-            media_type="text/event-stream",
-            headers={
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-                "X-Accel-Buffering": "no",
-            },
-        )
-    else:
-        # Non-Streaming 응답
-        content = await llm_service.generate(
-            prompt=request.message,
-            system_prompt=bot.system_prompt,
-        )
-
-        ai_msg = Message(
-            session_id=chat_session.id,
-            role=MessageRole.ASSISTANT,
-            content=content,
-        )
-        session.add(ai_msg)
-        chat_session.updated_at = datetime.now()
-        await session.commit()
-
-        return ChatCompletionResponse(
-            session_id=chat_session.id,
-            content=content,
-            bot_id=request.bot_id,
-            source="llm",
-        )
+    # 4. 서비스 레이어 위임 (ChatService)
+    chat_service = ChatService(session=session)
+    return await chat_service.process_chat_request(
+        request=request, bot=bot, chat_session=chat_session
+    )
