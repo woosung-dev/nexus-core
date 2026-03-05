@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
       { protocol: "http", hostname: "t1.kakaocdn.net" },
       { protocol: "https", hostname: "lh3.googleusercontent.com" },
       { protocol: "https", hostname: "avatars.githubusercontent.com" },
+      // Supabase Storage
+      { protocol: "https", hostname: "*.supabase.co" },
+      // Cloudflare R2
+      { protocol: "https", hostname: "*.r2.dev" },
+      { protocol: "https", hostname: "*.r2.cloudflarestorage.com" },
     ],
   },
   async rewrites() {
