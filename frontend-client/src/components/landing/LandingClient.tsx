@@ -77,7 +77,7 @@ export function LandingClient() {
             onSearchChange={setSearchQuery}
           />
           <div className="w-full max-w-7xl mx-auto">
-            <BotGrid bots={filteredBots} title={activeCategory === "전체" ? "인기 챗봇" : `${activeCategory} 챗봇`} />
+            <BotGrid bots={filteredBots} title={activeCategory === "전체" ? "인기 챗봇" : `${activeCategory} 챗봇`} isLoading={isBotsLoading} />
           </div>
         </div>
       </main>
