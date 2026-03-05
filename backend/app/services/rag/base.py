@@ -25,8 +25,10 @@ class BaseRAGService(ABC):
     async def upload_document(
         self,
         bot_id: int,
-        file_path: str,
+        file_data: bytes,
+        filename: str,
         display_name: str,
+        mime_type: str | None = None,
     ) -> str:
         """
         Vector Store에 문서를 업로드한다.
@@ -34,8 +36,10 @@ class BaseRAGService(ABC):
 
         Args:
             bot_id: 문서가 속하는 봇 ID
-            file_path: 로컬 파일 경로
+            file_data: 업로드할 파일의 바이너리 데이터 (bytes)
+            filename: 실제 파일명 (확장자 포함, 스토리지/SDK 전달용)
             display_name: 문서 표시 이름
+            mime_type: 파일의 마임 타입 (e.g., "application/pdf")
 
         Returns:
             업로드된 파일의 식별자 또는 표시 이름

@@ -250,13 +250,16 @@ async def upload_bot_document(
         content_type=file.content_type or "application/octet-stream",
     )
 
-    # File Search Store에 업로드
+    # File Search Store에 업로드 (바이너리 데이터를 직접 전달)
     rag = get_rag_service(provider=bot.llm_model)
     display_name = file.filename or "unknown"
+    
     await rag.upload_document(
         bot_id=bot_id,
-        file_path=stored_path,
+        file_data=file_data,
+        filename=display_name,
         display_name=display_name,
+        mime_type=file.content_type,
     )
 
     logger.info(f"봇 문서 업로드 완료: bot_id={bot_id}, file={display_name}, provider={bot.llm_model}")

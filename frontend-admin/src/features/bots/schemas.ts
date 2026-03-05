@@ -18,7 +18,7 @@ export const LLM_MODEL_OPTIONS = [
   { label: "GPT-4o", value: "gpt-4o", provider: "openai" },
   { label: "GPT-4o Mini", value: "gpt-4o-mini", provider: "openai" },
   { label: "Gemini 2.5 Flash", value: "gemini-2.5-flash", provider: "gemini" },
-  { label: "Gemini 3.0 Flash", value: "gemini-3-flash", provider: "gemini" },
+  { label: "Gemini 3.0 Flash", value: "gemini-3.0-flash", provider: "gemini" },
 ] as const
 
 export type LLMProvider = "openai" | "gemini" | "unknown"

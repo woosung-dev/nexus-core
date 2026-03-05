@@ -35,7 +35,10 @@ export async function uploadDocument(
   const { data } = await apiClient.post<DocumentUploadResponse>(
     `/api/v1/admin/bots/${botId}/documents`,
     formData,
-    { headers: { "Content-Type": "multipart/form-data" } }
+    {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120_000, // 파일 업로드는 최대 2분 허용 (기본값 10초 오버라이드)
+    }
   )
   return data
 }

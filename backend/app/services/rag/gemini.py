@@ -5,6 +5,7 @@ Gemini File Search API 기반 RAG 서비스.
 벡터 DB 없이 Google 관리형 RAG를 구현.
 """
 
+import io
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
@@ -60,8 +61,10 @@ class GeminiRAGService(BaseRAGService):
     async def upload_document(
         self,
         bot_id: int,
-        file_path: str,
+        file_data: bytes,
+        filename: str,
         display_name: str,
+        mime_type: str | None = None,
     ) -> str:
         """
         File Search Store에 문서를 업로드한다.
@@ -69,8 +72,10 @@ class GeminiRAGService(BaseRAGService):
 
         Args:
             bot_id: 문서가 속하는 봇 ID
-            file_path: 로컬 파일 경로
+            file_data: 업로드할 파일의 바이너리 데이터 (bytes)
+            filename: 실제 파일명
             display_name: 문서 표시 이름
+            mime_type: 파일의 마임 타입 (e.g., "application/pdf")
 
         Returns:
             업로드된 파일의 리소스 이름
@@ -78,10 +83,13 @@ class GeminiRAGService(BaseRAGService):
         store_name = await self.ensure_store()
 
         try:
+            # Gemini SDK는 업로드 시 파일 자체(bytes) 보다는 파일 객체 또는 경로를 권장합니다.
+            # 마임타입이 없으면 인덱싱 에러가 발생하므로 config 내에 명시적으로 전달합니다.
             await self._client.aio.file_search_stores.upload_to_file_search_store(
-                file=file_path,
+                file=io.BytesIO(file_data),
                 file_search_store_name=store_name,
                 config={
+                    "mime_type": mime_type,
                     "display_name": display_name,
                     "custom_metadata": [
                         {"key": "bot_id", "numeric_value": bot_id},

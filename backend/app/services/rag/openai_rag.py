@@ -5,6 +5,7 @@ Gemini 모델과 동일하게 하나의 공유 Vector Store에 메타데이터(b
 봇별 문서를 구분하여 관리형 RAG를 구현한다.
 """
 
+import asyncio
 import logging
 import time as _time
 from pathlib import Path
@@ -69,8 +70,10 @@ class OpenAIRAGService(BaseRAGService):
     async def upload_document(
         self,
         bot_id: int,
-        file_path: str,
+        file_data: bytes,
+        filename: str,
         display_name: str,
+        mime_type: str | None = None,
     ) -> str:
         """
         OpenAI Vector Store에 문서를 업로드한다.
@@ -78,8 +81,10 @@ class OpenAIRAGService(BaseRAGService):
 
         Args:
             bot_id: 문서가 속하는 봇 ID
-            file_path: 로컬 파일 경로
+            file_data: 업로드할 파일의 바이너리 데이터 (bytes)
+            filename: 실제 파일명 (확장자 포함)
             display_name: 문서 표시 이름
+            mime_type: 파일의 마임 타입
 
         Returns:
             업로드된 파일의 ID
@@ -87,20 +92,9 @@ class OpenAIRAGService(BaseRAGService):
         store_id = await self.ensure_store(bot_id=bot_id)
 
         try:
-            # 1. 파일 시스템에서 읽기 준비
-            file_path_obj = Path(file_path)
-            
-            # File Upload with specific bot_id metadata
-            # Assistants API (File Search)에서 나중에 검색을 필터링하려면
-            # File 객체를 만들 때 metadata를 주입하거나 Vector Store 연결 때 주입하는데,
-            # OpenAI 최신 가이드에서는 파일 객체에 metadata를 설정하도록 지원합니다.
-            
-            # OpenAI API의 files.create에는 현재 공식적으로 metadata 파라미터가 비동기/동기 구문에서 지원되는지 확인.
-            # 지원하지 않는다면 어쩔 수 없지만, 최근 Assistants API V2에서는 지원합니다.
-            # 에러를 줄이기 위해 파일을 먼저 업로드 후, 그 결과(file_id)를 통해 File 객체를 업데이트
-            file_data = file_path_obj.read_bytes()
+            # 1. OpenAI Files API에 바이너리 데이터 직접 업로드 (로컬 파일 불필요)
             file_obj = await self._client.files.create(
-                file=(display_name, file_data),
+                file=(filename, file_data),
                 purpose="assistants",
             )
             file_id = file_obj.id
@@ -122,7 +116,7 @@ class OpenAIRAGService(BaseRAGService):
             max_wait = 60
             elapsed = 0
             while vector_store_file.status in ("in_progress", "queued") and elapsed < max_wait:
-                _time.sleep(2)
+                await asyncio.sleep(2)
                 elapsed += 2
                 vector_store_file = await self._client.vector_stores.files.retrieve(
                     vector_store_id=store_id,
