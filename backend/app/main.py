@@ -6,11 +6,16 @@ import logging
 from contextlib import asynccontextmanager
 
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.v1.router import router as v1_router
 from app.core.config import get_settings
+from app.core.exceptions import NexusException
+from app.schemas.common import ErrorResponse
 
 # 로깅 설정
 logging.basicConfig(
@@ -52,6 +57,60 @@ def create_app() -> FastAPI:
 
     # API 라우터 등록
     app.include_router(v1_router)
+
+    # ==========================
+    # 글로벌 커스텀 예외 핸들러 등록
+    # ==========================
+    
+    @app.exception_handler(NexusException)
+    async def nexus_exception_handler(request: Request, exc: NexusException):
+        logger.warning(f"NexusException: {exc.error_code} - {exc.message}")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=ErrorResponse(
+                success=False,
+                error_code=exc.error_code,
+                message=exc.message,
+                details=exc.details,
+            ).model_dump(),
+        )
+
+    @app.exception_handler(RequestValidationError)
+    async def validation_exception_handler(request: Request, exc: RequestValidationError):
+        logger.warning(f"RequestValidationError: {exc.errors()}")
+        return JSONResponse(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            content=ErrorResponse(
+                success=False,
+                error_code="VALIDATION_ERROR",
+                message="요청 데이터(스키마)가 올바르지 않습니다.",
+                details=exc.errors(),
+            ).model_dump(),
+        )
+
+    @app.exception_handler(StarletteHTTPException)
+    async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+        logger.warning(f"HTTPException: {exc.status_code} - {exc.detail}")
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=ErrorResponse(
+                success=False,
+                error_code="HTTP_ERROR",
+                message=str(exc.detail),
+            ).model_dump(),
+        )
+
+    @app.exception_handler(Exception)
+    async def global_exception_handler(request: Request, exc: Exception):
+        logger.error(f"Unhandled Exception: {str(exc)}", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content=ErrorResponse(
+                success=False,
+                error_code="INTERNAL_SERVER_ERROR",
+                message="서버 내부 오류가 발생했습니다. 관리자에게 문의하세요.",
+            ).model_dump(),
+        )
 
     # 헬스체크
     @app.get("/health", tags=["시스템"])
