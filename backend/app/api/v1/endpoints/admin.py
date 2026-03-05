@@ -6,12 +6,14 @@ Admin 봇/사용자 관리 API 엔드포인트.
 import logging
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Depends, Query, UploadFile
+from app.core.exceptions import BotNotFoundError, NotFoundError, ValidationError, NexusException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, col
 
 from app.core.config import get_settings
 from app.core.database import get_session
+from app.crud import crud_bot
 from app.models.bot import Bot
 from app.models.faq import Faq
 from app.models.user import User
@@ -33,11 +35,8 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 async def list_bots(
     session: AsyncSession = Depends(get_session),
 ) -> BotListResponse:
-    """봇 전체 목록 조회 (활성 봇만)"""
-    result = await session.execute(
-        select(Bot).order_by(Bot.id)
-    )
-    bots = result.scalars().all()
+    """봇 전체 목록 조회 (활성/비활성 모두)"""
+    bots = await crud_bot.get_all_bots(session)
 
     return BotListResponse(
         bots=[BotResponse.model_validate(bot) for bot in bots],
@@ -51,11 +50,10 @@ async def get_bot(
     session: AsyncSession = Depends(get_session),
 ) -> BotResponse:
     """봇 단일 상세 조회"""
-    result = await session.execute(select(Bot).where(Bot.id == bot_id))
-    bot = result.scalar_one_or_none()
+    bot = await crud_bot.get_bot(session, bot_id)
 
     if not bot:
-        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+        raise BotNotFoundError()
 
     return BotResponse.model_validate(bot)
 
@@ -66,10 +64,7 @@ async def create_bot(
     session: AsyncSession = Depends(get_session),
 ) -> BotResponse:
     """봇 생성"""
-    bot = Bot(**request.model_dump())
-    session.add(bot)
-    await session.flush()
-    await session.refresh(bot)
+    bot = await crud_bot.create_bot(session, request)
 
     logger.info(f"봇 생성: id={bot.id}, name={bot.name}")
     return BotResponse.model_validate(bot)
@@ -82,21 +77,12 @@ async def update_bot(
     session: AsyncSession = Depends(get_session),
 ) -> BotResponse:
     """봇 수정 (부분 업데이트)"""
-    result = await session.execute(select(Bot).where(Bot.id == bot_id))
-    bot = result.scalar_one_or_none()
+    bot = await crud_bot.get_bot(session, bot_id)
 
     if not bot:
-        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+        raise BotNotFoundError()
 
-    # None이 아닌 필드만 업데이트
-    update_data = request.model_dump(exclude_unset=True)
-    for key, value in update_data.items():
-        setattr(bot, key, value)
-
-    bot.updated_at = datetime.utcnow()
-    session.add(bot)
-    await session.flush()
-    await session.refresh(bot)
+    bot = await crud_bot.update_bot(session, bot, request)
 
     logger.info(f"봇 수정: id={bot.id}")
     return BotResponse.model_validate(bot)
@@ -108,15 +94,12 @@ async def delete_bot(
     session: AsyncSession = Depends(get_session),
 ) -> None:
     """봇 삭제 (소프트 삭제 — is_active=False)"""
-    result = await session.execute(select(Bot).where(Bot.id == bot_id))
-    bot = result.scalar_one_or_none()
+    bot = await crud_bot.get_bot(session, bot_id)
 
     if not bot:
-        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+        raise BotNotFoundError()
 
-    bot.is_active = False
-    bot.updated_at = datetime.utcnow()
-    session.add(bot)
+    await crud_bot.soft_delete_bot(session, bot)
 
     logger.info(f"봇 비활성화: id={bot.id}")
 
@@ -138,24 +121,20 @@ async def upload_bot_image(
     스토리지에 저장 후 봇의 `image_url` 필드를 업데이트한다.
     """
     # 봇 존재 확인
-    result = await session.execute(select(Bot).where(Bot.id == bot_id))
-    bot = result.scalar_one_or_none()
+    bot = await crud_bot.get_bot(session, bot_id)
     if not bot:
-        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+        raise BotNotFoundError()
 
     # 파일 크기 제한 확인
     settings = get_settings()
     file_data = await file.read()
     if len(file_data) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
-        raise HTTPException(
-            status_code=413,
-            detail=f"파일 크기가 {settings.MAX_UPLOAD_SIZE_MB}MB를 초과합니다.",
-        )
+        raise ValidationError(f"파일 크기가 {settings.MAX_UPLOAD_SIZE_MB}MB를 초과합니다.")
 
     # 단순 확장자 검증 (이미지 한정)
     content_type = file.content_type or "application/octet-stream"
     if not content_type.startswith("image/"):
-        raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다.")
+        raise ValidationError("이미지 파일만 업로드 가능합니다.")
 
     # 스토리지 업로드 (구현체에 따라 로컬/Supabase/R2로 분기)
     public_url = await storage.upload(
@@ -197,7 +176,7 @@ async def list_bot_documents(
     result = await session.execute(select(Bot).where(Bot.id == bot_id))
     bot = result.scalar_one_or_none()
     if not bot:
-        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+        raise BotNotFoundError()
 
     # RAG 서비스에서 문서 목록 조회
     rag = get_rag_service(provider=bot.llm_model)
@@ -229,19 +208,15 @@ async def upload_bot_document(
     스토리지에 저장 후 RAG Store에 메타데이터(bot_id) 포함 업로드.
     """
     # 봇 존재 확인
-    result = await session.execute(select(Bot).where(Bot.id == bot_id))
-    bot = result.scalar_one_or_none()
+    bot = await crud_bot.get_bot(session, bot_id)
     if not bot:
-        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+        raise BotNotFoundError()
 
     # 파일 크기 제한 확인
     settings = get_settings()
     file_data = await file.read()
     if len(file_data) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
-        raise HTTPException(
-            status_code=413,
-            detail=f"파일 크기가 {settings.MAX_UPLOAD_SIZE_MB}MB를 초과합니다.",
-        )
+        raise ValidationError(f"파일 크기가 {settings.MAX_UPLOAD_SIZE_MB}MB를 초과합니다.")
 
     # 스토리지 업로드 (구현체에 따라 로컬/Supabase/R2로 분기)
     stored_path = await storage.upload(
@@ -282,17 +257,16 @@ async def delete_bot_document(
     RAG Store에서 해당 문서를 제거한다.
     """
     # 봇 존재 확인
-    result = await session.execute(select(Bot).where(Bot.id == bot_id))
-    bot = result.scalar_one_or_none()
+    bot = await crud_bot.get_bot(session, bot_id)
     if not bot:
-        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+        raise BotNotFoundError()
 
     # RAG 서비스에서 문서 삭제
     rag = get_rag_service(provider=bot.llm_model)
     try:
         await rag.delete_document(bot_id=bot_id, file_id=file_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise NotFoundError(str(e))
 
     logger.info(f"봇 문서 삭제 완료: bot_id={bot_id}, file_id={file_id}")
 
@@ -345,7 +319,7 @@ async def update_user(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+        raise NotFoundError("사용자를 찾을 수 없습니다.")
 
     # None이 아닌 필드만 업데이트
     update_data = request.model_dump(exclude_unset=True)
@@ -373,7 +347,7 @@ async def deactivate_user(
     user = result.scalar_one_or_none()
 
     if not user:
-        raise HTTPException(status_code=404, detail="사용자를 찾을 수 없습니다.")
+        raise NotFoundError("사용자를 찾을 수 없습니다.")
 
     user.is_active = False
     session.add(user)
@@ -396,9 +370,9 @@ async def list_faqs(
 ) -> FaqListResponse:
     """봇별 활성 FAQ 목록 조회"""
     # 봇 존재 확인
-    result = await session.execute(select(Bot).where(Bot.id == bot_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+    bot = await crud_bot.get_bot(session, bot_id)
+    if not bot:
+        raise BotNotFoundError()
 
     result = await session.execute(
         select(Faq)
@@ -427,7 +401,7 @@ async def get_faq(
     faq = result.scalar_one_or_none()
 
     if not faq:
-        raise HTTPException(status_code=404, detail="FAQ를 찾을 수 없습니다.")
+        raise NotFoundError("FAQ를 찾을 수 없습니다.")
 
     return FaqResponse.model_validate(faq)
 
@@ -448,15 +422,20 @@ async def create_faq(
     질문 텍스트를 gemini-embedding-001로 임베딩하여 question_vector에 저장한다.
     """
     # 봇 존재 확인
-    result = await session.execute(select(Bot).where(Bot.id == bot_id))
-    if not result.scalar_one_or_none():
-        raise HTTPException(status_code=404, detail="봇을 찾을 수 없습니다.")
+    bot = await crud_bot.get_bot(session, bot_id)
+    if not bot:
+        raise BotNotFoundError()
 
     # 질문 임베딩 생성
     try:
         vector = await get_embedding(request.question)
     except RuntimeError as e:
-        raise HTTPException(status_code=502, detail=str(e))
+        raise NexusException(
+            error_code="EMBEDDING_FAILED", 
+            message="임베딩 생성 중 오류가 발생했습니다.", 
+            status_code=502, 
+            details=str(e)
+        )
 
     faq = Faq(
         bot_id=bot_id,
@@ -491,7 +470,7 @@ async def update_faq(
     faq = result.scalar_one_or_none()
 
     if not faq:
-        raise HTTPException(status_code=404, detail="FAQ를 찾을 수 없습니다.")
+        raise NotFoundError("FAQ를 찾을 수 없습니다.")
 
     update_data = request.model_dump(exclude_unset=True)
 
@@ -500,7 +479,12 @@ async def update_faq(
         try:
             update_data["question_vector"] = await get_embedding(update_data["question"])
         except RuntimeError as e:
-            raise HTTPException(status_code=502, detail=str(e))
+            raise NexusException(
+                error_code="EMBEDDING_FAILED", 
+                message="임베딩 재생성 중 오류가 발생했습니다.", 
+                status_code=502, 
+                details=str(e)
+            )
 
     for key, value in update_data.items():
         setattr(faq, key, value)
@@ -528,7 +512,7 @@ async def delete_faq(
     faq = result.scalar_one_or_none()
 
     if not faq:
-        raise HTTPException(status_code=404, detail="FAQ를 찾을 수 없습니다.")
+        raise NotFoundError("FAQ를 찾을 수 없습니다.")
 
     faq.is_active = False
     faq.updated_at = datetime.utcnow()
