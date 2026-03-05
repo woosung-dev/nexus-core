@@ -16,6 +16,7 @@ export type BotResponse = {
   is_verified: boolean
   is_new: boolean
   plan_required: PlanType
+  is_active: boolean
   llm_model: string
   system_prompt: string
 }

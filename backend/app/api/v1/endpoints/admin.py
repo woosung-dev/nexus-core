@@ -35,7 +35,7 @@ async def list_bots(
 ) -> BotListResponse:
     """봇 전체 목록 조회 (활성 봇만)"""
     result = await session.execute(
-        select(Bot).where(Bot.is_active == True).order_by(Bot.id)
+        select(Bot).order_by(Bot.id)
     )
     bots = result.scalars().all()
 

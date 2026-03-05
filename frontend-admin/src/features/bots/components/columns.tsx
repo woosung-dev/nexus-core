@@ -54,10 +54,10 @@ function BotActionCell({ bot }: { bot: BotResponse }) {
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={handleDelete}
-          disabled={isPending}
+          disabled={isPending || !bot.is_active}
           className="text-destructive"
         >
-          {isPending ? "삭제 중..." : "삭제"}
+          {isPending ? "처리 중..." : bot.is_active ? "비활성화 (삭제)" : "비활성 상태"}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -77,9 +77,19 @@ export const columns: ColumnDef<BotResponse>[] = [
         <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     ),
-    cell: ({ row }) => (
-      <div className="font-medium">{row.getValue("name")}</div>
-    ),
+    cell: ({ row }) => {
+      const isActive = row.original.is_active
+      return (
+        <div className="flex items-center gap-2">
+          <span className={`font-medium ${!isActive ? "text-muted-foreground line-through opacity-70" : ""}`}>
+            {row.getValue("name")}
+          </span>
+          {!isActive && (
+            <Badge variant="destructive" className="ml-2 h-5 text-[10px] px-1.5">비활성</Badge>
+          )}
+        </div>
+      )
+    },
   },
   {
     accessorKey: "description",

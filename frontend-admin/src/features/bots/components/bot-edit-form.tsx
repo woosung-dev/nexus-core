@@ -78,7 +78,7 @@ export function BotEditForm({ bot }: BotEditFormProps) {
       name: bot.name,
       description: bot.description,
       tags: bot.tags,
-      is_active: true, // BotResponse에 is_active가 없으므로 기본값 true
+      is_active: bot.is_active ?? true,
       is_verified: bot.is_verified,
       is_new: bot.is_new,
       plan_required: bot.plan_required,

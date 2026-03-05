@@ -20,6 +20,7 @@ class BotResponse(BaseModel):
     is_verified: bool = False
     is_new: bool = False
     plan_required: PlanType = PlanType.FREE
+    is_active: bool = True
     llm_model: str = ""
     system_prompt: str = ""
 
