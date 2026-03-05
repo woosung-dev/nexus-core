@@ -1,5 +1,5 @@
 import { useState, KeyboardEvent, useRef, useEffect } from "react";
-import { ArrowUp, CornerDownLeft } from "lucide-react";
+import { ArrowUp, CornerDownLeft, Loader2 } from "lucide-react";
 import { useChatStream } from "@/hooks/useChatStream";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -48,7 +48,6 @@ export function ChatInput({ sessionId, botId }: { sessionId?: string; botId?: st
             onKeyDown={handleKeyDown}
             placeholder="AI에게 무엇이든 물어보세요..." 
             className="flex-1 bg-transparent border-0 focus:ring-0 focus:outline-none text-[15px] text-zinc-900 placeholder:text-zinc-400 py-3 pl-4 pr-4 resize-none max-h-[200px] leading-relaxed scrollbar-hide overflow-y-auto"
-            disabled={isStreaming}
           />
           
           <div className="flex items-center gap-2 pr-1 pb-1">
@@ -70,12 +69,18 @@ export function ChatInput({ sessionId, botId }: { sessionId?: string; botId?: st
               onClick={handleSend}
               disabled={isEmpty || isStreaming}
               className={`w-10 h-10 shrink-0 flex items-center justify-center rounded-2xl transition-all duration-300 ${
-                isEmpty || isStreaming
-                  ? "bg-zinc-50 text-zinc-300 grayscale cursor-not-allowed"
-                  : "bg-linear-to-br from-amber-400 to-amber-500 text-white shadow-lg shadow-amber-100 hover:scale-105 active:scale-95"
+                isStreaming
+                  ? "bg-amber-50 text-amber-500 cursor-not-allowed"
+                  : isEmpty
+                    ? "bg-zinc-50 text-zinc-300 grayscale cursor-not-allowed"
+                    : "bg-linear-to-br from-amber-400 to-amber-500 text-white shadow-lg shadow-amber-100 hover:scale-105 active:scale-95"
               }`}
             >
-              <ArrowUp className={`w-6 h-6 transition-transform duration-300 ${isStreaming ? "animate-pulse" : ""}`} />
+              {isStreaming ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <ArrowUp className="w-6 h-6 transition-transform duration-300" />
+              )}
             </button>
           </div>
         </div>
