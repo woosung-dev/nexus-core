@@ -46,6 +46,7 @@ import {
 export function BotForm() {
   const router = useRouter()
   const [tagInput, setTagInput] = React.useState("")
+  const [isComposing, setIsComposing] = React.useState(false)
   const [imageFile, setImageFile] = React.useState<File | null>(null)
   const [imagePreview, setImagePreview] = React.useState<string | null>(null)
   const imageInputRef = React.useRef<HTMLInputElement>(null)
@@ -70,6 +71,7 @@ export function BotForm() {
   // 태그 추가 (Enter 키)
   function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === "Enter") {
+      if (isComposing) return
       e.preventDefault()
       const value = tagInput.trim()
       if (value && !form.getValues("tags").includes(value)) {
@@ -247,6 +249,8 @@ export function BotForm() {
                         placeholder="태그를 입력하고 Enter를 누르세요"
                         value={tagInput}
                         onChange={(e) => setTagInput(e.target.value)}
+                        onCompositionStart={() => setIsComposing(true)}
+                        onCompositionEnd={() => setIsComposing(false)}
                         onKeyDown={handleTagKeyDown}
                       />
                       {watchedTags.length > 0 && (

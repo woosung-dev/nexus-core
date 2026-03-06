@@ -122,11 +122,16 @@ function FormControl({ ...props }: React.ComponentProps<typeof Slot.Root>) {
   )
 }
 
-function FormDescription({ className, ...props }: React.ComponentProps<"p">) {
+function FormDescription({
+  className,
+  asChild,
+  ...props
+}: React.ComponentProps<"p"> & { asChild?: boolean }) {
   const { formDescriptionId } = useFormField()
+  const Comp = asChild ? Slot.Root : "p"
 
   return (
-    <p
+    <Comp
       data-slot="form-description"
       id={formDescriptionId}
       className={cn("text-muted-foreground text-sm", className)}

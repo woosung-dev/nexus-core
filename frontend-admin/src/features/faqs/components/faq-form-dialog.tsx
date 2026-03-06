@@ -211,14 +211,16 @@ export function FaqFormDialog({
                       {...field}
                     />
                   </FormControl>
-                  <FormDescription className="space-y-1">
-                    <p>0.0 ~ 1.0 사이의 값. 이 값 이상의 유사도를 가지면 해당 답변을 우선 출력합니다.</p>
-                    <ul className="text-xs list-disc list-inside space-y-0.5 mt-2 text-muted-foreground/80">
-                      <li><strong>0.95 ~ 1.00:</strong> 매우 높음 (완전히 일치하는 의도)</li>
-                      <li><strong>0.85 ~ 0.95:</strong> 높음 (권장, 핵심 키워드/의도 일치)</li>
-                      <li><strong>0.75 ~ 0.85:</strong> 보통 (주제는 비슷하지만 다른 의도일 가능성 있음)</li>
-                      <li><strong>0.70 미만:</strong> 낮음 (단어 일부 중복)</li>
-                    </ul>
+                  <FormDescription asChild className="space-y-1">
+                    <div>
+                      <p>0.0 ~ 1.0 사이의 값. 이 값 이상의 유사도를 가지면 해당 답변을 우선 출력합니다.</p>
+                      <ul className="text-xs list-disc list-inside space-y-0.5 mt-2 text-muted-foreground/80">
+                        <li><strong>0.95 ~ 1.00:</strong> 매우 높음 (완전히 일치하는 의도)</li>
+                        <li><strong>0.85 ~ 0.95:</strong> 높음 (권장, 핵심 키워드/의도 일치)</li>
+                        <li><strong>0.75 ~ 0.85:</strong> 보통 (주제는 비슷하지만 다른 의도일 가능성 있음)</li>
+                        <li><strong>0.70 미만:</strong> 낮음 (단어 일부 중복)</li>
+                      </ul>
+                    </div>
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
