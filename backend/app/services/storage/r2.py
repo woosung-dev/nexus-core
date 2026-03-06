@@ -3,13 +3,18 @@ Cloudflare R2 스토리지 구현체.
 S3 호환 API를 통해 boto3로 연동한다.
 """
 
+import logging
 import uuid
 from pathlib import Path
 
 import boto3
+from fastapi.concurrency import run_in_threadpool
 
 from app.core.config import get_settings
+from app.core.exceptions import ConfigurationError, ValidationError
 from app.services.storage.base import FileStorageService
+
+logger = logging.getLogger(__name__)
 
 
 class R2FileStorage(FileStorageService):
@@ -24,10 +29,9 @@ class R2FileStorage(FileStorageService):
             settings.R2_BUCKET_NAME,
             settings.R2_PUBLIC_URL,
         ]):
-            raise ValueError(
-                "R2 Storage 사용 시 R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, "
-                "R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL "
-                "환경변수가 모두 필요합니다."
+            raise ConfigurationError(
+                "R2 Storage 설정이 누락되었습니다. R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, "
+                "R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL 환경변수를 확인해주세요."
             )
 
         self._bucket = settings.R2_BUCKET_NAME
@@ -48,13 +52,18 @@ class R2FileStorage(FileStorageService):
         ext = Path(filename).suffix if filename else ""
         unique_name = f"{uuid.uuid4().hex}{ext}"
 
-        # S3 호환 API로 업로드 (boto3는 동기이므로 직접 호출)
-        self._client.put_object(
-            Bucket=self._bucket,
-            Key=unique_name,
-            Body=file_data,
-            ContentType=content_type,
-        )
+        # boto3는 동기이므로 I/O 차단 방지를 위해 run_in_threadpool 사용
+        try:
+            await run_in_threadpool(
+                self._client.put_object,
+                Bucket=self._bucket,
+                Key=unique_name,
+                Body=file_data,
+                ContentType=content_type,
+            )
+        except Exception as e:
+            logger.error(f"R2 업로드 중 오류 발생: {str(e)}", exc_info=True)
+            raise ValidationError(f"이미지 업로드에 실패했습니다: {str(e)}")
 
         # 퍼블릭 URL 반환
         return f"{self._public_url}/{unique_name}"
@@ -63,12 +72,14 @@ class R2FileStorage(FileStorageService):
         """R2에서 파일 삭제"""
         key = self._extract_key(file_path)
         try:
-            self._client.delete_object(
+            await run_in_threadpool(
+                self._client.delete_object,
                 Bucket=self._bucket,
                 Key=key,
             )
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning(f"R2 삭제 중 오류 발생: {str(e)}")
             return False
 
     async def get_url(self, file_path: str) -> str:

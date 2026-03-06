@@ -3,11 +3,18 @@ Supabase Storage 구현체.
 supabase-py SDK를 사용하여 파일 업로드/삭제/URL 조회를 수행한다.
 """
 
+import logging
 import uuid
 from pathlib import Path
 
+from fastapi.concurrency import run_in_threadpool
+from supabase import create_client
+
 from app.core.config import get_settings
+from app.core.exceptions import ConfigurationError, ValidationError
 from app.services.storage.base import FileStorageService
+
+logger = logging.getLogger(__name__)
 
 
 class SupabaseFileStorage(FileStorageService):
@@ -16,11 +23,9 @@ class SupabaseFileStorage(FileStorageService):
     def __init__(self) -> None:
         settings = get_settings()
         if not settings.SUPABASE_URL or not settings.SUPABASE_SERVICE_KEY:
-            raise ValueError(
-                "Supabase Storage 사용 시 SUPABASE_URL, SUPABASE_SERVICE_KEY 환경변수가 필요합니다."
+            raise ConfigurationError(
+                "Supabase 설정(SUPABASE_URL, SUPABASE_SERVICE_KEY)이 누락되었습니다. 실서버 환경변수를 확인해주세요."
             )
-
-        from supabase import create_client
 
         self._client = create_client(
             settings.SUPABASE_URL,
@@ -34,43 +39,49 @@ class SupabaseFileStorage(FileStorageService):
         ext = Path(filename).suffix if filename else ""
         unique_name = f"{uuid.uuid4().hex}{ext}"
 
-        # Supabase Storage 업로드
-        self._client.storage.from_(self._bucket).upload(
-            path=unique_name,
-            file=file_data,
-            file_options={
-                "content-type": content_type,
-                "upsert": "false",
-            },
-        )
+        # supabase-py의 storage.upload는 동기 함수이므로 루프 차단 방지를 위해 run_in_threadpool 사용
+        try:
+            await run_in_threadpool(
+                self._client.storage.from_(self._bucket).upload,
+                path=unique_name,
+                file=file_data,
+                file_options={
+                    "content-type": content_type,
+                    "upsert": "false",
+                },
+            )
+        except Exception as e:
+            logger.error(f"Supabase 업로드 중 오류 발생: {str(e)}", exc_info=True)
+            raise ValidationError(f"이미지 업로드에 실패했습니다: {str(e)}")
 
         # 퍼블릭 URL 반환
         return self.get_public_url(unique_name)
 
     async def delete(self, file_path: str) -> bool:
         """Supabase Storage에서 파일 삭제"""
-        # file_path에서 오브젝트 키 추출
         key = self._extract_key(file_path)
         try:
-            self._client.storage.from_(self._bucket).remove([key])
+            await run_in_threadpool(
+                self._client.storage.from_(self._bucket).remove,
+                [key]
+            )
             return True
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Supabase 삭제 중 오류 발생: {str(e)}")
             return False
 
     async def get_url(self, file_path: str) -> str:
         """파일의 퍼블릭 URL 반환"""
         key = self._extract_key(file_path)
+        # URL 생성은 단순 문자열 조작이므로 스레드풀 불필요
         return self.get_public_url(key)
 
     def get_public_url(self, key: str) -> str:
         """오브젝트 키로 퍼블릭 URL 생성"""
-        result = self._client.storage.from_(self._bucket).get_public_url(key)
-        # supabase-py는 문자열 URL을 직접 반환
-        return result
+        return self._client.storage.from_(self._bucket).get_public_url(key)
 
     def _extract_key(self, file_path: str) -> str:
-        """절대 URL 또는 오브젝트 키에서 스토리지 키만 추출"""
-        # 절대 URL인 경우 버킷명 이후 경로를 추출
+        """절대 URL 또는 오브젝트 키에서 키만 추출"""
         bucket_marker = f"/object/public/{self._bucket}/"
         if bucket_marker in file_path:
             return file_path.split(bucket_marker, 1)[1]

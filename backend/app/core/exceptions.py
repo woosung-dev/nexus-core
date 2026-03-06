@@ -57,6 +57,16 @@ class AuthenticationError(NexusException):
             details=details,
         )
 
+class ConfigurationError(NexusException):
+    """서버 설정(환경변수 등) 오류"""
+    def __init__(self, message: str = "서버 설정이 올바르지 않습니다.", details: Optional[Any] = None):
+        super().__init__(
+            error_code="CONFIG_ERROR",
+            message=message,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            details=details,
+        )
+
 # ==========================================
 # 향후 새로운 도메인(Chat, RAG 등)에 대한 에러 클래스들도 
 # 이 파일에 계속 추가하시면 됩니다.
