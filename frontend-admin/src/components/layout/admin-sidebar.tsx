@@ -1,13 +1,14 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Bot, FileText, HelpCircle, LayoutDashboard, Settings, Users, Box } from "lucide-react"
+import { Bot, FileText, HelpCircle, LayoutDashboard, Settings, Users, Box, MessageSquare } from "lucide-react"
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Bots", url: "/bots", icon: Bot },
   { title: "FAQs", url: "/faqs", icon: HelpCircle },
   { title: "Documents", url: "/documents", icon: FileText },
+  { title: "Chats", url: "/chats", icon: MessageSquare },
   { title: "Users", url: "/users", icon: Users },
 ]
 

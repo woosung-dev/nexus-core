@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, User, Sparkles, Loader2 } from "lucide-react";
+import { Bot, User, Sparkles, Loader2, ThumbsUp, ThumbsDown, Copy, Check } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useQuery } from "@tanstack/react-query";
@@ -14,6 +14,35 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
   const { isStreaming, streamingText, optimisticUserMessage } = useChatStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+
+  // 피드백 및 복사 기능 상태
+  const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
+  const [feedbacks, setFeedbacks] = useState<Record<number, 'up' | 'down' | undefined>>({});
+
+  const handleCopy = (id: number, content: string) => {
+    navigator.clipboard.writeText(content);
+    setCopiedMessageId(id);
+    setTimeout(() => setCopiedMessageId(null), 2000);
+  };
+
+  const handleFeedback = async (id: number, type: 'up' | 'down') => {
+    const newFeedback = feedbacks[id] === type ? null : type;
+    
+    // 로컬 상태 즉시 반영 (Optimistic Update)
+    setFeedbacks(prev => ({
+      ...prev,
+      [id]: newFeedback ?? undefined
+    }));
+
+    try {
+      await api.patch(`/chats/messages/${id}`, {
+        feedback: newFeedback
+      });
+    } catch (error) {
+      console.error("Failed to update feedback:", error);
+      // 에러 시 롤백 (선택 사항, 여기서는 단순 로깅)
+    }
+  };
 
   const { data: messages = [] } = useQuery<MessageResponse[]>({
     queryKey: ['messages', sessionId],
@@ -104,10 +133,49 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                           {isUser ? (
                             <span className="whitespace-pre-wrap font-medium">{msg.content}</span>
                           ) : (
-                            <div className="prose prose-zinc max-w-none prose-p:leading-relaxed prose-pre:bg-zinc-50 prose-pre:border prose-pre:zinc-100 prose-code:text-amber-600 prose-headings:text-zinc-900 prose-a:text-amber-500">
-                              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                {msg.content}
-                              </ReactMarkdown>
+                            <div className="flex flex-col">
+                              <div className="prose prose-zinc max-w-none prose-p:leading-relaxed prose-pre:bg-zinc-50 prose-pre:border prose-pre:zinc-100 prose-code:text-amber-600 prose-headings:text-zinc-900 prose-a:text-amber-500">
+                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                  {msg.content}
+                                </ReactMarkdown>
+                              </div>
+                              {/* Action Bar */}
+                              <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100">
+                                <button
+                                  onClick={() => handleCopy(msg.id, msg.content)}
+                                  className="p-1.5 text-zinc-400 hover:text-amber-500 hover:bg-amber-50 rounded-md transition-colors"
+                                  title="복사하기"
+                                >
+                                  {copiedMessageId === msg.id ? (
+                                    <Check className="w-4 h-4 text-emerald-500" />
+                                  ) : (
+                                    <Copy className="w-4 h-4" />
+                                  )}
+                                </button>
+                                <div className="h-4 w-px bg-zinc-200 mx-1" />
+                                <button
+                                  onClick={() => handleFeedback(msg.id, 'up')}
+                                  className={`p-1.5 rounded-md transition-colors ${
+                                    feedbacks[msg.id] === 'up' 
+                                      ? 'text-amber-500 bg-amber-50' 
+                                      : 'text-zinc-400 hover:text-amber-500 hover:bg-amber-50'
+                                  }`}
+                                  title="좋아요"
+                                >
+                                  <ThumbsUp className={`w-4 h-4 ${feedbacks[msg.id] === 'up' ? 'fill-amber-500/20' : ''}`} />
+                                </button>
+                                <button
+                                  onClick={() => handleFeedback(msg.id, 'down')}
+                                  className={`p-1.5 rounded-md transition-colors ${
+                                    feedbacks[msg.id] === 'down' 
+                                      ? 'text-red-500 bg-red-50' 
+                                      : 'text-zinc-400 hover:text-red-500 hover:bg-red-50'
+                                  }`}
+                                  title="싫어요"
+                                >
+                                  <ThumbsDown className={`w-4 h-4 ${feedbacks[msg.id] === 'down' ? 'fill-red-500/20' : ''}`} />
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
