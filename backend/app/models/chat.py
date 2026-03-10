@@ -39,5 +39,6 @@ class Message(SQLModel, table=True):
         sa_column=Column(SAEnum(MessageRole, name="messagerole", schema="nexus_core", values_callable=lambda x: [e.value for e in x]))
     )
     content: str
+    feedback: str | None = Field(default=None, max_length=10, description="피드백 (up, down 등)")
 
     created_at: datetime = Field(default_factory=datetime.utcnow)

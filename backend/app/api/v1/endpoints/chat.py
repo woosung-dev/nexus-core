@@ -25,6 +25,7 @@ from app.schemas.chat import (
     ChatSessionListResponse,
     ChatSessionResponse,
     MessageResponse,
+    MessageFeedbackUpdate,
 )
 from app.services.chat_service import ChatService
 
@@ -167,3 +168,42 @@ async def chat_completions(
     return await chat_service.process_chat_request(
         request=request, bot=bot, chat_session=chat_session
     )
+
+
+@router.patch("/messages/{message_id}", response_model=MessageResponse)
+async def update_message_feedback(
+    message_id: int,
+    request: MessageFeedbackUpdate,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> MessageResponse:
+    """
+    메시지에 대한 피드백(좋아요/싫어요)을 업데이트합니다.
+    """
+    # 메시지 및 세션 소유권 확인 (비동기 쿼리)
+    result = await session.execute(
+        select(Message, ChatSession)
+        .join(ChatSession, Message.session_id == ChatSession.id)
+        .where(Message.id == message_id)
+    )
+    row = result.first()
+
+    if not row:
+        raise NotFoundError("메시지를 찾을 수 없습니다.")
+
+    msg_obj, sess_obj = row
+
+    if sess_obj.user_id != current_user.id:
+        raise NexusException(
+            error_code="FORBIDDEN",
+            message="피드백 수정 권한이 없습니다.",
+            status_code=status.HTTP_403_FORBIDDEN
+        )
+
+    # 업데이트
+    msg_obj.feedback = request.feedback
+    session.add(msg_obj)
+    await session.commit()
+    await session.refresh(msg_obj)
+
+    return MessageResponse.model_validate(msg_obj)

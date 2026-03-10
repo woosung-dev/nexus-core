@@ -49,6 +49,7 @@ class MessageResponse(BaseModel):
     session_id: int
     role: MessageRole
     content: str
+    feedback: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -58,4 +59,57 @@ class ChatSessionListResponse(BaseModel):
     """채팅 세션 목록 응답 스키마"""
 
     sessions: list[ChatSessionResponse]
+    total: int
+
+
+class MessageFeedbackUpdate(BaseModel):
+    """메시지 피드백 업데이트 요청 스키마"""
+
+    feedback: str | None
+
+
+class ChatSessionAdminResponse(BaseModel):
+    """어드민용 채팅 세션 응답 스키마 (추가 정보 포함)"""
+
+    id: int
+    bot_id: int | None
+    bot_name: str | None = None
+    user_id: int | None
+    user_email: str | None = None
+    title: str
+    like_count: int = 0
+    dislike_count: int = 0
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ChatSessionAdminListResponse(BaseModel):
+    """어드민용 채팅 세션 목록 응답 스키마"""
+
+    items: list[ChatSessionAdminResponse]
+    total: int
+
+
+class FeedbackMessageResponse(BaseModel):
+    """어드민용 피드백 메시지 상세 응답 스키마 (제안 2 - 포커스 뷰 용)"""
+    id: int
+    session_id: int
+    role: MessageRole
+    content: str
+    feedback: str
+    created_at: datetime
+    
+    # 조인으로 가져올 추가 정보
+    bot_name: str | None = None
+    user_email: str | None = None
+    session_title: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FeedbackMessageListResponse(BaseModel):
+    """어드민용 피드백 메시지 목록 응답 스키마"""
+    items: list[FeedbackMessageResponse]
     total: int
