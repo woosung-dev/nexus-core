@@ -7,12 +7,10 @@ import logging
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, col, func
 
 from app.core.database import get_session
-from app.models.bot import Bot
-from app.models.chat import ChatSession, Message
-from app.models.user import User
+from app.crud import crud_admin_chat
+from app.crud.crud_admin_chat import AdminChatFilters
 from app.schemas.chat import (
     ChatSessionAdminResponse,
     ChatSessionAdminListResponse,
@@ -40,60 +38,16 @@ async def list_admin_chats(
     전체 채팅 세션 목록 조회.
     봇 정보와 사용자 정보를 조인하여 반환한다.
     """
-    # 피드백 집계를 위한 서브쿼리
-    feedback_sq = (
-        select(
-            Message.session_id,
-            func.count(1).filter(Message.feedback == "up").label("like_count"),
-            func.count(1).filter(Message.feedback == "down").label("dislike_count"),
-        )
-        .group_by(Message.session_id)
-        .subquery()
+    filters = AdminChatFilters(
+        title=title,
+        user_email=user_email,
+        bot_id=bot_id,
+        has_feedback=has_feedback,
     )
 
-    base_query = (
-        select(
-            ChatSession,
-            Bot.name.label("bot_name"),
-            User.email.label("user_email"),
-            func.coalesce(col(feedback_sq.c.like_count), 0).label("like_count"),
-            func.coalesce(col(feedback_sq.c.dislike_count), 0).label("dislike_count"),
-        )
-        .outerjoin(Bot, ChatSession.bot_id == Bot.id)
-        .outerjoin(User, ChatSession.user_id == User.id)
-        .outerjoin(feedback_sq, ChatSession.id == feedback_sq.c.session_id)
-    )
+    rows = await crud_admin_chat.get_admin_chat_sessions(session, filters, limit, offset)
+    total = await crud_admin_chat.count_admin_chat_sessions(session, filters)
 
-    count_query = (
-        select(func.count(ChatSession.id))
-        .outerjoin(User, ChatSession.user_id == User.id)
-        .outerjoin(feedback_sq, ChatSession.id == feedback_sq.c.session_id)
-    )
-
-    filters = []
-    if title:
-        filters.append(ChatSession.title.ilike(f"%{title}%"))
-    if user_email:
-        filters.append(User.email.ilike(f"%{user_email}%"))  # type: ignore[attr-defined]
-    if bot_id:
-        filters.append(ChatSession.bot_id == bot_id)
-    if has_feedback == "all":
-        filters.append((col(feedback_sq.c.like_count) > 0) | (col(feedback_sq.c.dislike_count) > 0))
-    elif has_feedback == "like":
-        filters.append(col(feedback_sq.c.like_count) > 0)
-    elif has_feedback == "dislike":
-        filters.append(col(feedback_sq.c.dislike_count) > 0)
-
-    for f in filters:
-        base_query = base_query.where(f)
-        count_query = count_query.where(f)
-
-    statement = base_query.order_by(ChatSession.updated_at.desc()).limit(limit).offset(offset)
-
-    result = await session.execute(statement)
-    rows = result.all()
-
-    # 데이터 매핑
     items = []
     for sess_obj, bot_name, email, like_count, dislike_count in rows:
         data = sess_obj.model_dump()
@@ -102,9 +56,6 @@ async def list_admin_chats(
         data["like_count"] = like_count
         data["dislike_count"] = dislike_count
         items.append(ChatSessionAdminResponse.model_validate(data))
-
-    total_res = await session.execute(count_query)
-    total = total_res.scalar_one()
 
     return ChatSessionAdminListResponse(items=items, total=total)
 
@@ -117,10 +68,7 @@ async def list_admin_chat_messages(
     """
     특정 채팅 세션의 전체 메시지 로그 조회 (상세).
     """
-    statement = select(Message).where(Message.session_id == session_id).order_by(Message.created_at.asc())
-    result = await session.execute(statement)
-    messages = result.scalars().all()
-
+    messages = await crud_admin_chat.get_messages_by_session_id(session, session_id)
     return [MessageResponse.model_validate(m) for m in messages]
 
 
@@ -135,40 +83,8 @@ async def list_feedback_messages(
     """
     피드백을 받은 메시지 단위의 포커스 뷰 목록 조회 (제안 2 전용 API).
     """
-    base_query = (
-        select(
-            Message,
-            ChatSession.title.label("session_title"),
-            Bot.name.label("bot_name"),
-            User.email.label("user_email"),
-        )
-        .join(ChatSession, Message.session_id == ChatSession.id)
-        .outerjoin(Bot, ChatSession.bot_id == Bot.id)
-        .outerjoin(User, ChatSession.user_id == User.id)
-        .where(Message.feedback.is_not(None))
-    )
-
-    count_query = (
-        select(func.count(Message.id))
-        .join(ChatSession, Message.session_id == ChatSession.id)
-        .where(Message.feedback.is_not(None))
-    )
-
-    if feedback_type:
-        f_expr = Message.feedback == (
-            "up" if feedback_type == "like" else "down" if feedback_type == "dislike" else feedback_type
-        )
-        base_query = base_query.where(f_expr)
-        count_query = count_query.where(f_expr)
-
-    if bot_id:
-        base_query = base_query.where(ChatSession.bot_id == bot_id)
-        count_query = count_query.where(ChatSession.bot_id == bot_id)
-
-    statement = base_query.order_by(Message.created_at.desc()).limit(limit).offset(offset)
-
-    result = await session.execute(statement)
-    rows = result.all()
+    rows = await crud_admin_chat.get_feedback_messages(session, feedback_type, bot_id, limit, offset)
+    total = await crud_admin_chat.count_feedback_messages(session, feedback_type, bot_id)
 
     items = []
     for msg_obj, session_title, bot_name, user_email in rows:
@@ -177,8 +93,5 @@ async def list_feedback_messages(
         data["bot_name"] = bot_name
         data["user_email"] = user_email
         items.append(FeedbackMessageResponse.model_validate(data))
-
-    total_res = await session.execute(count_query)
-    total = total_res.scalar_one()
 
     return FeedbackMessageListResponse(items=items, total=total)

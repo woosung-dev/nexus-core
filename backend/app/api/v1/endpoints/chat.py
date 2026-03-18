@@ -7,14 +7,11 @@ import logging
 
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from app.api.deps import get_current_user
 from app.core.database import get_session
-from app.crud import crud_chat
+from app.crud import crud_chat, crud_bot
 from app.core.exceptions import BotNotFoundError, NotFoundError, NexusException, ValidationError
-from app.models.bot import Bot
-from app.models.chat import ChatSession, Message
 from app.models.enums import MessageRole
 from app.models.user import User
 from app.schemas.chat import (
@@ -71,8 +68,7 @@ async def create_chat_session(
     """
     bot_obj = None
     if bot_id:
-        result = await session.execute(select(Bot).where(Bot.id == bot_id))
-        bot_obj = result.scalar_one_or_none()
+        bot_obj = await crud_bot.get_active_bot(session, bot_id)
         if not bot_obj:
             raise BotNotFoundError()
 
@@ -127,8 +123,7 @@ async def chat_completions(
     session_id가 없으면 자동으로 새 채팅 세션을 생성합니다.
     """
     # 1. 봇 검증
-    result = await session.execute(select(Bot).where(Bot.id == request.bot_id))
-    bot = result.scalar_one_or_none()
+    bot = await crud_bot.get_active_bot(session, request.bot_id)
 
     if not bot:
         raise BotNotFoundError()
@@ -178,12 +173,7 @@ async def update_message_feedback(
     메시지에 대한 피드백(좋아요/싫어요)을 업데이트합니다.
     """
     # 메시지 및 세션 소유권 확인 (비동기 쿼리)
-    result = await session.execute(
-        select(Message, ChatSession)
-        .join(ChatSession, Message.session_id == ChatSession.id)
-        .where(Message.id == message_id)
-    )
-    row = result.first()
+    row = await crud_chat.get_message_with_session(session, message_id)
 
     if not row:
         raise NotFoundError("메시지를 찾을 수 없습니다.")

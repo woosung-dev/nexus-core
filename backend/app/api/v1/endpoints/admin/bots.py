@@ -8,13 +8,11 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
 
 from app.core.config import get_settings
 from app.core.database import get_session
 from app.core.exceptions import BotNotFoundError, NotFoundError, ValidationError
 from app.crud import crud_bot
-from app.models.bot import Bot
 from app.schemas.bot import BotCreateRequest, BotListResponse, BotResponse, BotUpdateRequest, BotImageUploadResponse
 from app.schemas.rag import DocumentListResponse, DocumentUploadResponse
 from app.services.rag.factory import get_rag_service
@@ -175,9 +173,8 @@ async def list_bot_documents(
     봇 전용 문서 목록 조회.
     해당 봇에 업로드된 모든 RAG 참고 문서의 목록을 반환한다.
     """
-    # 봇 존재 확인
-    result = await session.execute(select(Bot).where(Bot.id == bot_id))
-    bot = result.scalar_one_or_none()
+    # 봇 존재 확인 — 기존 crud_bot.get_bot 재사용
+    bot = await crud_bot.get_bot(session, bot_id)
     if not bot:
         raise BotNotFoundError()
 
