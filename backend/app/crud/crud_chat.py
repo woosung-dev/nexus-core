@@ -85,3 +85,23 @@ async def create_message(
     session.add(msg)
     await session.flush() 
     return msg
+
+
+async def get_message_with_session(
+    session: AsyncSession, message_id: int
+) -> tuple[Message, ChatSession] | None:
+    """
+    메시지와 해당 채팅 세션을 함께 조회한다.
+    소유권 검증(user_id 비교) 등에 활용.
+    반환값: (Message, ChatSession) 또는 None
+    """
+    result = await session.execute(
+        select(Message, ChatSession)
+        .join(ChatSession, Message.session_id == ChatSession.id)
+        .where(Message.id == message_id)
+    )
+    row = result.first()
+    if row is None:
+        return None
+    return row[0], row[1]
+
