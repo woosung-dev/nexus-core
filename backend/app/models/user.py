@@ -3,12 +3,16 @@ User 모델.
 Supabase OAuth 연동을 위해 supabase_uid, provider 필드를 포함합니다.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlmodel import Field, SQLModel
-from sqlalchemy import Column, Enum as SAEnum
-
+from sqlalchemy import Column, DateTime, Enum as SAEnum, func
 from app.models.enums import PlanType
+
+
+def get_utc_now():
+    """파이썬 레벨의 UTC 현재 시간 — default_factory용"""
+    return datetime.now(timezone.utc)
 
 
 class User(SQLModel, table=True):
@@ -31,4 +35,7 @@ class User(SQLModel, table=True):
     avatar_url: str | None = Field(default=None, max_length=500)
     is_active: bool = Field(default=True)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+        default_factory=get_utc_now
+    )

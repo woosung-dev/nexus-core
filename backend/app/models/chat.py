@@ -3,12 +3,16 @@ ChatSession & Message 모델.
 사이드바 History 구조를 지원한다.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlmodel import Field, SQLModel
-from sqlalchemy import Column, Enum as SAEnum
-
+from sqlalchemy import Column, DateTime, Enum as SAEnum, func
 from app.models.enums import MessageRole
+
+
+def get_utc_now():
+    """파이썬 레벨의 UTC 현재 시간 — default_factory용"""
+    return datetime.now(timezone.utc)
 
 
 class ChatSession(SQLModel, table=True):
@@ -22,8 +26,19 @@ class ChatSession(SQLModel, table=True):
     bot_id: int | None = Field(default=None, foreign_key="nexus_core.bots.id", index=True)
     title: str = Field(default="새 대화", max_length=200)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+        default_factory=get_utc_now
+    )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True), 
+            server_default=func.now(), 
+            onupdate=func.now(), 
+            nullable=False
+        ),
+        default_factory=get_utc_now
+    )
 
 
 class Message(SQLModel, table=True):
@@ -41,4 +56,7 @@ class Message(SQLModel, table=True):
     content: str
     feedback: str | None = Field(default=None, max_length=10, description="피드백 (up, down 등)")
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+        default_factory=get_utc_now
+    )

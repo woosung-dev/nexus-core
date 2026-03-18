@@ -8,11 +8,16 @@ question_vector를 통해 사용자 질문과의 유사도를 계산한다.
 - gemini-embedding-001: 768차원 (SEMANTIC_SIMILARITY task)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column, ForeignKey, Integer
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, func
 from sqlmodel import Field, SQLModel
+
+
+def get_utc_now():
+    """파이썬 레벨의 UTC 현재 시간 — default_factory용"""
+    return datetime.now(timezone.utc)
 
 
 class Faq(SQLModel, table=True):
@@ -50,5 +55,16 @@ class Faq(SQLModel, table=True):
     # 활성화 여부 (소프트 삭제 지원)
     is_active: bool = Field(default=True)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+        default_factory=get_utc_now
+    )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True), 
+            server_default=func.now(), 
+            onupdate=func.now(), 
+            nullable=False
+        ),
+        default_factory=get_utc_now
+    )
