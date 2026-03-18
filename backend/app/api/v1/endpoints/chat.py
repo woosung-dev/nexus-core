@@ -3,25 +3,22 @@
 세션 관리, 메시지 기록, SSE(Server-Sent Events) 스트리밍 지원.
 """
 
-import json
 import logging
-from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select, desc, func
+from sqlmodel import select
 
 from app.api.deps import get_current_user
 from app.core.database import get_session
 from app.crud import crud_chat
-from app.core.exceptions import BotNotFoundError, NotFoundError, NexusException
+from app.core.exceptions import BotNotFoundError, NotFoundError, NexusException, ValidationError
 from app.models.bot import Bot
 from app.models.chat import ChatSession, Message
 from app.models.enums import MessageRole
 from app.models.user import User
 from app.schemas.chat import (
     ChatCompletionRequest,
-    ChatCompletionResponse,
     ChatSessionListResponse,
     ChatSessionResponse,
     MessageResponse,
