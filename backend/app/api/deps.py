@@ -13,6 +13,7 @@ from sqlmodel import select
 
 from app.core.config import get_settings
 from app.core.database import get_session
+from app.crud import crud_user
 from app.models.user import User
 
 settings = get_settings()
@@ -83,28 +84,19 @@ async def get_current_user(
             detail="토큰에 필수 사용자 정보가 없습니다.",
         )
 
-    # DB에서 supabase_uid(sub claim)로 사용자 조회
-    result = await session.execute(
-        select(User).where(User.supabase_uid == supabase_uid)
+    # JIT Provisioning: supabase_uid로 사용자 조회, 없으면 자동 생성
+    app_metadata = payload.get("app_metadata", {})
+    provider = app_metadata.get("provider", "unknown")
+    user_metadata = payload.get("user_metadata", {})
+    avatar_url = user_metadata.get("avatar_url") or user_metadata.get("picture")
+
+    user = await crud_user.get_or_create_by_supabase_uid(
+        session=session,
+        supabase_uid=supabase_uid,
+        email=email,
+        provider=provider,
+        avatar_url=avatar_url,
     )
-    user = result.scalar_one_or_none()
-
-    # JIT Provisioning: 사용자가 없으면 자동 생성
-    if user is None:
-        app_metadata = payload.get("app_metadata", {})
-        provider = app_metadata.get("provider", "unknown")
-
-        user_metadata = payload.get("user_metadata", {})
-        avatar_url = user_metadata.get("avatar_url") or user_metadata.get("picture")
-
-        user = User(
-            supabase_uid=supabase_uid,
-            email=email,
-            provider=provider,
-            avatar_url=avatar_url,
-        )
-        session.add(user)
-        await session.flush()
 
     if not user.is_active:
         raise HTTPException(

@@ -10,10 +10,10 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
-from app.core.exceptions import BotNotFoundError, NotFoundError, NexusException
+from app.core.exceptions import BotNotFoundError, NotFoundError
 from app.crud import crud_bot, crud_faq
 from app.schemas.faq import FaqCreateRequest, FaqListResponse, FaqResponse, FaqUpdateRequest
-from app.utils.embeddings import get_embedding
+from app.services import faq_service
 
 logger = logging.getLogger(__name__)
 
@@ -79,27 +79,14 @@ async def create_faq(
     if not bot:
         raise BotNotFoundError()
 
-    # 임베딩 생성 — 외부 AI API 호출이므로 Router에서 수행 후 CRUD에 주입
-    try:
-        vector = await get_embedding(request.question)
-    except RuntimeError as e:
-        raise NexusException(
-            error_code="EMBEDDING_FAILED",
-            message="임베딩 생성 중 오류가 발생했습니다.",
-            status_code=502,
-            details=str(e)
-        )
-
-    faq = await crud_faq.create_faq(
+    # 임베딩 생성 + DB 저장은 faq_service에서 조립
+    faq = await faq_service.create_faq_with_embedding(
         session=session,
         bot_id=bot_id,
         question=request.question,
         answer=request.answer,
         threshold=request.threshold,
-        question_vector=vector,
     )
-
-    logger.info(f"FAQ 등록: id={faq.id}, bot_id={bot_id}, question='{faq.question[:30]}'")
     return FaqResponse.model_validate(faq)
 
 
@@ -118,27 +105,13 @@ async def update_faq(
     question이 변경된 경우 임베딩을 자동으로 재생성한다.
     """
     faq = await crud_faq.get_faq(session, faq_id)
-
     if not faq:
         raise NotFoundError("FAQ를 찾을 수 없습니다.")
 
     update_data = request.model_dump(exclude_unset=True)
 
-    # 질문이 변경된 경우 임베딩 재생성 — 외부 AI API 호출이므로 Router에서 수행
-    if "question" in update_data and update_data["question"] != faq.question:
-        try:
-            update_data["question_vector"] = await get_embedding(update_data["question"])
-        except RuntimeError as e:
-            raise NexusException(
-                error_code="EMBEDDING_FAILED",
-                message="임베딩 재생성 중 오류가 발생했습니다.",
-                status_code=502,
-                details=str(e)
-            )
-
-    faq = await crud_faq.update_faq(session, faq, update_data)
-
-    logger.info(f"FAQ 수정: id={faq_id}, changes={list(update_data.keys())}")
+    # 임베딩 재생성 포함 조립은 faq_service에서 처리
+    faq = await faq_service.update_faq_with_embedding(session, faq, update_data)
     return FaqResponse.model_validate(faq)
 
 

@@ -4,6 +4,9 @@ Bot 관련 DB 연산(CRUD)을 담당하는 Repository.
 """
 
 from typing import Sequence
+
+from sqlalchemy import cast
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -28,14 +31,17 @@ async def get_all_bots(session: AsyncSession) -> Sequence[Bot]:
     return result.scalars().all()
 
 async def get_active_bots(session: AsyncSession, tag: str | None = None) -> Sequence[Bot]:
-    """활성화된 봇 목록 조회 (클라이언트용)"""
+    """활성화된 봇 목록 조회 (클라이언트용). tag가 주어지면 DB 레벨에서 필터링."""
     statement = select(Bot).where(Bot.is_active == True)  # noqa: E712
-    result = await session.execute(statement)
-    bots = result.scalars().all()
-    
+
     if tag:
-        bots = [b for b in bots if tag in (b.tags or [])]
-    return bots
+        # PostgreSQL @> 연산자: JSONB 배열에 해당 값이 포함되는지 DB 레벨에서 검사
+        statement = statement.where(
+            cast(Bot.tags, JSONB).contains(cast([tag], JSONB))
+        )
+
+    result = await session.execute(statement)
+    return result.scalars().all()
 
 async def get_active_bot_categories(session: AsyncSession) -> list[str]:
     """모든 활성화된 봇의 태그 리스트를 가져와 유니크한 카테고리 목록 반환"""

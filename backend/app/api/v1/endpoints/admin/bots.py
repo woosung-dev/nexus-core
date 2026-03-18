@@ -15,6 +15,7 @@ from app.core.exceptions import BotNotFoundError, NotFoundError, ValidationError
 from app.crud import crud_bot
 from app.schemas.bot import BotCreateRequest, BotListResponse, BotResponse, BotUpdateRequest, BotImageUploadResponse
 from app.schemas.rag import DocumentListResponse, DocumentUploadResponse
+from app.services import bot_service
 from app.services.rag.factory import get_rag_service
 from app.services.storage.base import FileStorageService
 from app.services.storage.factory import get_storage_service
@@ -117,44 +118,21 @@ async def upload_bot_image(
 ) -> BotImageUploadResponse:
     """
     봇 메인 대표 이미지(아이콘) 업로드.
-    스토리지에 저장 후 봇의 `image_url` 필드를 업데이트한다.
+    파일 검증 · 스토리지 업로드 · DB 갱신은 bot_service에서 처리한다.
     """
-    # 봇 존재 확인
-    bot = await crud_bot.get_bot(session, bot_id)
-    if not bot:
-        raise BotNotFoundError()
-
-    # 파일 크기 제한 확인
-    settings = get_settings()
     file_data = await file.read()
-    if len(file_data) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
-        raise ValidationError(f"파일 크기가 {settings.MAX_UPLOAD_SIZE_MB}MB를 초과합니다.")
-
-    # 단순 확장자 검증 (이미지 한정)
     content_type = file.content_type or "application/octet-stream"
-    if not content_type.startswith("image/"):
-        raise ValidationError("이미지 파일만 업로드 가능합니다.")
+    filename = file.filename or "unknown_image.png"
 
-    # 스토리지 업로드 (구현체에 따라 로컬/Supabase/R2로 분기)
-    public_url = await storage.upload(
+    public_url = await bot_service.upload_bot_image(
+        session=session,
+        storage=storage,
+        bot_id=bot_id,
         file_data=file_data,
-        filename=file.filename or "unknown_image.png",
+        filename=filename,
         content_type=content_type,
     )
-
-    # DB 업데이트
-    bot.image_url = public_url
-    bot.updated_at = datetime.now(timezone.utc)
-    session.add(bot)
-    await session.commit()
-    await session.refresh(bot)
-
-    logger.info(f"봇 이미지 업로드 완료: bot_id={bot_id}, url={public_url}")
-
-    return BotImageUploadResponse(
-        bot_id=bot_id,
-        image_url=public_url,
-    )
+    return BotImageUploadResponse(bot_id=bot_id, image_url=public_url)
 
 
 # ── 봇 문서 관리 (RAG) ────────────────────────────────────────────────

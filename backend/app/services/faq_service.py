@@ -149,3 +149,78 @@ async def search_faq_override(
         # 기타 오류 — FAQ 검색 실패해도 채팅은 계속 동작해야 함
         logger.error(f"FAQ Override 검색 오류: {e}")
         return None
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Admin FAQ 생성/수정 — 임베딩 조립 (Service 레이어)
+# ──────────────────────────────────────────────────────────────────────────────
+
+async def create_faq_with_embedding(
+    session: AsyncSession,
+    bot_id: int,
+    question: str,
+    answer: str,
+    threshold: float,
+) -> "Faq":
+    """
+    FAQ 등록 서비스.
+    질문 텍스트를 임베딩(외부 AI API) → CRUD로 DB 저장.
+
+    Raises:
+        NexusException(EMBEDDING_FAILED): 임베딩 API 오류 시
+    """
+    from app.core.exceptions import NexusException
+    from app.crud import crud_faq
+
+    try:
+        question_vector = await get_embedding(question)
+    except RuntimeError as e:
+        raise NexusException(
+            error_code="EMBEDDING_FAILED",
+            message="임베딩 생성 중 오류가 발생했습니다.",
+            status_code=502,
+            details=str(e),
+        )
+
+    faq = await crud_faq.create_faq(
+        session=session,
+        bot_id=bot_id,
+        question=question,
+        answer=answer,
+        threshold=threshold,
+        question_vector=question_vector,
+    )
+    logger.info(f"FAQ 등록: id={faq.id}, bot_id={bot_id}, question='{question[:30]}'")
+    return faq
+
+
+async def update_faq_with_embedding(
+    session: AsyncSession,
+    faq: "Faq",
+    update_data: dict,
+) -> "Faq":
+    """
+    FAQ 수정 서비스.
+    question이 변경된 경우 임베딩을 자동 재생성.
+
+    Raises:
+        NexusException(EMBEDDING_FAILED): 임베딩 API 오류 시
+    """
+    from app.core.exceptions import NexusException
+    from app.crud import crud_faq
+
+    if "question" in update_data and update_data["question"] != faq.question:
+        try:
+            update_data["question_vector"] = await get_embedding(update_data["question"])
+        except RuntimeError as e:
+            raise NexusException(
+                error_code="EMBEDDING_FAILED",
+                message="임베딩 재생성 중 오류가 발생했습니다.",
+                status_code=502,
+                details=str(e),
+            )
+
+    updated = await crud_faq.update_faq(session, faq, update_data)
+    logger.info(f"FAQ 수정: id={faq.id}, changes={list(update_data.keys())}")
+    return updated
+

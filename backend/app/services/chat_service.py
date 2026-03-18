@@ -6,7 +6,7 @@
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -52,7 +52,7 @@ class ChatService:
                 role=MessageRole.ASSISTANT,
                 content=faq_match.answer,
             )
-            chat_session.updated_at = datetime.now()
+            chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
 
             logger.info(
@@ -95,7 +95,7 @@ class ChatService:
                     role=MessageRole.ASSISTANT,
                     content=rag_response.answer,
                 )
-                chat_session.updated_at = datetime.now()
+                chat_session.updated_at = datetime.now(timezone.utc)
                 await self.session.commit()
 
                 return ChatCompletionResponse(
@@ -131,7 +131,7 @@ class ChatService:
                 role=MessageRole.ASSISTANT,
                 content=content,
             )
-            chat_session.updated_at = datetime.now()
+            chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
 
             return ChatCompletionResponse(
@@ -166,7 +166,7 @@ class ChatService:
                 role=MessageRole.ASSISTANT,
                 content=full_response_content,
             )
-            chat_session.updated_at = datetime.now()
+            chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
 
         except Exception as e:
@@ -198,7 +198,7 @@ class ChatService:
                 role=MessageRole.ASSISTANT,
                 content=full_response_content,
             )
-            chat_session.updated_at = datetime.now()
+            chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
 
         except Exception as e:
