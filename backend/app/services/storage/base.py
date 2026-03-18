@@ -9,7 +9,6 @@ Local / Supabase Storage / Cloudflare R2 구현체로 교체된다.
 """
 
 from abc import ABC, abstractmethod
-from pathlib import Path
 
 
 class FileStorageService(ABC):

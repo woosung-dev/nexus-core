@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_session
 from app.schemas.dashboard import DashboardDataResponse
-from app.services.dashboard import get_dashboard_stats
+from app.services.dashboard_service import get_dashboard_stats
 
 router = APIRouter(prefix="/admin/dashboard", tags=["Admin - 대시보드"])
 

@@ -7,8 +7,7 @@ Gemini File Search API 기반 RAG 서비스.
 
 import io
 import logging
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import datetime
 
 from google import genai
 from google.genai import types
@@ -288,7 +287,6 @@ class GeminiRAGService(BaseRAGService):
         RAG 기반 스트리밍 응답 생성.
         Gemini generate_content_stream을 사용하여 청크를 즉시 yield한다.
         """
-        from collections.abc import AsyncGenerator
 
         actual_model_name = model_name or "gemini-2.5-flash"
         store_name = await self.ensure_store()

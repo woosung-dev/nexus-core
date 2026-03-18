@@ -17,8 +17,7 @@ from app.models.chat import ChatSession
 from app.models.enums import MessageRole
 from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse
 from app.services.faq_service import search_faq_override
-from app.services.llm.gemini import GeminiService
-from app.services.llm.openai import OpenAIService
+from app.services.llm.factory import get_llm_service
 from app.services.rag.factory import get_rag_service
 
 logger = logging.getLogger(__name__)
@@ -27,13 +26,6 @@ logger = logging.getLogger(__name__)
 class ChatService:
     def __init__(self, session: AsyncSession):
         self.session = session
-
-    def _get_llm_service(self, model_name: str):
-        """봇의 llm_model 설정에 따라 적절한 LLM 서비스 반환"""
-        if model_name.startswith("gpt"):
-            return OpenAIService(model_name=model_name)
-        # 기본값: Gemini
-        return GeminiService(model_name=model_name)
 
     async def process_chat_request(
         self,
@@ -115,7 +107,7 @@ class ChatService:
                 )
 
         # 3. 일반 LLM 처리
-        llm_service = self._get_llm_service(bot.llm_model)
+        llm_service = get_llm_service(bot.llm_model)
 
         if request.stream:
             return StreamingResponse(

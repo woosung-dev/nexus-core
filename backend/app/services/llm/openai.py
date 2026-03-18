@@ -7,6 +7,7 @@ import logging
 from collections.abc import AsyncGenerator
 
 import openai
+from openai import AsyncOpenAI
 from app.core.config import get_settings
 from app.core.exceptions import ValidationError, NexusException
 from app.services.llm.base import LLMService
@@ -19,7 +20,8 @@ class OpenAIService(LLMService):
 
     def __init__(self, model_name: str = "gpt-4o") -> None:
         settings = get_settings()
-        self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        api_key = settings.OPENAI_API_KEY.get_secret_value() if settings.OPENAI_API_KEY else None
+        self._client = AsyncOpenAI(api_key=api_key)
         self._model_name = model_name
 
     async def generate(

@@ -4,7 +4,7 @@ Admin — 봇 관리 API 엔드포인트.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -144,7 +144,7 @@ async def upload_bot_image(
 
     # DB 업데이트
     bot.image_url = public_url
-    bot.updated_at = datetime.utcnow()
+    bot.updated_at = datetime.now(timezone.utc)
     session.add(bot)
     await session.commit()
     await session.refresh(bot)

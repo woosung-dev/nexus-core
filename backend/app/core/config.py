@@ -6,7 +6,7 @@ pydantic-settings 기반 환경변수 관리.
 import json
 from functools import lru_cache
 
-from pydantic import computed_field
+from pydantic import SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,8 +29,8 @@ class Settings(BaseSettings):
     DB_SCHEMA: str = "public"
 
     # --- AI API 키 ---
-    GEMINI_API_KEY: str
-    OPENAI_API_KEY: str | None = None
+    GEMINI_API_KEY: SecretStr
+    OPENAI_API_KEY: SecretStr | None = None
 
     # --- 파일 스토리지 ---
     STORAGE_PROVIDER: str = "supabase"  # "supabase" | "r2"
@@ -39,13 +39,13 @@ class Settings(BaseSettings):
     # --- Cloudflare R2 ---
     R2_ACCOUNT_ID: str | None = None
     R2_ACCESS_KEY_ID: str | None = None
-    R2_SECRET_ACCESS_KEY: str | None = None
+    R2_SECRET_ACCESS_KEY: SecretStr | None = None
     R2_BUCKET_NAME: str | None = None
     R2_PUBLIC_URL: str | None = None  # 커스텀 도메인 또는 r2.dev URL
     
     # --- Supabase Storage ---
     SUPABASE_URL: str | None = None
-    SUPABASE_SERVICE_KEY: str | None = None
+    SUPABASE_SERVICE_KEY: SecretStr | None = None
     SUPABASE_STORAGE_BUCKET: str = "uploads"
 
 

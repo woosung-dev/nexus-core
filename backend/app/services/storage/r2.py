@@ -42,7 +42,7 @@ class R2FileStorage(FileStorageService):
             "s3",
             endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
             aws_access_key_id=settings.R2_ACCESS_KEY_ID,
-            aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY,
+            aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY.get_secret_value(),
             region_name="auto",
         )
 

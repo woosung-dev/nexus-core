@@ -7,7 +7,7 @@ RAG 서비스 추상 인터페이스.
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 
-from app.schemas.rag import DocumentInfo, RAGCitation, RAGResponse
+from app.schemas.rag import DocumentInfo, RAGResponse
 
 
 class BaseRAGService(ABC):

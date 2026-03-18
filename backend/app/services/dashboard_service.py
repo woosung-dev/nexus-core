@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +14,7 @@ from app.schemas.chat import FeedbackMessageResponse
 
 async def get_dashboard_stats(session: AsyncSession, days: int = 30, fb_page: int = 1, fb_size: int = 10) -> DashboardDataResponse:
     """대시보드 통계 데이터 집계"""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     period_start = today_start - timedelta(days=days - 1)
 

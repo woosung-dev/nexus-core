@@ -7,8 +7,6 @@ Gemini 모델과 동일하게 하나의 공유 Vector Store에 메타데이터(b
 
 import asyncio
 import logging
-import time as _time
-from pathlib import Path
 
 from openai import AsyncOpenAI
 

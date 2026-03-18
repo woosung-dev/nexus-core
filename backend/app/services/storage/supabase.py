@@ -29,7 +29,7 @@ class SupabaseFileStorage(FileStorageService):
 
         self._client = create_client(
             settings.SUPABASE_URL,
-            settings.SUPABASE_SERVICE_KEY,
+            settings.SUPABASE_SERVICE_KEY.get_secret_value(),
         )
         self._bucket = settings.SUPABASE_STORAGE_BUCKET
 

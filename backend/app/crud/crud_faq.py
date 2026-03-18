@@ -3,7 +3,7 @@ FAQ 관련 DB 연산(CRUD)을 담당하는 Repository.
 임베딩 벡터는 서비스/라우터 계층에서 생성 후 주입받는다.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -55,7 +55,7 @@ async def update_faq(session: AsyncSession, faq: Faq, update_data: dict) -> Faq:
     for key, value in update_data.items():
         setattr(faq, key, value)
 
-    faq.updated_at = datetime.utcnow()
+    faq.updated_at = datetime.now(timezone.utc)
     session.add(faq)
     await session.flush()
     await session.refresh(faq)
@@ -65,6 +65,6 @@ async def update_faq(session: AsyncSession, faq: Faq, update_data: dict) -> Faq:
 async def soft_delete_faq(session: AsyncSession, faq: Faq) -> None:
     """FAQ 비활성화 (소프트 삭제 — is_active=False)"""
     faq.is_active = False
-    faq.updated_at = datetime.utcnow()
+    faq.updated_at = datetime.now(timezone.utc)
     session.add(faq)
     await session.flush()
