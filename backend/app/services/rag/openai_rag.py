@@ -7,7 +7,7 @@ Gemini 모델과 동일하게 하나의 공유 Vector Store에 메타데이터(b
 
 import asyncio
 import logging
-
+import openai
 from openai import AsyncOpenAI
 
 from app.core.config import get_settings
@@ -22,7 +22,8 @@ class OpenAIRAGService(BaseRAGService):
 
     def __init__(self) -> None:
         settings = get_settings()
-        self._client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        api_key = settings.OPENAI_API_KEY.get_secret_value() if settings.OPENAI_API_KEY else None
+        self._client = AsyncOpenAI(api_key=api_key)
         self._store_base_name = settings.FILE_SEARCH_STORE_NAME
         self._store_ids: dict[int, str] = {}  # bot_id -> store_id 매핑
 
@@ -61,6 +62,13 @@ class OpenAIRAGService(BaseRAGService):
             self._store_ids[bot_id] = store.id
             logger.info(f"새 OpenAI Vector Store 생성 (bot_id={bot_id}): {store.id}")
             return store.id
+        except openai.AuthenticationError as e:
+            logger.error(f"OpenAI 인증 실패: {e}")
+            from app.core.exceptions import ConfigurationError
+            raise ConfigurationError(
+                message="OpenAI API 키가 유효하지 않습니다. 서버 설정을 확인해주세요.",
+                details=str(e)
+            )
         except Exception as e:
             logger.error(f"OpenAI Vector Store 생성 실패: {e}")
             raise

@@ -24,7 +24,8 @@ class GeminiRAGService(BaseRAGService):
 
     def __init__(self) -> None:
         settings = get_settings()
-        self._client = genai.Client(api_key=settings.GEMINI_API_KEY)
+        api_key = settings.GEMINI_API_KEY.get_secret_value() if settings.GEMINI_API_KEY else None
+        self._client = genai.Client(api_key=api_key)
         self._store_name = settings.FILE_SEARCH_STORE_NAME
         self._store_resource_name: str | None = None
 
