@@ -27,7 +27,7 @@ EMBEDDING_DIMENSIONS = 768  # 768 / 1536 / 3072 중 선택
 def _get_client() -> genai.Client:
     """google-genai 클라이언트 생성 (GEMINI_API_KEY 사용)"""
     settings = get_settings()
-    return genai.Client(api_key=settings.GEMINI_API_KEY)
+    return genai.Client(api_key=settings.GEMINI_API_KEY.get_secret_value())
 
 
 async def get_embedding(text: str) -> list[float]:
