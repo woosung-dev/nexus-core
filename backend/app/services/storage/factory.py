@@ -24,10 +24,6 @@ def get_storage_service() -> FileStorageService:
     provider = get_settings().STORAGE_PROVIDER.lower()
 
     match provider:
-        case "supabase":
-            from app.services.storage.supabase import SupabaseFileStorage
-
-            return SupabaseFileStorage()
         case "r2":
             from app.services.storage.r2 import R2FileStorage
 
@@ -35,5 +31,5 @@ def get_storage_service() -> FileStorageService:
         case _:
             raise ValueError(
                 f"Unknown STORAGE_PROVIDER: '{provider}'. "
-                f"지원 값: 'supabase', 'r2'"
+                f"지원 값: 'r2'"
             )

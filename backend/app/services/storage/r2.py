@@ -23,14 +23,14 @@ class R2FileStorage(FileStorageService):
     def __init__(self) -> None:
         settings = get_settings()
         if not all([
-            settings.R2_ACCOUNT_ID,
+            settings.R2_ENDPOINT_URL,
             settings.R2_ACCESS_KEY_ID,
             settings.R2_SECRET_ACCESS_KEY,
             settings.R2_BUCKET_NAME,
             settings.R2_PUBLIC_URL,
         ]):
             raise ConfigurationError(
-                "R2 Storage 설정이 누락되었습니다. R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, "
+                "R2 Storage 설정이 누락되었습니다. R2_ENDPOINT_URL, R2_ACCESS_KEY_ID, "
                 "R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL 환경변수를 확인해주세요."
             )
 
@@ -40,8 +40,8 @@ class R2FileStorage(FileStorageService):
         # S3 호환 클라이언트 생성 (R2 엔드포인트 사용)
         self._client = boto3.client(
             "s3",
-            endpoint_url=f"https://{settings.R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
-            aws_access_key_id=settings.R2_ACCESS_KEY_ID,
+            endpoint_url=settings.R2_ENDPOINT_URL,
+            aws_access_key_id=settings.R2_ACCESS_KEY_ID.get_secret_value(),
             aws_secret_access_key=settings.R2_SECRET_ACCESS_KEY.get_secret_value(),
             region_name="auto",
         )
