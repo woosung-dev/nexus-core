@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSignIn } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,10 +16,10 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 export function LoginForm() {
   const router = useRouter();
+  const { signIn, isLoaded } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -28,40 +29,41 @@ export function LoginForm() {
   // 이메일/비밀번호 로그인
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLoaded) return;
     setIsLoading(true);
     setError(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const result = await signIn.create({
+        identifier: email,
+        password,
+      });
 
-    if (error) {
+      if (result.status === "complete") {
+        router.push("/");
+        router.refresh();
+      }
+    } catch {
       setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    router.push("/");
-    router.refresh();
   };
 
-  // OAuth 소셜 로그인 (Kakao / Google)
-  const handleOAuthLogin = async (provider: "kakao" | "google") => {
+  // OAuth 소셜 로그인 (Google / Apple)
+  const handleOAuthLogin = async (provider: "oauth_google" | "oauth_apple") => {
+    if (!isLoaded) return;
     setOauthLoading(provider);
     setError(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      setError(`${provider} 로그인에 실패했습니다. 다시 시도해 주세요.`);
+    try {
+      await signIn.authenticateWithRedirect({
+        strategy: provider,
+        redirectUrl: "/sso-callback",
+        redirectUrlComplete: "/",
+      });
+    } catch {
+      setError(`소셜 로그인에 실패했습니다. 다시 시도해 주세요.`);
       setOauthLoading(null);
     }
   };
@@ -82,6 +84,7 @@ export function LoginForm() {
       </CardHeader>
 
       <CardContent className="space-y-4 z-10 relative">
+        <div id="clerk-captcha"></div>
         {/* 에러 메시지 */}
         {error && (
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
@@ -157,10 +160,10 @@ export function LoginForm() {
           <Button
             variant="outline"
             disabled={!!oauthLoading}
-            onClick={() => handleOAuthLogin("google")}
+            onClick={() => handleOAuthLogin("oauth_google")}
             className="w-full h-12 bg-white border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 transition-all text-zinc-700 shadow-sm"
           >
-            {oauthLoading === "google" ? (
+            {oauthLoading === "oauth_google" ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
               <svg
@@ -189,28 +192,26 @@ export function LoginForm() {
             Google 로그인
           </Button>
 
-          {/* Kakao 로그인 */}
+          {/* Apple 로그인 */}
           <Button
             variant="outline"
             disabled={!!oauthLoading}
-            onClick={() => handleOAuthLogin("kakao")}
-            className="w-full h-12 bg-[#FEE500]/90 border-[#FEE500] hover:bg-[#FEE500] hover:text-[#3C1E1E] transition-all text-[#3C1E1E] font-semibold shadow-sm"
+            onClick={() => handleOAuthLogin("oauth_apple")}
+            className="w-full h-12 bg-white border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 transition-all text-zinc-700 shadow-sm"
           >
-            {oauthLoading === "kakao" ? (
+            {oauthLoading === "oauth_apple" ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
               <svg
                 viewBox="0 0 24 24"
                 className="mr-2 h-5 w-5"
                 aria-hidden="true"
+                fill="currentColor"
               >
-                <path
-                  d="M12 3C6.477 3 2 6.463 2 10.691c0 2.734 1.811 5.126 4.535 6.482l-.927 3.428a.285.285 0 0 0 .434.301l3.976-2.622a14.09 14.09 0 0 0 1.982.14c5.523 0 10-3.463 10-7.729S17.523 3 12 3z"
-                  fill="currentColor"
-                />
+                <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
               </svg>
             )}
-            Kakao 로그인
+            Apple 로그인
           </Button>
         </div>
       </CardContent>

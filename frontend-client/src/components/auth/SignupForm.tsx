@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSignUp } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,24 +17,24 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
 
 export function SignupForm() {
   const router = useRouter();
+  const { signUp, isLoaded } = useSignUp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [agreeTerms, setAgreeTerms] = useState<boolean | "indeterminate">(
-    false
-  );
+  const [agreeTerms, setAgreeTerms] = useState<boolean | "indeterminate">(false);
   const [isLoading, setIsLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [otpStep, setOtpStep] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
 
   // 이메일/비밀번호 회원가입
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLoaded) return;
     setError(null);
 
     if (password !== confirmPassword) {
@@ -47,69 +48,106 @@ export function SignupForm() {
     }
 
     setIsLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      setError(error.message);
+    try {
+      await signUp.create({ emailAddress: email, password });
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setOtpStep(true);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "회원가입에 실패했습니다.";
+      setError(message);
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    setSuccess(true);
-    setIsLoading(false);
   };
 
-  // OAuth 소셜 로그인 (회원가입과 동일하게 동작)
-  const handleOAuthSignup = async (provider: "kakao" | "google") => {
+  // OTP 인증 완료
+  const handleOtpVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const result = await signUp.attemptEmailAddressVerification({
+        code: otpCode,
+      });
+      if (result.status === "complete") {
+        router.push("/");
+        router.refresh();
+      }
+    } catch {
+      setError("인증 코드가 올바르지 않습니다. 다시 확인해 주세요.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // OAuth 소셜 회원가입 (Google / Apple)
+  const handleOAuthSignup = async (
+    provider: "oauth_google" | "oauth_apple"
+  ) => {
+    if (!isLoaded) return;
     setOauthLoading(provider);
     setError(null);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-
-    if (error) {
-      setError(`${provider} 회원가입에 실패했습니다. 다시 시도해 주세요.`);
+    try {
+      await signUp.authenticateWithRedirect({
+        strategy: provider,
+        redirectUrl: "/sso-callback",
+        redirectUrlComplete: "/",
+      });
+    } catch {
+      setError("소셜 회원가입에 실패했습니다. 다시 시도해 주세요.");
       setOauthLoading(null);
     }
   };
 
-  // 이메일 인증 안내 화면
-  if (success) {
+  // OTP 입력 화면
+  if (otpStep) {
     return (
       <Card className="w-full max-w-md bg-zinc-950/80 backdrop-blur-xl border-zinc-800 shadow-2xl relative overflow-hidden">
         <div className="absolute -top-32 -right-32 w-64 h-64 bg-green-500/10 rounded-full blur-[100px] pointer-events-none" />
         <CardHeader className="space-y-1 pb-6 z-10 relative">
           <CardTitle className="text-3xl font-bold tracking-tight text-center text-foreground">
-            ✉️ 이메일을 확인해 주세요
+            이메일 인증
           </CardTitle>
           <CardDescription className="text-center text-muted-foreground w-full pt-2">
-            <strong className="text-zinc-200">{email}</strong>으로 인증
-            메일을 발송했습니다.
+            <strong className="text-zinc-200">{email}</strong>으로 전송된
             <br />
-            메일의 링크를 클릭하면 가입이 완료됩니다.
+            6자리 인증 코드를 입력해 주세요.
           </CardDescription>
         </CardHeader>
-        <CardFooter className="flex justify-center z-10 relative pb-8">
-          <Button
-            variant="outline"
-            onClick={() => router.push("/login")}
-            className="border-zinc-800 hover:bg-zinc-800"
-          >
-            로그인 페이지로 이동
-          </Button>
-        </CardFooter>
+        <CardContent className="z-10 relative">
+          {error && (
+            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center mb-4">
+              {error}
+            </div>
+          )}
+          <form onSubmit={handleOtpVerify} className="space-y-4">
+            <Input
+              type="text"
+              placeholder="인증 코드 6자리"
+              value={otpCode}
+              onChange={(e) => setOtpCode(e.target.value)}
+              maxLength={6}
+              required
+              disabled={isLoading}
+              className="bg-zinc-900/50 border-zinc-800 text-center text-2xl tracking-widest h-14"
+            />
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-black font-bold"
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                "인증 완료"
+              )}
+            </Button>
+          </form>
+        </CardContent>
       </Card>
     );
   }
@@ -132,6 +170,7 @@ export function SignupForm() {
       </CardHeader>
 
       <CardContent className="space-y-4 z-10 relative">
+        <div id="clerk-captcha"></div>
         {/* 에러 메시지 */}
         {error && (
           <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
@@ -144,10 +183,10 @@ export function SignupForm() {
           <Button
             variant="outline"
             disabled={!!oauthLoading}
-            onClick={() => handleOAuthSignup("google")}
+            onClick={() => handleOAuthSignup("oauth_google")}
             className="w-full h-12 bg-zinc-900/30 border-zinc-800 hover:bg-zinc-800 hover:text-white transition-all text-zinc-300"
           >
-            {oauthLoading === "google" ? (
+            {oauthLoading === "oauth_google" ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
               <svg
@@ -179,24 +218,22 @@ export function SignupForm() {
           <Button
             variant="outline"
             disabled={!!oauthLoading}
-            onClick={() => handleOAuthSignup("kakao")}
-            className="w-full h-12 bg-[#FEE500]/10 border-[#FEE500]/30 hover:bg-[#FEE500]/20 hover:text-[#3C1E1E] transition-all text-[#FEE500]"
+            onClick={() => handleOAuthSignup("oauth_apple")}
+            className="w-full h-12 bg-zinc-900/30 border-zinc-800 hover:bg-zinc-800 hover:text-white transition-all text-zinc-300"
           >
-            {oauthLoading === "kakao" ? (
+            {oauthLoading === "oauth_apple" ? (
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
               <svg
                 viewBox="0 0 24 24"
                 className="mr-2 h-5 w-5"
                 aria-hidden="true"
+                fill="currentColor"
               >
-                <path
-                  d="M12 3C6.477 3 2 6.463 2 10.691c0 2.734 1.811 5.126 4.535 6.482l-.927 3.428a.285.285 0 0 0 .434.301l3.976-2.622a14.09 14.09 0 0 0 1.982.14c5.523 0 10-3.463 10-7.729S17.523 3 12 3z"
-                  fill="currentColor"
-                />
+                <path d="M12.152 6.896c-.948 0-2.415-1.078-3.96-1.04-2.04.027-3.91 1.183-4.961 3.014-2.117 3.675-.546 9.103 1.519 12.09 1.013 1.454 2.208 3.09 3.792 3.039 1.52-.065 2.09-.987 3.935-.987 1.831 0 2.35.987 3.96.948 1.637-.026 2.676-1.48 3.676-2.948 1.156-1.688 1.636-3.325 1.662-3.415-.039-.013-3.182-1.221-3.22-4.857-.026-3.04 2.48-4.494 2.597-4.559-1.429-2.09-3.623-2.324-4.39-2.376-2-.156-3.675 1.09-4.61 1.09zM15.53 3.83c.843-1.012 1.4-2.427 1.245-3.83-1.207.052-2.662.805-3.532 1.818-.78.896-1.454 2.338-1.273 3.714 1.338.104 2.715-.688 3.559-1.701" />
               </svg>
             )}
-            Kakao로 시작하기
+            Apple로 시작하기
           </Button>
         </div>
 

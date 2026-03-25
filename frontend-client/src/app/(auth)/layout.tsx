@@ -1,16 +1,15 @@
+import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 
 export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { userId } = await auth();
 
   // 이미 로그인된 유저는 메인으로 리다이렉트
-  if (user) {
+  if (userId) {
     redirect("/");
   }
 

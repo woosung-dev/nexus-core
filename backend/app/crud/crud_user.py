@@ -57,33 +57,33 @@ async def deactivate_user(session: AsyncSession, user: User) -> None:
     await session.flush()
 
 
-async def get_or_create_by_supabase_uid(
+async def get_or_create_by_clerk_id(
     session: AsyncSession,
-    supabase_uid: str,
+    clerk_user_id: str,
     email: str,
     provider: str = "unknown",
     avatar_url: str | None = None,
 ) -> User:
     """
-    supabase_uid로 사용자를 조회하고, 없으면 자동 생성(JIT Provisioning)합니다.
+    clerk_user_id로 사용자를 조회하고, 없으면 자동 생성(JIT Provisioning)합니다.
     deps.py의 get_current_user 의존성에서 호출됩니다.
 
     Args:
         session: 비동기 DB 세션
-        supabase_uid: Supabase JWT의 sub claim
+        clerk_user_id: Clerk JWT의 sub claim
         email: JWT payload의 email
-        provider: OAuth provider (예: "google", "github")
+        provider: OAuth provider (예: "google", "apple")
         avatar_url: 프로필 이미지 URL (optional)
 
     Returns:
         User — 기존 또는 새로 생성된 사용자 인스턴스
     """
-    result = await session.execute(select(User).where(User.supabase_uid == supabase_uid))
+    result = await session.execute(select(User).where(User.clerk_user_id == clerk_user_id))
     user = result.scalar_one_or_none()
 
     if user is None:
         user = User(
-            supabase_uid=supabase_uid,
+            clerk_user_id=clerk_user_id,
             email=email,
             provider=provider,
             avatar_url=avatar_url,

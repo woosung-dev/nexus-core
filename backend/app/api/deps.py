@@ -1,7 +1,7 @@
 """
 FastAPI 공통 Dependencies.
 JWKS(JSON Web Key Set) 기반으로 JWT를 검증합니다.
-인증 플랫폼(Supabase, Auth0, 자체 구현 등)에 독립적인 구조입니다.
+인증 플랫폼(Clerk, Auth0 등)에 독립적인 구조입니다.
 """
 
 import jwt
@@ -32,7 +32,7 @@ async def get_current_user(
     JWKS 방식으로 JWT를 검증하고, DB에서 해당 사용자를 조회합니다.
     DB에 사용자가 없다면 자동으로 생성합니다 (JIT Provisioning).
 
-    - Supabase, Auth0, 자체 구현 등 표준 JWKS 엔드포인트를 가진 모든 플랫폼에서 작동합니다.
+    - Clerk, Auth0 등 표준 JWKS 엔드포인트를 가진 모든 플랫폼에서 작동합니다.
     - 시크릿 키를 Backend에 저장하지 않아 보안성이 높습니다.
 
     Args:
@@ -56,7 +56,6 @@ async def get_current_user(
             token,
             signing_key.key,
             algorithms=["ES256", "RS256", "HS256"],
-            audience="authenticated",
         )
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -75,24 +74,22 @@ async def get_current_user(
         )
 
     # JWT payload에서 사용자 정보 추출
-    supabase_uid: str | None = payload.get("sub")
+    clerk_user_id: str | None = payload.get("sub")
     email: str | None = payload.get("email")
 
-    if not supabase_uid or not email:
+    if not clerk_user_id or not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="토큰에 필수 사용자 정보가 없습니다.",
         )
 
-    # JIT Provisioning: supabase_uid로 사용자 조회, 없으면 자동 생성
-    app_metadata = payload.get("app_metadata", {})
-    provider = app_metadata.get("provider", "unknown")
-    user_metadata = payload.get("user_metadata", {})
-    avatar_url = user_metadata.get("avatar_url") or user_metadata.get("picture")
+    # JIT Provisioning: clerk_user_id로 사용자 조회, 없으면 자동 생성
+    provider = payload.get("provider", "unknown")
+    avatar_url = payload.get("avatar_url")
 
-    user = await crud_user.get_or_create_by_supabase_uid(
+    user = await crud_user.get_or_create_by_clerk_id(
         session=session,
-        supabase_uid=supabase_uid,
+        clerk_user_id=clerk_user_id,
         email=email,
         provider=provider,
         avatar_url=avatar_url,
