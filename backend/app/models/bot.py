@@ -20,7 +20,6 @@ class Bot(SQLModel, table=True):
     """AI 봇 모델 — 마켓플레이스 카드 UI와 매핑"""
 
     __tablename__ = "bots"
-    __table_args__ = {"schema": "nexus_core"}
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(max_length=100, index=True)
@@ -33,7 +32,7 @@ class Bot(SQLModel, table=True):
     is_new: bool = Field(default=False)
     plan_required: PlanType = Field(
         default=PlanType.FREE,
-        sa_column=Column(SAEnum(PlanType, name="plantype", schema="nexus_core"))
+        sa_column=Column(SAEnum(PlanType, name="plantype"))
     )
 
     # AI 관련 설정 — 봇마다 다른 모델/프롬프트 사용 가능

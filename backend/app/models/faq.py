@@ -21,10 +21,9 @@ def get_utc_now():
 
 
 class Faq(SQLModel, table=True):
-    """FAQ Override 모델 — nexus_core.faqs 테이블"""
+    """FAQ Override 모델 — faqs 테이블"""
 
     __tablename__ = "faqs"
-    __table_args__ = {"schema": "nexus_core"}
 
     id: int | None = Field(default=None, primary_key=True)
 
@@ -32,7 +31,7 @@ class Faq(SQLModel, table=True):
     bot_id: int = Field(
         sa_column=Column(
             Integer,
-            ForeignKey("nexus_core.bots.id", ondelete="CASCADE"),
+            ForeignKey("bots.id", ondelete="CASCADE"),
             nullable=False,
             index=True,
         )

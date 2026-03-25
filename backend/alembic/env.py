@@ -1,14 +1,12 @@
 """
 Alembic 마이그레이션 환경 설정.
 - 비동기(asyncpg) 연결 지원
-- nexus_core 스키마에서만 마이그레이션 실행
-- .env 파일에서 DATABASE_URL과 DB_SCHEMA를 자동으로 읽습니다
+- .env 파일에서 DATABASE_URL을 자동으로 읽습니다
 """
 
 import asyncio
 from logging.config import fileConfig
 
-import sqlalchemy
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
@@ -41,17 +39,6 @@ config.set_main_option("sqlalchemy.url", escaped_url)
 # 모든 모델의 메타데이터를 autogenerate에 사용
 target_metadata = SQLModel.metadata
 
-# nexus_core 스키마로 테이블 스키마 설정
-# 이 설정이 없으면 Alembic이 public 스키마에 테이블을 생성합니다
-for table in target_metadata.tables.values():
-    table.schema = settings.DB_SCHEMA
-
-def include_name(name, type_, parent_names):
-    if type_ == "schema":
-        # Only consider our designated schema
-        return name == settings.DB_SCHEMA
-    return True
-
 
 def run_migrations_offline() -> None:
     """오프라인 모드: DB 연결 없이 SQL 스크립트를 생성합니다."""
@@ -61,9 +48,6 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
-        include_schemas=True,
-        include_name=include_name,
-        version_table_schema=settings.DB_SCHEMA,
     )
 
     with context.begin_transaction():
@@ -75,9 +59,6 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        include_schemas=True,
-        include_name=include_name,
-        version_table_schema=settings.DB_SCHEMA,
     )
 
     with context.begin_transaction():
@@ -90,19 +71,9 @@ async def run_migrations_online() -> None:
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
-        connect_args={
-            # nexus_core 스키마를 search_path로 설정
-            "server_settings": {"search_path": settings.DB_SCHEMA},
-            # Supabase Pooler(Transaction Mode) 사용 시 필수
-            "statement_cache_size": 0,
-        },
     )
 
     async with connectable.begin() as connection:
-        # nexus_core 스키마가 없으면 생성 (멱등성 보장)
-        await connection.execute(
-            sqlalchemy.text(f"CREATE SCHEMA IF NOT EXISTS {settings.DB_SCHEMA}")
-        )
         await connection.run_sync(do_run_migrations)
 
     await connectable.dispose()

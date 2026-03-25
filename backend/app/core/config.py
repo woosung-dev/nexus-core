@@ -6,6 +6,8 @@ pydantic-settings 기반 환경변수 관리.
 import json
 from functools import lru_cache
 
+from typing import Literal
+
 from pydantic import SecretStr, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -26,27 +28,22 @@ class Settings(BaseSettings):
 
     # --- 데이터베이스 ---
     DATABASE_URL: str
-    DB_SCHEMA: str = "public"
 
     # --- AI API 키 ---
     GEMINI_API_KEY: SecretStr
     OPENAI_API_KEY: SecretStr | None = None
 
     # --- 파일 스토리지 ---
-    STORAGE_PROVIDER: str = "supabase"  # "supabase" | "r2"
+    STORAGE_PROVIDER: Literal["r2", "s3", "local"] = "r2"
     MAX_UPLOAD_SIZE_MB: int = 10
 
     # --- Cloudflare R2 ---
-    R2_ACCOUNT_ID: str | None = None
-    R2_ACCESS_KEY_ID: str | None = None
+    # R2_ENDPOINT_URL: https://<account-id>.r2.cloudflarestorage.com
+    R2_ENDPOINT_URL: str | None = None
+    R2_ACCESS_KEY_ID: SecretStr | None = None
     R2_SECRET_ACCESS_KEY: SecretStr | None = None
     R2_BUCKET_NAME: str | None = None
     R2_PUBLIC_URL: str | None = None  # 커스텀 도메인 또는 r2.dev URL
-    
-    # --- Supabase Storage ---
-    SUPABASE_URL: str | None = None
-    SUPABASE_SERVICE_KEY: SecretStr | None = None
-    SUPABASE_STORAGE_BUCKET: str = "uploads"
 
 
     # --- RAG (File Search API) ---
@@ -54,7 +51,7 @@ class Settings(BaseSettings):
 
     # --- Auth (Provider-Agnostic) ---
     # JWKS URL로 JWT 서명 검증. 인증 플랫폼 교체 시 이 URL만 바꾸면 됩니다.
-    # Supabase: https://<project-ref>.supabase.co/auth/v1/.well-known/jwks.json
+    # Clerk:    https://<frontend-api>.clerk.accounts.dev/.well-known/jwks.json
     # Auth0:    https://<domain>.auth0.com/.well-known/jwks.json
     AUTH_JWKS_URL: str
 
