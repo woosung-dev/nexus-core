@@ -196,7 +196,7 @@ async def upload_bot_document(
     if len(file_data) > settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024:
         raise ValidationError(f"파일 크기가 {settings.MAX_UPLOAD_SIZE_MB}MB를 초과합니다.")
 
-    # 스토리지 업로드 (구현체에 따라 로컬/Supabase/R2로 분기)
+    # 스토리지 업로드 (구현체에 따라 로컬/R2로 분기)
     await storage.upload(
         file_data=file_data,
         filename=file.filename or "unknown",

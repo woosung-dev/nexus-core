@@ -29,7 +29,7 @@ async def upload_bot_image(
 
     1. 봇 존재 확인
     2. 파일 크기 · 타입 검증
-    3. 스토리지(Supabase/R2) 업로드
+    3. 스토리지(R2) 업로드
     4. DB bot.image_url 갱신 후 commit
 
     Returns:
@@ -53,7 +53,7 @@ async def upload_bot_image(
     if not content_type.startswith("image/"):
         raise ValidationError("이미지 파일만 업로드 가능합니다.")
 
-    # 스토리지 업로드 (구현체에 따라 로컬/Supabase/R2 분기)
+    # 스토리지 업로드 (구현체에 따라 로컬/R2 분기)
     public_url = await storage.upload(
         file_data=file_data,
         filename=filename,

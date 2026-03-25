@@ -4,7 +4,7 @@ FAQ Override 시맨틱 라우팅 서비스.
 
 흐름:
   1. get_embedding(query_text) → 768차원 벡터
-  2. pgvector `<=>` 연산자로 nexus_core.faqs 테이블 검색
+  2. pgvector `<=>` 연산자로 faqs 테이블 검색
   3. (1 - cosine_distance) >= threshold 인 행 반환
 
 참조:
@@ -71,7 +71,7 @@ async def search_faq_override(
             # 캐시 MISS: DB에서 COUNT 쿼리
             count_result = await session.execute(
                 text("""
-                    SELECT COUNT(*) FROM nexus_core.faqs
+                    SELECT COUNT(*) FROM faqs
                     WHERE bot_id = :bot_id
                       AND is_active = true
                       AND question_vector IS NOT NULL
@@ -98,7 +98,7 @@ async def search_faq_override(
         sql = f"""
             SELECT id, question, answer, threshold,
                    1 - (question_vector <=> '{vector_str}'::vector) AS similarity
-            FROM nexus_core.faqs
+            FROM faqs
             WHERE bot_id = :bot_id
               AND is_active = true
               AND question_vector IS NOT NULL
