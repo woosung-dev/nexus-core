@@ -53,19 +53,25 @@ jobs:
           service: "${{ env.SERVICE }}"
           region: "${{ env.REGION }}"
           image: "${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO_NAME }}/${{ env.SERVICE }}:${{ github.sha }}"
-          # ⭐ 핵심: Cloud Run 서버가 켜질 때 Supabase DB 주소를 주입!
+          # ⭐ 핵심: Cloud Run 서버가 켜질 때 환경변수 주입
+          # GitHub Secrets 필요 목록:
+          #   DATABASE_URL     - Neon direct connection URL (ssl=require 포함)
+          #   AUTH_JWKS_URL    - Clerk: https://<frontend-api>.clerk.accounts.dev/.well-known/jwks.json
+          #   R2_ACCOUNT_ID / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / R2_BUCKET_NAME / R2_PUBLIC_URL
+          #   GEMINI_API_KEY / OPENAI_API_KEY / GCP_CREDENTIALS
           env_vars: |
-            DATABASE_URL=${{ secrets.SUPABASE_DB_URL }}
-            DB_SCHEMA=nexus_core
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             AUTH_JWKS_URL=${{ secrets.AUTH_JWKS_URL }}
             DEBUG=false
             CORS_ORIGINS=https://nexus-core-admin.vercel.app,https://nexus-core-six.vercel.app,http://localhost:3000,http://localhost:3001
-            STORAGE_PROVIDER=supabase
-            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }}
-            SUPABASE_STORAGE_BUCKET=nexus-core-uploads
+            STORAGE_PROVIDER=r2
+            R2_ACCOUNT_ID=${{ secrets.R2_ACCOUNT_ID }}
+            R2_ACCESS_KEY_ID=${{ secrets.R2_ACCESS_KEY_ID }}
+            R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
+            R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
+            R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL }}
 
       # 5. 최종 접속 가능한 서버 주소 출력
       - name: "Show output"
