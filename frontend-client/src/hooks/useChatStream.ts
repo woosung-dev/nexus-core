@@ -1,7 +1,7 @@
 import { useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { useAuth } from "@clerk/nextjs";
 import { useChatStore } from "@/store/useChatStore";
 import { ChatCompletionRequest, ChatSessionListResponse, ChatSessionResponse } from "@/types/api";
 
@@ -11,6 +11,7 @@ interface UseChatStreamOptions {
 
 export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOptions) {
   const { isStreaming, setIsStreaming, setStreamingText, setOptimisticUserMessage } = useChatStore();
+  const { getToken } = useAuth();
   // 현재 세션 ID를 추적 (선택적 리다이렉트 및 후속 메시지용)
   const currentSessionIdRef = useRef<string | undefined>(initialSessionId);
   const queryClient = useQueryClient();
@@ -29,8 +30,7 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
     setOptimisticUserMessage(content);
 
     try {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = await getToken({ template: "nexus-backend" });
 
       let resolvedBotId = botId;
 
@@ -72,9 +72,9 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {})
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -193,7 +193,7 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
       setStreamingText("");
       setOptimisticUserMessage(null);
     }
-  }, [isStreaming, queryClient, router, setIsStreaming, setStreamingText, setOptimisticUserMessage]);
+  }, [isStreaming, queryClient, router, getToken, setIsStreaming, setStreamingText, setOptimisticUserMessage]);
 
   return {
     sendMessage,
