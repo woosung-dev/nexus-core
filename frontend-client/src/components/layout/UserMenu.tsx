@@ -23,7 +23,7 @@ export function UserMenu() {
 
   const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "사용자";
   const email = user?.email || "";
-  const avatarUrl = user?.user_metadata?.avatar_url || user?.user_metadata?.picture;
+  const avatarUrl = user?.user_metadata?.avatar_url;
 
   // 외부 클릭 시 닫기
   useEffect(() => {
