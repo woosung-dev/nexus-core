@@ -105,7 +105,7 @@ jobs:
         run: |
           gcloud run services update ${{ env.SERVICE_NAME }} \
             --region=${{ env.GCP_REGION }} \
-            --update-env-vars='^|^CORS_ORIGINS=https://nexus-core-admin.vercel.app,https://nexus-core-six.vercel.app,http://localhost:3000,http://localhost:3001'
+            --update-env-vars='^|^CORS_ORIGINS=https://nexus-core-admin.vercel.app,https://nexus-core-sable.vercel.app,http://localhost:3000,http://localhost:3001'
 
       # ── Smoke test ─────────────────────────────────────────────────────
       - name: Smoke test
