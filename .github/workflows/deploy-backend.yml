@@ -78,21 +78,18 @@ jobs:
           image: ${{ env.IMAGE_URI }}
           # --cpu-boost: cold start 시 CPU 2x 부스트
           # --no-cpu-throttling: 응답 외 시간에도 CPU 유지 — startup probe 안정 통과
-          # Startup probe: /health 200 응답 후 트래픽 라우팅.
-          # 총 budget: 5s + 10s × 30 = 305s.
+          # Startup probe: /health 200 응답 후 트래픽 라우팅. budget = 5 + 10×30 = 305s.
+          # 최신 gcloud는 개별 --startup-probe-* 플래그 대신 단일 --startup-probe=KEY=VAL,... 형식.
           flags: >-
             --allow-unauthenticated --port=8080 --memory=1Gi
             --min-instances=0 --max-instances=3
             --cpu-boost --no-cpu-throttling
-            --startup-probe-http-get-path=/health
-            --startup-probe-initial-delay=5
-            --startup-probe-period=10
-            --startup-probe-timeout=5
-            --startup-probe-failure-threshold=30
+            --startup-probe=httpGet.path=/health,initialDelaySeconds=5,periodSeconds=10,timeoutSeconds=5,failureThreshold=30
+          # NOTE: CORS_ORIGINS는 콤마가 포함되어 deploy-cloudrun 액션의 env_vars 파서가
+          # 값을 split해버린다 (사고 사례 확인). 별도 step에서 ^|^ delimiter로 주입.
           env_vars: |
             DEBUG=false
             STORAGE_PROVIDER=r2
-            CORS_ORIGINS=https://nexus-core-admin.vercel.app,https://nexus-core-six.vercel.app,http://localhost:3000,http://localhost:3001
             DATABASE_URL=${{ secrets.DATABASE_URL }}
             AUTH_JWKS_URL=${{ secrets.AUTH_JWKS_URL }}
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
@@ -102,6 +99,13 @@ jobs:
             R2_SECRET_ACCESS_KEY=${{ secrets.R2_SECRET_ACCESS_KEY }}
             R2_BUCKET_NAME=${{ secrets.R2_BUCKET_NAME }}
             R2_PUBLIC_URL=${{ secrets.R2_PUBLIC_URL }}
+
+      # ── CORS_ORIGINS 별도 주입 (^|^ delimiter로 콤마 split 회피) ────────
+      - name: Set CORS_ORIGINS
+        run: |
+          gcloud run services update ${{ env.SERVICE_NAME }} \
+            --region=${{ env.GCP_REGION }} \
+            --update-env-vars='^|^CORS_ORIGINS=https://nexus-core-admin.vercel.app,https://nexus-core-six.vercel.app,http://localhost:3000,http://localhost:3001'
 
       # ── Smoke test ─────────────────────────────────────────────────────
       - name: Smoke test
