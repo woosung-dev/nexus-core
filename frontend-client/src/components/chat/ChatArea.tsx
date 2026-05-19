@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, User, Sparkles, Loader2, ThumbsUp, ThumbsDown, Copy, Check } from "lucide-react";
+import { Bot, Sparkles, Loader2, ThumbsUp, ThumbsDown, Copy, Check, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useQuery } from "@tanstack/react-query";
 import { useChatStore } from "@/store/useChatStore";
+import { PENDING_KEY } from "@/hooks/useChatStream";
 import api from "@/lib/api";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
 import { MessageResponse } from "@/types/api";
 
 export function ChatArea({ sessionId }: { sessionId?: string }) {
-  const { isStreaming, streamingText, optimisticUserMessage } = useChatStore();
+  const { isStreaming, streamingText } = useChatStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  // sessionId 가 없을 때 (새 채팅 첫 메시지 보내는 중) 동일 인스턴스에서 PENDING 캐시를 구독한다.
+  const effectiveKey = sessionId ?? PENDING_KEY;
 
   // 피드백 및 복사 기능 상태
   const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
@@ -45,11 +48,12 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
   };
 
   const { data: messages = [] } = useQuery<MessageResponse[]>({
-    queryKey: ['messages', sessionId],
+    queryKey: ['messages', effectiveKey],
     queryFn: async () => {
       const response = await api.get(`/chats/${sessionId}/messages`);
       return response.data;
     },
+    // 실제 서버 fetch 는 sessionId 가 있을 때만 (PENDING 버킷은 setQueryData 로만 채워짐)
     enabled: !!sessionId,
   });
 
@@ -71,7 +75,7 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
         });
       }
     }
-  }, [messages.length, streamingText, optimisticUserMessage, isAtBottom]);
+  }, [messages.length, streamingText, isAtBottom]);
 
   return (
     <ScrollArea 
@@ -83,7 +87,7 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
       
       <div className="w-full max-w-3xl mx-auto py-12 px-4 sm:px-6 flex flex-col relative z-10">
         <LayoutGroup>
-          {!sessionId && messages.length === 0 && !optimisticUserMessage && !isStreaming && (
+          {!sessionId && messages.length === 0 && !isStreaming && (
             <motion.div 
               layout
               initial={{ opacity: 0, y: 20 }}
@@ -193,35 +197,6 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                   </motion.div>
                 );
               })}
-
-              {/* Optimistic User Message - 질문이 위로 올라가는 효과의 주인공 */}
-              {optimisticUserMessage && (
-                <motion.div
-                  key="optimistic-user"
-                  layout
-                  initial={{ opacity: 0, y: 100, scale: 0.9 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ 
-                    type: "spring",
-                    stiffness: 200,
-                    damping: 20
-                  }}
-                  className="flex w-full justify-end"
-                >
-                  <div className="flex gap-4 max-w-[92%] sm:max-w-[85%] flex-row-reverse">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-1 shadow-lg bg-linear-to-br from-amber-400 to-amber-500 border border-amber-300 text-white">
-                      <User className="w-5 h-5" />
-                    </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="px-5 py-3.5 rounded-[20px] bg-linear-to-br from-amber-400 to-amber-500 border border-amber-300 text-white rounded-tr-sm shadow-sm shadow-amber-200/50 whitespace-pre-wrap text-[15px] leading-relaxed font-medium">
-                        {optimisticUserMessage}
-                      </div>
-                      <span className="text-[10px] text-zinc-400 font-bold tracking-tight uppercase px-1">Sending...</span>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
 
               {/* Streaming/Loading Bot Presence - 질문 바로 아래에서 대기 중인 모습 */}
               {isStreaming && (

@@ -1,19 +1,16 @@
+// 채팅 스트리밍 진행 상태만 보관. 유저 메시지는 React Query 캐시가 단일 진실원이라 zustand 에 두지 않는다.
 import { create } from "zustand";
 
 interface ChatState {
   isStreaming: boolean;
   streamingText: string;
-  optimisticUserMessage: string | null;
   setIsStreaming: (isStreaming: boolean) => void;
   setStreamingText: (text: string) => void;
-  setOptimisticUserMessage: (msg: string | null) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
   isStreaming: false,
   streamingText: "",
-  optimisticUserMessage: null,
   setIsStreaming: (isStreaming) => set({ isStreaming }),
   setStreamingText: (streamingText) => set({ streamingText }),
-  setOptimisticUserMessage: (optimisticUserMessage) => set({ optimisticUserMessage }),
 }));
