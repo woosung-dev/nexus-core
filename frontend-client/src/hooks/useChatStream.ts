@@ -1,7 +1,7 @@
-// 채팅 전송 훅 — 유저 메시지를 React Query 캐시에 stable id 로 박아 넣어 라우트 전환 중 정체성 변동 없이 동일 노드로 유지한다.
+// 채팅 전송 훅. sessionId 는 화면에 들어오기 전에 이미 서버에서 생성돼 있으므로, 이 훅은
+// 단 하나의 캐시 키 ['messages', sessionId] 에 메시지를 append 하는 단순한 흐름만 유지한다.
 import { useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useChatStore } from "@/store/useChatStore";
 import {
@@ -15,41 +15,42 @@ interface UseChatStreamOptions {
   sessionId?: string;
 }
 
-// sessionId 가 아직 없을 때 보관하는 임시 캐시 키. ChatArea 도 같은 상수를 알고 있어야 함.
-const PENDING_KEY = "__pending__";
-
 export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOptions) {
   const { isStreaming, setIsStreaming, setStreamingText } = useChatStore();
   const { getToken } = useAuth();
-  // 현재 세션 ID를 추적 (선택적 리다이렉트 및 후속 메시지용)
   const currentSessionIdRef = useRef<string | undefined>(initialSessionId);
   const queryClient = useQueryClient();
-  const router = useRouter();
 
-  // initialSessionId가 바뀌면 ref 업데이트 (페이지 이동 대응)
+  // 라우트 이동 시 prop 갱신을 반영
   if (initialSessionId && initialSessionId !== currentSessionIdRef.current) {
     currentSessionIdRef.current = initialSessionId;
   }
 
-  const sendMessage = useCallback(async (content: string, botId?: number) => {
+  const sendMessage = useCallback(async (content: string) => {
     if (!content.trim() || isStreaming) return;
 
-    // framer-motion key 안정성을 위해 클라이언트가 발급한 stable id. 음수로 발급해 서버 PK 와 충돌 회피.
+    const sessionId = currentSessionIdRef.current;
+    if (!sessionId) {
+      console.error("sendMessage called without sessionId — 이 컴포넌트는 sessionId 가 보장된 상태에서만 마운트되어야 함");
+      return;
+    }
+
+    // framer-motion key 안정성을 위한 클라이언트 발급 음수 id (서버 PK 와 충돌 회피)
     const tmpUserId = -Date.now();
     const tmpAssistantId = tmpUserId - 1;
+    const sessionIdNum = parseInt(sessionId, 10);
 
     setIsStreaming(true);
     setStreamingText("");
 
-    // 1) 유저 메시지를 즉시 캐시에 append (이전 optimisticUserMessage zustand 흐름 폐기)
-    const initialKey = currentSessionIdRef.current ?? PENDING_KEY;
+    // 1) 유저 메시지를 캐시에 즉시 append
     queryClient.setQueryData<MessageResponse[]>(
-      ["messages", initialKey],
+      ["messages", sessionId],
       (old = []) => [
         ...old,
         {
           id: tmpUserId,
-          session_id: currentSessionIdRef.current ? parseInt(currentSessionIdRef.current, 10) : 0,
+          session_id: sessionIdNum,
           role: "user",
           content,
           created_at: new Date().toISOString(),
@@ -60,37 +61,30 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
     try {
       const token = await getToken({ template: "nexus-backend" });
 
-      let resolvedBotId = botId;
-
-      // 봇 ID가 없고 현재 세션 ID가 존재한다면 사이드바 캐시에서 추출
-      if (!resolvedBotId && currentSessionIdRef.current) {
-        const cachedData = queryClient.getQueryData<ChatSessionListResponse>(["chats"]);
-        if (cachedData?.sessions && Array.isArray(cachedData.sessions)) {
-          const currentSession = cachedData.sessions.find(
-            (chat: ChatSessionResponse) => chat.id.toString() === currentSessionIdRef.current,
-          );
-          if (currentSession?.bot_id) {
-            resolvedBotId = currentSession.bot_id;
-          }
+      // 사이드바 캐시에서 봇 ID 추출 (세션 생성 시 prepend 되어 항상 있음)
+      let resolvedBotId: number | undefined;
+      const cachedData = queryClient.getQueryData<ChatSessionListResponse>(["chats"]);
+      if (cachedData?.sessions && Array.isArray(cachedData.sessions)) {
+        const currentSession = cachedData.sessions.find(
+          (chat: ChatSessionResponse) => chat.id.toString() === sessionId,
+        );
+        if (currentSession?.bot_id) {
+          resolvedBotId = currentSession.bot_id;
         }
       }
 
       if (!resolvedBotId) {
-        console.error("Bot ID is unexpectedly undefined");
+        console.error("Bot ID is unexpectedly undefined for session", sessionId);
         setIsStreaming(false);
         return;
       }
 
-      const currentSessionId = currentSessionIdRef.current
-        ? parseInt(currentSessionIdRef.current, 10)
-        : undefined;
-
       const payload: ChatCompletionRequest = {
         message: content,
         bot_id: resolvedBotId,
+        session_id: sessionIdNum,
         stream: false,
         use_rag: true,
-        ...(currentSessionId ? { session_id: currentSessionId } : {}),
       };
 
       const response = await fetch("/api/v1/chats/completions", {
@@ -109,72 +103,32 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
 
       const contentType = response.headers.get("content-type");
 
-      // JSON 응답 (RAG 사용 또는 stream:false)
+      // JSON 응답 (RAG / stream:false)
       if (contentType?.includes("application/json")) {
         const data = await response.json();
-        const newSessionId = data.session_id?.toString();
-        const isFirstResponse = newSessionId && !currentSessionIdRef.current;
-
-        if (isFirstResponse) {
-          currentSessionIdRef.current = newSessionId;
-
-          // 2) PENDING 캐시를 실제 세션 키로 이전, AI 메시지를 동일 흐름에 append
-          const pending = queryClient.getQueryData<MessageResponse[]>([
-            "messages",
-            PENDING_KEY,
-          ]) ?? [];
-          queryClient.setQueryData<MessageResponse[]>(
-            ["messages", newSessionId],
-            [
-              ...pending.map((m) => ({ ...m, session_id: parseInt(newSessionId, 10) })),
-              {
-                id: tmpAssistantId,
-                session_id: parseInt(newSessionId, 10),
-                role: "assistant",
-                content: data.content || "",
-                created_at: new Date().toISOString(),
-              },
-            ],
-          );
-          queryClient.removeQueries({ queryKey: ["messages", PENDING_KEY] });
-
-          // 공유 layout 이 ChatLayout 인스턴스를 유지하므로 router.replace 가 안전.
-          router.replace(`/chat/${newSessionId}`);
-          queryClient.invalidateQueries({ queryKey: ["chats"] });
-        } else if (currentSessionIdRef.current) {
-          // 기존 세션 — AI 메시지를 같은 캐시에 append
-          queryClient.setQueryData<MessageResponse[]>(
-            ["messages", currentSessionIdRef.current],
-            (old = []) => [
-              ...old,
-              {
-                id: tmpAssistantId,
-                session_id: parseInt(currentSessionIdRef.current!, 10),
-                role: "assistant",
-                content: data.content || "",
-                created_at: new Date().toISOString(),
-              },
-            ],
-          );
-          queryClient.invalidateQueries({ queryKey: ["chats"] });
-        }
-
+        queryClient.setQueryData<MessageResponse[]>(
+          ["messages", sessionId],
+          (old = []) => [
+            ...old,
+            {
+              id: tmpAssistantId,
+              session_id: sessionIdNum,
+              role: "assistant",
+              content: data.content || "",
+              created_at: new Date().toISOString(),
+            },
+          ],
+        );
+        queryClient.invalidateQueries({ queryKey: ["chats"] });
         return;
       }
 
-      // SSE 스트리밍 분기 (현재 백엔드는 stream:false JSON 만 쓰지만 호환 유지)
-      const headerSessionId = response.headers.get("x-chat-session-id");
-      if (headerSessionId && !currentSessionIdRef.current) {
-        currentSessionIdRef.current = headerSessionId;
-      }
-
+      // SSE 스트리밍 분기
       const reader = response.body?.getReader();
       const decoder = new TextDecoder("utf-8");
       if (!reader) return;
 
       let tempText = "";
-      let migrated = false;
-
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
@@ -188,66 +142,41 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
 
           try {
             const data = JSON.parse(dataStr);
-
-            // 최초 메타데이터 (세션 ID)
-            if (data.session_id && !currentSessionIdRef.current) {
-              const newId = data.session_id.toString();
-              currentSessionIdRef.current = newId;
-              const pending = queryClient.getQueryData<MessageResponse[]>([
-                "messages",
-                PENDING_KEY,
-              ]) ?? [];
-              queryClient.setQueryData<MessageResponse[]>(
-                ["messages", newId],
-                pending.map((m) => ({ ...m, session_id: parseInt(newId, 10) })),
-              );
-              queryClient.removeQueries({ queryKey: ["messages", PENDING_KEY] });
-              router.replace(`/chat/${newId}`);
-              queryClient.invalidateQueries({ queryKey: ["chats"] });
-              migrated = true;
-              continue;
-            }
-
-            // 본문 청크
-            const chunkText: string | undefined = data.content
-              ?? data.choices?.[0]?.delta?.content;
+            const chunkText: string | undefined =
+              data.content ?? data.choices?.[0]?.delta?.content;
             if (chunkText) {
               tempText += chunkText;
               setStreamingText(tempText);
             }
           } catch {
-            // 부분 청크 JSON 파싱 실패 무시
+            // 부분 JSON 무시
           }
         }
       }
 
-      // SSE 종료 후 AI 메시지를 캐시에 영구 append (streamingText 와 동일 내용)
-      if (currentSessionIdRef.current && tempText) {
+      if (tempText) {
         queryClient.setQueryData<MessageResponse[]>(
-          ["messages", currentSessionIdRef.current],
+          ["messages", sessionId],
           (old = []) => [
             ...old,
             {
               id: tmpAssistantId,
-              session_id: parseInt(currentSessionIdRef.current!, 10),
+              session_id: sessionIdNum,
               role: "assistant",
               content: tempText,
               created_at: new Date().toISOString(),
             },
           ],
         );
-        if (migrated) {
-          queryClient.invalidateQueries({ queryKey: ["chats"] });
-        }
       }
+      queryClient.invalidateQueries({ queryKey: ["chats"] });
     } catch (error) {
       console.error("Chat error:", error);
-      // 실패 시 PENDING 버킷의 유저 메시지는 남겨 사용자에게 보이도록 두고, 진행 상태만 정리.
     } finally {
       setIsStreaming(false);
       setStreamingText("");
     }
-  }, [isStreaming, queryClient, router, getToken, setIsStreaming, setStreamingText]);
+  }, [isStreaming, queryClient, getToken, setIsStreaming, setStreamingText]);
 
   return {
     sendMessage,
@@ -255,5 +184,3 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
     newSessionId: currentSessionIdRef.current,
   };
 }
-
-export { PENDING_KEY };

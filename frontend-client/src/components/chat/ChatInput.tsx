@@ -3,7 +3,7 @@ import { ArrowUp, CornerDownLeft, Loader2 } from "lucide-react";
 import { useChatStream } from "@/hooks/useChatStream";
 import { motion, AnimatePresence } from "framer-motion";
 
-export function ChatInput({ sessionId, botId }: { sessionId?: string; botId?: string }) {
+export function ChatInput({ sessionId }: { sessionId: string }) {
   const [input, setInput] = useState("");
   const { sendMessage, isStreaming } = useChatStream({ sessionId });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -19,7 +19,7 @@ export function ChatInput({ sessionId, botId }: { sessionId?: string; botId?: st
 
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;
-    sendMessage(input, botId ? parseInt(botId, 10) : undefined);
+    sendMessage(input);
     setInput("");
   };
 

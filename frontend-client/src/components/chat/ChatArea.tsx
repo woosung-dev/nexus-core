@@ -5,7 +5,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useQuery } from "@tanstack/react-query";
 import { useChatStore } from "@/store/useChatStore";
-import { PENDING_KEY } from "@/hooks/useChatStream";
 import api from "@/lib/api";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
@@ -15,8 +14,6 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
   const { isStreaming, streamingText } = useChatStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
-  // sessionId 가 없을 때 (새 채팅 첫 메시지 보내는 중) 동일 인스턴스에서 PENDING 캐시를 구독한다.
-  const effectiveKey = sessionId ?? PENDING_KEY;
 
   // 피드백 및 복사 기능 상태
   const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
@@ -48,12 +45,11 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
   };
 
   const { data: messages = [] } = useQuery<MessageResponse[]>({
-    queryKey: ['messages', effectiveKey],
+    queryKey: ['messages', sessionId],
     queryFn: async () => {
       const response = await api.get(`/chats/${sessionId}/messages`);
       return response.data;
     },
-    // 실제 서버 fetch 는 sessionId 가 있을 때만 (PENDING 버킷은 setQueryData 로만 채워짐)
     enabled: !!sessionId,
   });
 
