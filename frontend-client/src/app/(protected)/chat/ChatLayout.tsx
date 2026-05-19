@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatArea } from "@/components/chat/ChatArea";
@@ -10,7 +11,12 @@ import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-export function ChatLayout({ sessionId, botId }: { sessionId?: string; botId?: string }) {
+export function ChatLayout({ children }: { children?: React.ReactNode }) {
+  // 라우트 트랜지션을 견디는 단일 컴포넌트 인스턴스로 살아남도록 sessionId/botId 는 prop 이 아닌
+  // useParams 로 직접 구독 (Next.js App Router의 공유 layout 패턴, vercel/ai-chatbot 참조)
+  const params = useParams<{ session_id?: string; bot_id?: string }>();
+  const sessionId = params?.session_id;
+  const botId = params?.bot_id;
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -54,6 +60,8 @@ export function ChatLayout({ sessionId, botId }: { sessionId?: string; botId?: s
             <ChatInput sessionId={sessionId} botId={botId} />
           </>
         )}
+        {/* Next.js layout 규약을 위해 children 을 마운트 시키되, 페이지는 placeholder 라 시각적 영향 없음 */}
+        {children}
       </main>
     </div>
   );

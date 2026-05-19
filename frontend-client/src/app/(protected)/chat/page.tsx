@@ -1,8 +1,4 @@
-import { ChatLayout } from './ChatLayout';
-
-// 빌드 시 정적 최적화(SSG)를 방지하고 런타임에 항상 서버 사이드에서 실행되도록 설정
-export const dynamic = "force-dynamic";
-
-export default function NewChatPage() {
-  return <ChatLayout />;
+// /chat 라우트 placeholder — 실제 UI 는 layout.tsx 의 ChatLayout 이 useParams 로 모드를 판단해 렌더한다.
+export default function ChatIndexPage() {
+  return null;
 }

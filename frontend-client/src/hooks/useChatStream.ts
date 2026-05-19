@@ -1,5 +1,6 @@
 import { useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useChatStore } from "@/store/useChatStore";
 import { ChatCompletionRequest, ChatSessionListResponse, ChatSessionResponse } from "@/types/api";
@@ -14,6 +15,7 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
   // 현재 세션 ID를 추적 (선택적 리다이렉트 및 후속 메시지용)
   const currentSessionIdRef = useRef<string | undefined>(initialSessionId);
   const queryClient = useQueryClient();
+  const router = useRouter();
 
   // initialSessionId가 바뀌면 ref 업데이트 (페이지 이동 대응)
   if (initialSessionId && initialSessionId !== currentSessionIdRef.current) {
@@ -93,9 +95,9 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
            queryClient.setQueryData(["messages", newSessionId], [
              { id: Date.now(), role: "user", content, created_at: new Date().toISOString() }
            ]);
-           // router.replace 는 /chat/new/[bot_id] → /chat/[session_id] 라우트 세그먼트가 달라
-           // ChatArea/ChatInput 이 unmount → remount 되며 첫 응답이 깜빡임. URL만 갱신해 트리 유지.
-           window.history.replaceState(null, "", `/chat/${newSessionId}`);
+           // 공유 layout(app/(protected)/chat/layout.tsx)이 ChatLayout 인스턴스를 유지하므로
+           // router.replace 호출 시 page placeholder 만 swap 되고 ChatArea/ChatInput 은 mount 유지.
+           router.replace(`/chat/${newSessionId}`);
            queryClient.invalidateQueries({ queryKey: ["chats"] });
         }
         
@@ -157,8 +159,8 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
                 queryClient.setQueryData(["messages", newId], [
                   { id: Date.now(), role: "user", content, created_at: new Date().toISOString() }
                 ]);
-                // URL만 갱신해 컴포넌트 트리 유지 (router.replace 시 unmount/remount 깜빡임 방지)
-                window.history.replaceState(null, "", `/chat/${newId}`);
+                // 공유 layout 덕에 router.replace 호출이 안전 (ChatLayout 인스턴스 유지)
+                router.replace(`/chat/${newId}`);
                 queryClient.invalidateQueries({ queryKey: ["chats"] });
                 continue;
               }
@@ -193,7 +195,7 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
       setStreamingText("");
       setOptimisticUserMessage(null);
     }
-  }, [isStreaming, queryClient, getToken, setIsStreaming, setStreamingText, setOptimisticUserMessage]);
+  }, [isStreaming, queryClient, router, getToken, setIsStreaming, setStreamingText, setOptimisticUserMessage]);
 
   return {
     sendMessage,
