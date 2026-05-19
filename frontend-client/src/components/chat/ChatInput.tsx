@@ -24,6 +24,8 @@ export function ChatInput({ sessionId, botId }: { sessionId?: string; botId?: st
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // IME 조합 중인 Enter는 마지막 글자 손실/잔존을 유발하므로 무시 (한/중/일 입력기)
+    if (e.nativeEvent.isComposing) return;
     if (e.key === "Enter" && !e.shiftKey) {
       if (window.innerWidth > 768) { // 데스크탑에서만 엔터로 전송
         e.preventDefault();
