@@ -14,6 +14,12 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
   const { isStreaming, streamingText } = useChatStore();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
+  // ChatGPT/Claude 스타일 스크롤 — 사용자 메시지를 viewport 최상단으로 보내고, 응답이 그 아래로 들어오게 한다.
+  const prevIsStreamingRef = useRef(false);
+  const initializedSessionRef = useRef<string | null>(null);
+
+  const getViewport = () =>
+    scrollRef.current?.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]') ?? null;
 
   // 피드백 및 복사 기능 상태
   const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
@@ -61,17 +67,45 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
     setIsAtBottom(isBottom);
   };
 
+  // 1) 기존 세션 첫 진입 시 즉시 최하단으로 점프 (대화 히스토리 끝부분 노출)
   useEffect(() => {
-    if (scrollRef.current && isAtBottom) {
-      const scrollContainer = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTo({
-          top: scrollContainer.scrollHeight,
-          behavior: "smooth"
-        });
-      }
-    }
-  }, [messages.length, streamingText, isAtBottom]);
+    if (!sessionId || messages.length === 0) return;
+    if (initializedSessionRef.current === sessionId) return;
+    const sc = getViewport();
+    if (!sc) return;
+    sc.scrollTop = sc.scrollHeight;
+    initializedSessionRef.current = sessionId;
+  }, [sessionId, messages.length]);
+
+  // 2) 사용자 전송 순간(isStreaming false → true) 마지막 user 메시지를 viewport 최상단으로 스크롤
+  useEffect(() => {
+    const wasStreaming = prevIsStreamingRef.current;
+    prevIsStreamingRef.current = isStreaming;
+    if (wasStreaming || !isStreaming) return;
+
+    const sc = getViewport();
+    if (!sc) return;
+    // motion.div 의 initial 상태가 layout 에 반영된 다음 프레임에 스크롤
+    requestAnimationFrame(() => {
+      const userBubbles = sc.querySelectorAll<HTMLElement>('[data-msg-role="user"]');
+      const lastUser = userBubbles[userBubbles.length - 1];
+      if (!lastUser) return;
+      const containerRect = sc.getBoundingClientRect();
+      const bubbleRect = lastUser.getBoundingClientRect();
+      const targetTop = sc.scrollTop + (bubbleRect.top - containerRect.top) - 16; // 상단 패딩 16px
+      sc.scrollTo({ top: targetTop, behavior: "smooth" });
+      // 스트리밍 단계에서 자동 follow 가 작동하도록 anchor 갱신
+      setIsAtBottom(true);
+    });
+  }, [isStreaming]);
+
+  // 3) 스트리밍 중 텍스트가 늘어나면 따라 내려가기 (사용자가 위로 스크롤하면 멈춤)
+  useEffect(() => {
+    if (!isStreaming || !isAtBottom) return;
+    const sc = getViewport();
+    if (!sc) return;
+    sc.scrollTo({ top: sc.scrollHeight, behavior: "smooth" });
+  }, [streamingText, isStreaming, isAtBottom]);
 
   return (
     <ScrollArea 
@@ -107,6 +141,7 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                 return (
                   <motion.div
                     key={msg.id || `msg-${idx}`}
+                    data-msg-role={msg.role}
                     layout
                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -238,6 +273,8 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
               )}
             </AnimatePresence>
           </div>
+          {/* 짧은 대화에서도 사용자 메시지를 viewport 최상단까지 스크롤할 수 있도록 viewport 만큼의 여유 공간 확보. */}
+          {messages.length > 0 && <div aria-hidden className="shrink-0 h-[60dvh]" />}
         </LayoutGroup>
       </div>
     </ScrollArea>
