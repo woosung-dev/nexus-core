@@ -1,6 +1,5 @@
 import { useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useChatStore } from "@/store/useChatStore";
 import { ChatCompletionRequest, ChatSessionListResponse, ChatSessionResponse } from "@/types/api";
@@ -15,7 +14,6 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
   // 현재 세션 ID를 추적 (선택적 리다이렉트 및 후속 메시지용)
   const currentSessionIdRef = useRef<string | undefined>(initialSessionId);
   const queryClient = useQueryClient();
-  const router = useRouter();
 
   // initialSessionId가 바뀌면 ref 업데이트 (페이지 이동 대응)
   if (initialSessionId && initialSessionId !== currentSessionIdRef.current) {
@@ -95,7 +93,9 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
            queryClient.setQueryData(["messages", newSessionId], [
              { id: Date.now(), role: "user", content, created_at: new Date().toISOString() }
            ]);
-           router.replace(`/chat/${newSessionId}`);
+           // router.replace 는 /chat/new/[bot_id] → /chat/[session_id] 라우트 세그먼트가 달라
+           // ChatArea/ChatInput 이 unmount → remount 되며 첫 응답이 깜빡임. URL만 갱신해 트리 유지.
+           window.history.replaceState(null, "", `/chat/${newSessionId}`);
            queryClient.invalidateQueries({ queryKey: ["chats"] });
         }
         
@@ -157,8 +157,8 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
                 queryClient.setQueryData(["messages", newId], [
                   { id: Date.now(), role: "user", content, created_at: new Date().toISOString() }
                 ]);
-                // 새로운 세션으로 URL 이동 (Next.js client-side navigation)
-                router.replace(`/chat/${newId}`);
+                // URL만 갱신해 컴포넌트 트리 유지 (router.replace 시 unmount/remount 깜빡임 방지)
+                window.history.replaceState(null, "", `/chat/${newId}`);
                 queryClient.invalidateQueries({ queryKey: ["chats"] });
                 continue;
               }
@@ -193,7 +193,7 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
       setStreamingText("");
       setOptimisticUserMessage(null);
     }
-  }, [isStreaming, queryClient, router, getToken, setIsStreaming, setStreamingText, setOptimisticUserMessage]);
+  }, [isStreaming, queryClient, getToken, setIsStreaming, setStreamingText, setOptimisticUserMessage]);
 
   return {
     sendMessage,
