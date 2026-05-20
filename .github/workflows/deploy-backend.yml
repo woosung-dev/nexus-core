@@ -58,6 +58,18 @@ jobs:
 
           echo "IMAGE_URI=$SHA_TAG" >> "$GITHUB_ENV"
 
+      # ── DB 마이그레이션 실행 (Cloud Run 배포 전) ────────────────────────
+      # 방금 빌드된 이미지에 alembic 과 최신 revision 파일이 모두 들어 있으므로 그대로 재사용.
+      # 마이그레이션이 먼저 schema 를 맞춰주고, 실패 시 아래 Deploy step 자체가 실행되지 않음 →
+      # 새 코드가 구 schema 위에 올라가는 사고를 차단한다.
+      - name: Run Alembic migrations
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
+            "${{ env.IMAGE_URI }}" \
+            alembic upgrade head
+
       # ── 기존 Secret Manager reference 제거 (env 타입 충돌 방지) ────────
       # deploy-cloudrun 액션이 env_vars + 기존 secrets 동시 적용 시 타입 충돌 발생.
       # kairos/truewords 사고 사례 참조 — 별도 호출로 분리해야 안전.
