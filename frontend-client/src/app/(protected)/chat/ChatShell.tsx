@@ -1,20 +1,21 @@
+// 채팅 쉘 — 두 가지 상태만 처리한다:
+//   empty: catch-all 의 children (안내 화면)
+//   thread: ChatArea + 하단 ChatComposer
+// /chat/new/{bot} 도 thread 의 빈 메시지 상태로 표현되어 입력칸이 처음부터 하단에 고정됨.
+// (중앙→하단 모핑은 사용자가 어색하다고 해서 제거 — 이게 ChatGPT/Claude 의 표준 패턴이기도 함)
 "use client";
 
-// 채팅 공유 셸. sessionId 가 있을 때만 ChatArea/ChatInput 을 렌더. 나머지 상태(빈 /chat, 세션 생성
-// 중인 /chat/new/[bot_id])는 각각의 page 가 children 으로 자기 UI 를 보낸다.
 import { useState } from "react";
-import { useParams } from "next/navigation";
+
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatArea } from "@/components/chat/ChatArea";
-import { ChatInput } from "@/components/chat/ChatInput";
+import { ChatComposer } from "@/components/chat/ChatComposer";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { useChat } from "./ChatProvider";
 
-export function ChatLayout({ children }: { children?: React.ReactNode }) {
-  // /chat/[session_id] → { session_id }, /chat/new/[bot_id] → { bot_id }, /chat → {}
-  const params = useParams<{ session_id?: string; bot_id?: string }>();
-  const sessionId = params?.session_id;
-  const botId = params?.bot_id;
+export function ChatShell({ children }: { children?: React.ReactNode }) {
+  const { phase, sessionId, botId } = useChat();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -31,15 +32,19 @@ export function ChatLayout({ children }: { children?: React.ReactNode }) {
       </Sheet>
 
       <main className="flex-1 flex flex-col h-full relative z-10 w-full min-w-0">
-        <ChatHeader onMenuClick={() => setSidebarOpen(true)} sessionId={sessionId} botId={botId} />
-        {sessionId ? (
-          <>
-            <ChatArea sessionId={sessionId} />
-            <ChatInput sessionId={sessionId} />
-          </>
-        ) : (
-          // sessionId 없을 때(/chat 또는 /chat/new/[bot_id]) page 가 자체 UI 를 children 으로 제공
+        <ChatHeader
+          onMenuClick={() => setSidebarOpen(true)}
+          sessionId={sessionId ?? undefined}
+          botId={botId ?? undefined}
+        />
+
+        {phase === "empty" ? (
           children
+        ) : (
+          <>
+            <ChatArea sessionId={sessionId ?? undefined} />
+            <ChatComposer />
+          </>
         )}
       </main>
     </div>

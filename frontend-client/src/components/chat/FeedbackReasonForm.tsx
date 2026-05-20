@@ -1,6 +1,6 @@
 // 봇 응답 메시지에 대한 피드백 사유 입력 (칩 + 자유텍스트). 저장/건너뛰기 모두 단일 PATCH 로 커밋.
+// PopoverContent 안에 들어가도록 외곽 박스/마진은 컴팩트하게 — 외부에서 padding 만 살짝 주면 됨.
 import { useState } from "react";
-import { motion } from "framer-motion";
 import {
   FeedbackType,
   NEGATIVE_FEEDBACK_REASONS,
@@ -21,9 +21,6 @@ export function FeedbackReasonForm({ type, onSubmit }: FeedbackReasonFormProps) 
   const isDown = type === "down";
   const chipOptions = isDown ? NEGATIVE_FEEDBACK_REASONS : POSITIVE_FEEDBACK_REASONS;
   const title = isDown ? "어떤 점이 아쉬웠나요?" : "어떤 점이 좋았나요?";
-  const containerCls = isDown
-    ? "bg-red-50/60 border-red-100"
-    : "bg-amber-50/60 border-amber-100";
 
   const toggle = (code: string) => {
     setReasons((prev) =>
@@ -35,13 +32,7 @@ export function FeedbackReasonForm({ type, onSubmit }: FeedbackReasonFormProps) 
   const handleSkip = () => onSubmit([], "");
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -4 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.15 }}
-      className={`mt-3 rounded-xl border px-4 py-3 ${containerCls}`}
-    >
+    <div className="p-4 w-80">
       <div className="mb-2.5">
         <span className="text-[13px] font-medium text-zinc-700">
           {title} <span className="text-zinc-400 font-normal">(선택)</span>
@@ -96,6 +87,6 @@ export function FeedbackReasonForm({ type, onSubmit }: FeedbackReasonFormProps) 
           저장
         </button>
       </div>
-    </motion.div>
+    </div>
   );
 }

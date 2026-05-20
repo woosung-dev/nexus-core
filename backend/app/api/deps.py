@@ -4,6 +4,8 @@ JWKS(JSON Web Key Set) 기반으로 JWT를 검증합니다.
 인증 플랫폼(Clerk, Auth0 등)에 독립적인 구조입니다.
 """
 
+import logging
+import time
 import jwt
 from jwt import PyJWKClient
 from fastapi import Depends, HTTPException, status
@@ -15,6 +17,8 @@ from app.core.config import get_settings
 from app.core.database import get_session
 from app.crud import crud_user
 from app.models.user import User
+
+logger = logging.getLogger(__name__)
 
 settings = get_settings()
 security = HTTPBearer()
@@ -52,22 +56,45 @@ async def get_current_user(
         # JWKS에서 이 토큰에 맞는 공개키를 자동으로 찾아 검증
         signing_key = jwks_client.get_signing_key_from_jwt(token)
 
+        # iat 검증 비활성화 + leeway 유지:
+        # - PyJWT 2.6+ 가 RFC 7519 보다 엄격하게 iat(미래값)을 거부하는데, 이게 Clerk 서버 시계가
+        #   백엔드보다 살짝 앞설 때 ImmatureSignatureError 를 일으킴. RFC 는 iat 를 정보용으로
+        #   정의하지 "이 시각 전엔 유효하지 않다" 라고 정의하지 않음 (그건 nbf 의 의미).
+        # - exp 만료 검증 + 서명 검증은 그대로라 보안 변경 없음. Clerk Node.js SDK 의 기본 동작과 동일.
+        # - leeway=10: 만약 Clerk 가 nbf 를 사용하기 시작하면 시계 차이 흡수.
         payload = jwt.decode(
             token,
             signing_key.key,
             algorithms=["ES256", "RS256", "HS256"],
+            leeway=10,
+            options={"verify_iat": False},
         )
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="토큰이 만료되었습니다. 다시 로그인해 주세요.",
         )
-    except jwt.InvalidTokenError:
+    except jwt.InvalidTokenError as e:
+        # InvalidTokenError 가 다시 발생하면 시계 skew 가 leeway 도 못 견딜 만큼 큰 것.
+        # unverified decode 로 iat/nbf/exp 노출해 진단 가능하게 함.
+        skew_info = ""
+        try:
+            unv = jwt.decode(token, options={"verify_signature": False})
+            now = int(time.time())
+            iat = unv.get("iat")
+            nbf = unv.get("nbf")
+            exp = unv.get("exp")
+            skew_iat = (iat - now) if iat else None
+            skew_info = f" iat={iat} nbf={nbf} exp={exp} now={now} skew_iat={skew_iat:+d}s" if skew_iat is not None else f" iat={iat} nbf={nbf} exp={exp} now={now}"
+        except Exception:
+            pass
+        logger.info("JWT invalid: %s — %s%s", type(e).__name__, e, skew_info)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="유효하지 않은 인증 토큰입니다.",
         )
-    except Exception:
+    except Exception as e:
+        logger.warning("JWT validation generic failure: %s — %s", type(e).__name__, e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="인증 서버와의 통신에 실패했습니다.",

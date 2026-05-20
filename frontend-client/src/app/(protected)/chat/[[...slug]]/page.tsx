@@ -1,9 +1,17 @@
-// /chat — 활성 세션 없을 때의 안내 화면. ChatLayout(공유) 이 sessionId 없으면 이 page 의 children 을 렌더한다.
+// 단일 catch-all chat 라우트 — phase 결정과 UI 는 모두 ChatProvider/ChatShell 이 담당.
+// 본 page 는 phase === "empty" 일 때 ChatShell 의 children 자리에 빈 상태 안내를 노출한다.
+"use client";
+
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useChat } from "../ChatProvider";
 
-export default function ChatIndexPage() {
+export default function ChatCatchAllPage() {
+  const { phase } = useChat();
+
+  if (phase !== "empty") return null;
+
   return (
     <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-linear-to-b from-sky-50/50 via-white to-white relative">
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(245,158,11,0.05),transparent_70%)] pointer-events-none" />
