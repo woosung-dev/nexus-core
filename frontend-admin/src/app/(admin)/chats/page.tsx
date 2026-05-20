@@ -17,6 +17,12 @@ export default function ChatsPage() {
     pageSize: 10,
   });
 
+  const [activeTab, setActiveTab] = useState<"session" | "feedback">("session");
+  const [feedbackSessionFilter, setFeedbackSessionFilter] = useState<{
+    id: number;
+    title: string;
+  } | null>(null);
+
   // [3단계] 수동 fetch → React Query 훅으로 교체 (Thin Component 복원)
   const { data, isLoading } = useChatSessions(filters);
   const sessions = data?.items ?? [];
@@ -34,6 +40,11 @@ export default function ChatsPage() {
     setFilters((prev) => ({ ...prev, page: newPage }));
   };
 
+  const handleViewFeedback = (sessionId: number, sessionTitle: string) => {
+    setFeedbackSessionFilter({ id: sessionId, title: sessionTitle });
+    setActiveTab("feedback");
+  };
+
   return (
     <div className="flex-1 space-y-6">
       <div className="flex items-center justify-between">
@@ -46,7 +57,11 @@ export default function ChatsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="session" className="space-y-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setActiveTab(v as "session" | "feedback")}
+        className="space-y-6"
+      >
         <TabsList className="bg-white border border-zinc-200 p-1 w-full max-w-[400px]">
           <TabsTrigger value="session" className="flex-1 data-[state=active]:bg-zinc-100 data-[state=active]:text-zinc-900 rounded-sm">
             전체 대화 세션
@@ -68,11 +83,17 @@ export default function ChatsPage() {
             pageSize={filters.pageSize || 10}
             onPageChange={handlePageChange}
             onRowClick={setSelectedSessionId}
+            onViewFeedback={handleViewFeedback}
           />
         </TabsContent>
 
         <TabsContent value="feedback" className="m-0">
-          <FeedbackMessageList onRowClick={setSelectedSessionId} />
+          <FeedbackMessageList
+            onRowClick={setSelectedSessionId}
+            sessionIdFilter={feedbackSessionFilter?.id ?? null}
+            sessionTitleFilter={feedbackSessionFilter?.title ?? null}
+            onClearSessionFilter={() => setFeedbackSessionFilter(null)}
+          />
         </TabsContent>
       </Tabs>
 
@@ -83,4 +104,3 @@ export default function ChatsPage() {
     </div>
   );
 }
-

@@ -39,6 +39,8 @@ export type ChatFilter = z.infer<typeof chatFilterSchema>;
 export interface FeedbackFilter {
   feedback_type?: string;
   bot_id?: string;
+  reason?: string;
+  session_id?: number;
   page?: number;
   pageSize?: number;
 }
@@ -49,8 +51,32 @@ export interface FeedbackMessageResponse {
   role: "user" | "assistant" | "system";
   content: string;
   feedback: "up" | "down";
+  feedback_reasons?: string[];
+  feedback_comment?: string | null;
   created_at: string;
   bot_name?: string | null;
   user_email?: string | null;
   session_title?: string | null;
 }
+
+export const POSITIVE_REASON_LABELS: Record<string, string> = {
+  accurate: "정확함",
+  helpful: "도움 됨",
+  kind: "친절함",
+  clear: "명확함",
+  other: "기타",
+};
+
+export const NEGATIVE_REASON_LABELS: Record<string, string> = {
+  inaccurate: "부정확함",
+  not_helpful: "도움 안 됨",
+  unsupported: "근거 부족",
+  too_long: "너무 김",
+  inappropriate: "부적절",
+  other: "기타",
+};
+
+export const ALL_REASON_LABELS: Record<string, string> = {
+  ...POSITIVE_REASON_LABELS,
+  ...NEGATIVE_REASON_LABELS,
+};

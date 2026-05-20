@@ -10,7 +10,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Calendar, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown } from "lucide-react";
+import { MessageSquare, Calendar, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Eye } from "lucide-react";
 
 interface ChatHistoryListProps {
   items: ChatSession[];
@@ -20,9 +20,10 @@ interface ChatHistoryListProps {
   pageSize: number;
   onPageChange: (page: number) => void;
   onRowClick?: (sessionId: number) => void;
+  onViewFeedback?: (sessionId: number, sessionTitle: string) => void;
 }
 
-export function ChatHistoryList({ items, isLoading, total, page, pageSize, onPageChange, onRowClick }: ChatHistoryListProps) {
+export function ChatHistoryList({ items, isLoading, total, page, pageSize, onPageChange, onRowClick, onViewFeedback }: ChatHistoryListProps) {
   const totalPages = Math.ceil(total / pageSize) || 1;
 
   if (isLoading) {
@@ -74,7 +75,7 @@ export function ChatHistoryList({ items, isLoading, total, page, pageSize, onPag
                 </TableCell>
                 <TableCell className="text-zinc-700">{session.title}</TableCell>
                 <TableCell className="text-center">
-                  <div className="flex items-center justify-center gap-2">
+                  <div className="flex items-center justify-center gap-1.5">
                     {session.like_count ? (
                       <span className="flex items-center text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
                         <ThumbsUp className="w-3 h-3 mr-1" /> {session.like_count}
@@ -88,6 +89,19 @@ export function ChatHistoryList({ items, isLoading, total, page, pageSize, onPag
                     {!session.like_count && !session.dislike_count && (
                       <span className="text-zinc-300 text-xs">-</span>
                     )}
+                    {(session.like_count || session.dislike_count) && onViewFeedback ? (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewFeedback(session.id, session.title);
+                        }}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 rounded transition-colors"
+                        title="피드백 포커스 탭에서 이 세션 피드백 보기"
+                      >
+                        <Eye className="w-3 h-3" />
+                        보기
+                      </button>
+                    ) : null}
                   </div>
                 </TableCell>
                 <TableCell className="text-right pr-4">

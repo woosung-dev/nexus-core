@@ -39,6 +39,12 @@ export const chatApi = {
       params.append("feedback_type", filters.feedback_type);
     }
     if (filters?.bot_id) params.append("bot_id", filters.bot_id);
+    if (filters?.reason && filters.reason !== "all") {
+      params.append("reason", filters.reason);
+    }
+    if (filters?.session_id !== undefined) {
+      params.append("session_id", String(filters.session_id));
+    }
     appendPaginationParams(params, filters?.page, filters?.pageSize);
 
     const response = await apiClient.get<{ items: FeedbackMessageResponse[]; total: number }>(
