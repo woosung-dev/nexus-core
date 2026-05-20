@@ -1,19 +1,20 @@
 "use client";
 
-// 채팅 공유 셸. activeSessionId 가 있을 때만 ChatArea/ChatInput 을 렌더.
-// sessionId 출처는 useParams 가 아니라 useChatStore.activeSessionId — Gemini 스타일 in-place URL
-// 전환(history.replaceState) 후에도 ChatLayout 이 마운트 된 채 즉시 채팅 UI 로 전환 가능하게 하기 위함.
-// catch-all page.tsx 가 URL → store 를 동기화하고, 본 레이아웃은 store 만 구독한다.
+// 채팅 공유 셸. sessionId 가 있을 때만 ChatArea/ChatInput 을 렌더. 나머지 상태(빈 /chat, 세션 생성
+// 중인 /chat/new/[bot_id])는 각각의 page 가 children 으로 자기 UI 를 보낸다.
 import { useState } from "react";
+import { useParams } from "next/navigation";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { useChatStore } from "@/store/useChatStore";
 
 export function ChatLayout({ children }: { children?: React.ReactNode }) {
-  const activeSessionId = useChatStore((s) => s.activeSessionId);
+  // /chat/[session_id] → { session_id }, /chat/new/[bot_id] → { bot_id }, /chat → {}
+  const params = useParams<{ session_id?: string; bot_id?: string }>();
+  const sessionId = params?.session_id;
+  const botId = params?.bot_id;
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -30,14 +31,14 @@ export function ChatLayout({ children }: { children?: React.ReactNode }) {
       </Sheet>
 
       <main className="flex-1 flex flex-col h-full relative z-10 w-full min-w-0">
-        <ChatHeader onMenuClick={() => setSidebarOpen(true)} sessionId={activeSessionId ?? undefined} />
-        {activeSessionId ? (
+        <ChatHeader onMenuClick={() => setSidebarOpen(true)} sessionId={sessionId} botId={botId} />
+        {sessionId ? (
           <>
-            <ChatArea sessionId={activeSessionId} />
-            <ChatInput sessionId={activeSessionId} />
+            <ChatArea sessionId={sessionId} />
+            <ChatInput sessionId={sessionId} />
           </>
         ) : (
-          // activeSessionId 가 비어있을 때(빈 상태 또는 신규 세션 생성 중) catch-all page 가 children 으로 제공한 UI 표시
+          // sessionId 없을 때(/chat 또는 /chat/new/[bot_id]) page 가 자체 UI 를 children 으로 제공
           children
         )}
       </main>
