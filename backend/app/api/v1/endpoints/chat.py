@@ -3,6 +3,7 @@
 세션 관리, 메시지 기록, SSE(Server-Sent Events) 스트리밍 지원.
 """
 
+import json
 import logging
 
 from fastapi import APIRouter, Depends, status
@@ -187,8 +188,19 @@ async def update_message_feedback(
             status_code=status.HTTP_403_FORBIDDEN
         )
 
-    # 업데이트
+    # 업데이트 — feedback 이 null 이면 reasons/comment 도 자동 클리어
     msg_obj.feedback = request.feedback
+    if request.feedback is None:
+        msg_obj.feedback_reasons = None
+        msg_obj.feedback_comment = None
+    else:
+        msg_obj.feedback_reasons = (
+            json.dumps(request.feedback_reasons, ensure_ascii=False)
+            if request.feedback_reasons
+            else None
+        )
+        msg_obj.feedback_comment = (request.feedback_comment or None)
+
     session.add(msg_obj)
     await session.commit()
     await session.refresh(msg_obj)

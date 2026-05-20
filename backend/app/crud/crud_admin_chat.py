@@ -122,6 +122,8 @@ async def get_feedback_messages(
     session: AsyncSession,
     feedback_type: str | None = None,
     bot_id: int | None = None,
+    reason: str | None = None,
+    session_id: int | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> Sequence[tuple]:
@@ -142,7 +144,7 @@ async def get_feedback_messages(
         .where(Message.feedback.is_not(None))
     )
 
-    statement = _apply_feedback_filters(statement, feedback_type, bot_id)
+    statement = _apply_feedback_filters(statement, feedback_type, bot_id, reason, session_id)
     statement = statement.order_by(Message.created_at.desc()).limit(limit).offset(offset)
 
     result = await session.execute(statement)
@@ -153,6 +155,8 @@ async def count_feedback_messages(
     session: AsyncSession,
     feedback_type: str | None = None,
     bot_id: int | None = None,
+    reason: str | None = None,
+    session_id: int | None = None,
 ) -> int:
     """피드백 메시지 총 개수 집계"""
     statement = (
@@ -160,12 +164,18 @@ async def count_feedback_messages(
         .join(ChatSession, Message.session_id == ChatSession.id)
         .where(Message.feedback.is_not(None))
     )
-    statement = _apply_feedback_filters(statement, feedback_type, bot_id)
+    statement = _apply_feedback_filters(statement, feedback_type, bot_id, reason, session_id)
     result = await session.execute(statement)
     return result.scalar_one()
 
 
-def _apply_feedback_filters(statement, feedback_type: str | None, bot_id: int | None):
+def _apply_feedback_filters(
+    statement,
+    feedback_type: str | None,
+    bot_id: int | None,
+    reason: str | None = None,
+    session_id: int | None = None,
+):
     """피드백 쿼리 공통 필터 헬퍼"""
     if feedback_type:
         fb_value = (
@@ -176,4 +186,9 @@ def _apply_feedback_filters(statement, feedback_type: str | None, bot_id: int | 
         statement = statement.where(Message.feedback == fb_value)
     if bot_id:
         statement = statement.where(ChatSession.bot_id == bot_id)
+    if reason:
+        # JSON 문자열 내에 "<reason>" 토큰이 포함되어 있는지로 단순 매칭 (예: '["inaccurate","unsupported"]' 내 "inaccurate")
+        statement = statement.where(Message.feedback_reasons.ilike(f'%"{reason}"%'))
+    if session_id is not None:
+        statement = statement.where(Message.session_id == session_id)
     return statement

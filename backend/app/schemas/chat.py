@@ -3,9 +3,14 @@
 """
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.enums import MessageRole
+from app.models.enums import (
+    ALL_FEEDBACK_REASONS,
+    NEGATIVE_FEEDBACK_REASONS,
+    POSITIVE_FEEDBACK_REASONS,
+    MessageRole,
+)
 from app.schemas.bot import BotResponse
 from app.schemas.rag import RAGCitation
 
@@ -50,9 +55,28 @@ class MessageResponse(BaseModel):
     role: MessageRole
     content: str
     feedback: str | None = None
+    feedback_reasons: list[str] = Field(default_factory=list)
+    feedback_comment: str | None = None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("feedback_reasons", mode="before")
+    @classmethod
+    def _parse_feedback_reasons(cls, v):
+        """DB에는 JSON 문자열로 저장되므로 list 로 디시리얼라이즈."""
+        if v is None or v == "":
+            return []
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            import json
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, list) else []
+            except json.JSONDecodeError:
+                return []
+        return []
 
 
 class ChatSessionListResponse(BaseModel):
@@ -65,7 +89,35 @@ class ChatSessionListResponse(BaseModel):
 class MessageFeedbackUpdate(BaseModel):
     """메시지 피드백 업데이트 요청 스키마"""
 
-    feedback: str | None
+    feedback: str | None = None
+    feedback_reasons: list[str] = Field(default_factory=list)
+    feedback_comment: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("feedback")
+    @classmethod
+    def _validate_feedback(cls, v):
+        if v is None:
+            return None
+        if v not in {"up", "down"}:
+            raise ValueError("feedback 은 'up', 'down', null 만 허용됩니다.")
+        return v
+
+    @field_validator("feedback_reasons")
+    @classmethod
+    def _validate_reasons(cls, v):
+        if not v:
+            return []
+        unknown = [r for r in v if r not in ALL_FEEDBACK_REASONS]
+        if unknown:
+            raise ValueError(f"허용되지 않은 사유 코드: {unknown}")
+        # 중복 제거 + 순서 유지
+        seen = set()
+        deduped = []
+        for r in v:
+            if r not in seen:
+                seen.add(r)
+                deduped.append(r)
+        return deduped
 
 
 class ChatSessionAdminResponse(BaseModel):
@@ -99,14 +151,32 @@ class FeedbackMessageResponse(BaseModel):
     role: MessageRole
     content: str
     feedback: str
+    feedback_reasons: list[str] = Field(default_factory=list)
+    feedback_comment: str | None = None
     created_at: datetime
-    
+
     # 조인으로 가져올 추가 정보
     bot_name: str | None = None
     user_email: str | None = None
     session_title: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @field_validator("feedback_reasons", mode="before")
+    @classmethod
+    def _parse_feedback_reasons(cls, v):
+        if v is None or v == "":
+            return []
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            import json
+            try:
+                parsed = json.loads(v)
+                return parsed if isinstance(parsed, list) else []
+            except json.JSONDecodeError:
+                return []
+        return []
 
 
 class FeedbackMessageListResponse(BaseModel):

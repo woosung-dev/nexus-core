@@ -16,3 +16,23 @@ class MessageRole(str, enum.Enum):
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
+
+
+POSITIVE_FEEDBACK_REASONS: frozenset[str] = frozenset({
+    "accurate",
+    "helpful",
+    "kind",
+    "clear",
+    "other",
+})
+
+NEGATIVE_FEEDBACK_REASONS: frozenset[str] = frozenset({
+    "inaccurate",
+    "not_helpful",
+    "unsupported",
+    "too_long",
+    "inappropriate",
+    "other",
+})
+
+ALL_FEEDBACK_REASONS: frozenset[str] = POSITIVE_FEEDBACK_REASONS | NEGATIVE_FEEDBACK_REASONS

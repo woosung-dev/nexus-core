@@ -53,6 +53,8 @@ class Message(SQLModel, table=True):
     )
     content: str
     feedback: str | None = Field(default=None, max_length=10, description="피드백 (up, down 등)")
+    feedback_reasons: str | None = Field(default=None, max_length=255, description="피드백 사유 코드 JSON 배열 문자열, 예: '[\"inaccurate\",\"unsupported\"]'")
+    feedback_comment: str | None = Field(default=None, max_length=1000, description="피드백 자유 텍스트 (선택 입력)")
 
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),

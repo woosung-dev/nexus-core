@@ -76,6 +76,8 @@ async def list_admin_chat_messages(
 async def list_feedback_messages(
     feedback_type: str | None = Query(None, description="피드백 타입 (up, down)"),
     bot_id: int | None = Query(None, description="봇 필터"),
+    reason: str | None = Query(None, description="사유 카테고리 코드 필터 (예: inaccurate, helpful)"),
+    session_id: int | None = Query(None, description="특정 세션의 피드백만 조회 (전체 세션 탭에서 점프 시 사용)"),
     limit: int = 50,
     offset: int = 0,
     session: AsyncSession = Depends(get_session),
@@ -83,8 +85,12 @@ async def list_feedback_messages(
     """
     피드백을 받은 메시지 단위의 포커스 뷰 목록 조회 (제안 2 전용 API).
     """
-    rows = await crud_admin_chat.get_feedback_messages(session, feedback_type, bot_id, limit, offset)
-    total = await crud_admin_chat.count_feedback_messages(session, feedback_type, bot_id)
+    rows = await crud_admin_chat.get_feedback_messages(
+        session, feedback_type, bot_id, reason, session_id, limit, offset
+    )
+    total = await crud_admin_chat.count_feedback_messages(
+        session, feedback_type, bot_id, reason, session_id
+    )
 
     items = []
     for msg_obj, session_title, bot_name, user_email in rows:
