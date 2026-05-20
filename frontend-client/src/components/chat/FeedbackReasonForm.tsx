@@ -1,7 +1,6 @@
-// 봇 응답 메시지에 대한 피드백 사유(칩 + 자유텍스트) 인라인 입력 폼
+// 봇 응답 메시지에 대한 피드백 사유 입력 (칩 + 자유텍스트). 저장/건너뛰기 모두 단일 PATCH 로 커밋.
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { X } from "lucide-react";
 import {
   FeedbackType,
   NEGATIVE_FEEDBACK_REASONS,
@@ -10,23 +9,14 @@ import {
 
 interface FeedbackReasonFormProps {
   type: FeedbackType;
-  initialReasons?: string[];
-  initialComment?: string;
-  onSave: (reasons: string[], comment: string) => void;
-  onClose: () => void;
+  onSubmit: (reasons: string[], comment: string) => void;
 }
 
 const COMMENT_MAX = 1000;
 
-export function FeedbackReasonForm({
-  type,
-  initialReasons = [],
-  initialComment = "",
-  onSave,
-  onClose,
-}: FeedbackReasonFormProps) {
-  const [reasons, setReasons] = useState<string[]>(initialReasons);
-  const [comment, setComment] = useState<string>(initialComment);
+export function FeedbackReasonForm({ type, onSubmit }: FeedbackReasonFormProps) {
+  const [reasons, setReasons] = useState<string[]>([]);
+  const [comment, setComment] = useState<string>("");
 
   const isDown = type === "down";
   const chipOptions = isDown ? NEGATIVE_FEEDBACK_REASONS : POSITIVE_FEEDBACK_REASONS;
@@ -41,7 +31,8 @@ export function FeedbackReasonForm({
     );
   };
 
-  const handleSave = () => onSave(reasons, comment.trim());
+  const handleSave = () => onSubmit(reasons, comment.trim());
+  const handleSkip = () => onSubmit([], "");
 
   return (
     <motion.div
@@ -51,17 +42,10 @@ export function FeedbackReasonForm({
       transition={{ duration: 0.15 }}
       className={`mt-3 rounded-xl border px-4 py-3 ${containerCls}`}
     >
-      <div className="flex items-center justify-between mb-2.5">
+      <div className="mb-2.5">
         <span className="text-[13px] font-medium text-zinc-700">
           {title} <span className="text-zinc-400 font-normal">(선택)</span>
         </span>
-        <button
-          onClick={onClose}
-          className="p-1 text-zinc-400 hover:text-zinc-700 rounded-md transition-colors"
-          aria-label="닫기"
-        >
-          <X className="w-3.5 h-3.5" />
-        </button>
       </div>
 
       <div className="flex flex-wrap gap-1.5 mb-2.5">
@@ -99,7 +83,7 @@ export function FeedbackReasonForm({
       <div className="flex justify-end gap-2 mt-2.5">
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleSkip}
           className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-800 rounded-md transition-colors"
         >
           건너뛰기

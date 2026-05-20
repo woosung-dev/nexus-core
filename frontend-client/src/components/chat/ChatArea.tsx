@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Sparkles, Loader2, ThumbsUp, ThumbsDown, Copy, Check, User, Plus } from "lucide-react";
+import { Bot, Sparkles, Loader2, ThumbsUp, ThumbsDown, Copy, Check, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useQuery } from "@tanstack/react-query";
@@ -31,7 +31,8 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
   // 피드백 및 복사 기능 상태
   const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
   const [feedbackMap, setFeedbackMap] = useState<Record<number, FeedbackState>>({});
-  const [openForm, setOpenForm] = useState<Record<number, boolean>>({});
+  // 사유 모달이 어떤 type 으로 열려있는지 (null = 닫힘)
+  const [openModalFor, setOpenModalFor] = useState<Record<number, FeedbackType | null>>({});
 
   const handleCopy = (id: number, content: string) => {
     navigator.clipboard.writeText(content);
@@ -56,45 +57,37 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
     }
   };
 
-  const handleFeedback = (id: number, type: FeedbackType) => {
-    const current = feedbackMap[id];
-    const isToggleOff = current?.type === type;
-    const newType: FeedbackType | null = isToggleOff ? null : type;
+  // 👍/👎 버튼 클릭. 모달 토글 + 활성 피드백 클리어 두 가지 의미를 동시에 처리.
+  const handleFeedbackButton = (id: number, type: FeedbackType) => {
+    const currentOpen = openModalFor[id] ?? null;
+    const savedType = feedbackMap[id]?.type ?? null;
 
-    // Optimistic local update — 토글 오프 시 reasons/comment 도 초기화
-    const nextState: FeedbackState = newType
-      ? {
-          type: newType,
-          reasons: current?.reasons ?? [],
-          comment: current?.comment ?? "",
-        }
-      : { type: null, reasons: [], comment: "" };
+    if (currentOpen) {
+      // 모달이 열려있는 상태에서 같은 버튼 → 취소(닫기), 다른 버튼 → 다른 타입으로 모달 전환
+      setOpenModalFor((prev) => ({ ...prev, [id]: currentOpen === type ? null : type }));
+      return;
+    }
 
-    setFeedbackMap((prev) => ({ ...prev, [id]: nextState }));
+    if (savedType === type) {
+      // 활성 상태 버튼 다시 누름 → 클리어 (단일 PATCH)
+      setFeedbackMap((prev) => ({ ...prev, [id]: { type: null, reasons: [], comment: "" } }));
+      void patchFeedback(id, null, [], "");
+      return;
+    }
 
-    // 폼: 새로 down 으로 켜지면 자동 펼침, 그 외엔 닫음
-    setOpenForm((prev) => ({ ...prev, [id]: newType === "down" }));
-
-    void patchFeedback(id, newType, nextState.reasons, nextState.comment);
+    // 비활성 상태에서 새로 누름 → 모달 열기 (PATCH 는 저장/건너뛰기 시 1회)
+    setOpenModalFor((prev) => ({ ...prev, [id]: type }));
   };
 
-  const handleReasonSave = (id: number, reasons: string[], comment: string) => {
-    const current = feedbackMap[id];
-    if (!current?.type) return;
+  // 모달의 저장/건너뛰기에서 호출 — 단일 PATCH 로 feedback + reasons + comment 한 번에 커밋
+  const handleReasonSubmit = (id: number, reasons: string[], comment: string) => {
+    const type = openModalFor[id];
+    if (!type) return;
 
-    const nextState: FeedbackState = { type: current.type, reasons, comment };
-    setFeedbackMap((prev) => ({ ...prev, [id]: nextState }));
-    setOpenForm((prev) => ({ ...prev, [id]: false }));
+    setFeedbackMap((prev) => ({ ...prev, [id]: { type, reasons, comment } }));
+    setOpenModalFor((prev) => ({ ...prev, [id]: null }));
 
-    void patchFeedback(id, current.type, reasons, comment);
-  };
-
-  const handleFormClose = (id: number) => {
-    setOpenForm((prev) => ({ ...prev, [id]: false }));
-  };
-
-  const handleOpenForm = (id: number) => {
-    setOpenForm((prev) => ({ ...prev, [id]: true }));
+    void patchFeedback(id, type, reasons, comment);
   };
 
   const { data: messages = [] } = useQuery<MessageResponse[]>({
@@ -243,10 +236,10 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                               {/* Action Bar */}
                               {(() => {
                                 const fb = feedbackMap[msg.id];
-                                const isUp = fb?.type === "up";
-                                const isDown = fb?.type === "down";
-                                const formOpen = !!openForm[msg.id];
-                                const showAddReasonLink = !!fb?.type && !formOpen;
+                                const openType = openModalFor[msg.id] ?? null;
+                                // 활성 표시: 저장된 피드백 OR 모달이 그 타입으로 열려있을 때
+                                const isUp = fb?.type === "up" || openType === "up";
+                                const isDown = fb?.type === "down" || openType === "down";
                                 return (
                                   <>
                                     <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100">
@@ -263,7 +256,7 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                                       </button>
                                       <div className="h-4 w-px bg-zinc-200 mx-1" />
                                       <button
-                                        onClick={() => handleFeedback(msg.id, 'up')}
+                                        onClick={() => handleFeedbackButton(msg.id, 'up')}
                                         className={`p-1.5 rounded-md transition-colors ${
                                           isUp
                                             ? 'text-amber-500 bg-amber-50'
@@ -274,7 +267,7 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                                         <ThumbsUp className={`w-4 h-4 ${isUp ? 'fill-amber-500/20' : ''}`} />
                                       </button>
                                       <button
-                                        onClick={() => handleFeedback(msg.id, 'down')}
+                                        onClick={() => handleFeedbackButton(msg.id, 'down')}
                                         className={`p-1.5 rounded-md transition-colors ${
                                           isDown
                                             ? 'text-red-500 bg-red-50'
@@ -284,32 +277,15 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                                       >
                                         <ThumbsDown className={`w-4 h-4 ${isDown ? 'fill-red-500/20' : ''}`} />
                                       </button>
-                                      {showAddReasonLink && (
-                                        <>
-                                          <div className="h-4 w-px bg-zinc-200 mx-1" />
-                                          <button
-                                            onClick={() => handleOpenForm(msg.id)}
-                                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] text-zinc-500 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
-                                          >
-                                            <Plus className="w-3 h-3" />
-                                            {fb?.reasons.length || fb?.comment
-                                              ? "사유 수정"
-                                              : "사유 추가"}
-                                          </button>
-                                        </>
-                                      )}
                                     </div>
                                     <AnimatePresence>
-                                      {formOpen && fb?.type && (
+                                      {openType && (
                                         <FeedbackReasonForm
-                                          key={`form-${msg.id}`}
-                                          type={fb.type}
-                                          initialReasons={fb.reasons}
-                                          initialComment={fb.comment}
-                                          onSave={(reasons, comment) =>
-                                            handleReasonSave(msg.id, reasons, comment)
+                                          key={`form-${msg.id}-${openType}`}
+                                          type={openType}
+                                          onSubmit={(reasons, comment) =>
+                                            handleReasonSubmit(msg.id, reasons, comment)
                                           }
-                                          onClose={() => handleFormClose(msg.id)}
                                         />
                                       )}
                                     </AnimatePresence>
