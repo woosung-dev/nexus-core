@@ -10,6 +10,8 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
 import { FeedbackType, MessageResponse } from "@/types/api";
 import { FeedbackReasonForm } from "./FeedbackReasonForm";
+import { FollowupPills } from "./FollowupPills";
+import { useChatStream } from "@/hooks/useChatStream";
 
 type FeedbackState = {
   type: FeedbackType | null;
@@ -18,7 +20,8 @@ type FeedbackState = {
 };
 
 export function ChatArea({ sessionId }: { sessionId?: string }) {
-  const { isStreaming, streamingText } = useChatStore();
+  const { isStreaming, streamingText, latestFollowups } = useChatStore();
+  const { sendMessage } = useChatStream({ sessionId });
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   // ChatGPT/Claude 스타일 스크롤 — 사용자 메시지를 viewport 최상단으로 보내고, 응답이 그 아래로 들어오게 한다.
@@ -295,6 +298,16 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                             </div>
                           )}
                         </div>
+                        {/* 후속 질문: 가장 마지막 봇 응답에만 노출, 스트리밍 중에는 숨김 */}
+                        {!isUser &&
+                          idx === messages.length - 1 &&
+                          !isStreaming &&
+                          latestFollowups.length > 0 && (
+                            <FollowupPills
+                              items={latestFollowups}
+                              onSelect={(q) => sendMessage(q)}
+                            />
+                          )}
                         <div className="flex items-center gap-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-tight">
                             {isUser ? "You" : "Nexus Bot"}

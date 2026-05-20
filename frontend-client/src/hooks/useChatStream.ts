@@ -16,7 +16,7 @@ interface UseChatStreamOptions {
 }
 
 export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOptions) {
-  const { isStreaming, setIsStreaming, setStreamingText } = useChatStore();
+  const { isStreaming, setIsStreaming, setStreamingText, setLatestFollowups, clearLatestFollowups } = useChatStore();
   const { getToken } = useAuth();
   const currentSessionIdRef = useRef<string | undefined>(initialSessionId);
   const queryClient = useQueryClient();
@@ -42,6 +42,8 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
 
     setIsStreaming(true);
     setStreamingText("");
+    // 새 메시지를 보내는 순간 직전 응답의 후속 질문은 의미가 사라지므로 즉시 클리어
+    clearLatestFollowups();
 
     // 1) 유저 메시지를 캐시에 즉시 append
     queryClient.setQueryData<MessageResponse[]>(
@@ -119,6 +121,9 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
             },
           ],
         );
+        if (Array.isArray(data.followups) && data.followups.length > 0) {
+          setLatestFollowups(data.followups);
+        }
         queryClient.invalidateQueries({ queryKey: ["chats"] });
         return;
       }
@@ -142,6 +147,11 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
 
           try {
             const data = JSON.parse(dataStr);
+            // 후속 질문 event 분기 — 메인 content 와 별개로 store 에만 반영
+            if (data.type === "followups" && Array.isArray(data.items)) {
+              if (data.items.length > 0) setLatestFollowups(data.items);
+              continue;
+            }
             const chunkText: string | undefined =
               data.content ?? data.choices?.[0]?.delta?.content;
             if (chunkText) {
@@ -176,7 +186,7 @@ export function useChatStream({ sessionId: initialSessionId }: UseChatStreamOpti
       setIsStreaming(false);
       setStreamingText("");
     }
-  }, [isStreaming, queryClient, getToken, setIsStreaming, setStreamingText]);
+  }, [isStreaming, queryClient, getToken, setIsStreaming, setStreamingText, setLatestFollowups, clearLatestFollowups]);
 
   return {
     sendMessage,

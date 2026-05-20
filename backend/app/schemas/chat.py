@@ -33,6 +33,7 @@ class ChatCompletionResponse(BaseModel):
     bot_id: int
     citations: list[RAGCitation] | None = None  # RAG 인용구 출처
     source: str | None = None  # 응답 소스: "faq_override" | "rag" | "llm"
+    followups: list[str] = Field(default_factory=list)  # 후속 질문 (빈 리스트 = 없음 또는 생성 실패)
 
 
 class ChatSessionResponse(BaseModel):

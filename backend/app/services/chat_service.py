@@ -17,6 +17,7 @@ from app.models.chat import ChatSession
 from app.models.enums import MessageRole
 from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse
 from app.services.faq_service import search_faq_override
+from app.services.followup_service import generate_followups
 from app.services.llm.factory import get_llm_service
 from app.services.rag.factory import get_rag_service
 
@@ -98,12 +99,15 @@ class ChatService:
                 chat_session.updated_at = datetime.now(timezone.utc)
                 await self.session.commit()
 
+                followups = await generate_followups(request.message, rag_response.answer)
+
                 return ChatCompletionResponse(
                     session_id=chat_session.id,
                     content=rag_response.answer,
                     bot_id=bot.id,
                     citations=rag_response.citations,
                     source="rag",
+                    followups=followups,
                 )
 
         # 3. 일반 LLM 처리
@@ -134,11 +138,14 @@ class ChatService:
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
 
+            followups = await generate_followups(request.message, content)
+
             return ChatCompletionResponse(
                 session_id=chat_session.id,
                 content=content,
                 bot_id=bot.id,
                 source="llm",
+                followups=followups,
             )
 
     async def _generate_rag_stream(self, rag_service, request, bot, chat_session):
@@ -157,10 +164,8 @@ class ChatService:
                 data = json.dumps({"content": chunk}, ensure_ascii=False)
                 yield f"data: {data}\n\n"
 
-            yield "data: [DONE]\n\n"
-
-            # 스트리밍 완료 후 1회 commit
-            await crud_chat.create_message(
+            # 스트리밍 완료 후 1회 commit → message_id 확보
+            assistant_msg = await crud_chat.create_message(
                 session=self.session,
                 session_id=chat_session.id,
                 role=MessageRole.ASSISTANT,
@@ -168,6 +173,17 @@ class ChatService:
             )
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
+
+            # 후속 질문 생성 (silent on failure)
+            followups = await generate_followups(request.message, full_response_content)
+            if followups:
+                payload = json.dumps(
+                    {"type": "followups", "message_id": assistant_msg.id, "items": followups},
+                    ensure_ascii=False,
+                )
+                yield f"data: {payload}\n\n"
+
+            yield "data: [DONE]\n\n"
 
         except Exception as e:
             logger.error(f"RAG 스트리밍 오류: {e}")
@@ -189,10 +205,8 @@ class ChatService:
                 data = json.dumps({"content": chunk}, ensure_ascii=False)
                 yield f"data: {data}\n\n"
 
-            yield "data: [DONE]\n\n"
-
-            # 스트리밍 정상 종료 후 1회 DB 기록 & updated_at 갱신
-            await crud_chat.create_message(
+            # 스트리밍 정상 종료 후 1회 DB 기록 & updated_at 갱신 → message_id 확보
+            assistant_msg = await crud_chat.create_message(
                 session=self.session,
                 session_id=chat_session.id,
                 role=MessageRole.ASSISTANT,
@@ -200,6 +214,17 @@ class ChatService:
             )
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
+
+            # 후속 질문 생성 (silent on failure)
+            followups = await generate_followups(request.message, full_response_content)
+            if followups:
+                payload = json.dumps(
+                    {"type": "followups", "message_id": assistant_msg.id, "items": followups},
+                    ensure_ascii=False,
+                )
+                yield f"data: {payload}\n\n"
+
+            yield "data: [DONE]\n\n"
 
         except Exception as e:
             logger.error(f"스트리밍 오류: {e}")
