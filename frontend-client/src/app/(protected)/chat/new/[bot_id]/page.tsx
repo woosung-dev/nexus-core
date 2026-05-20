@@ -27,12 +27,18 @@ export default function NewChatRedirectPage() {
       .then((res) => {
         const created = res.data;
 
-        // 사이드바 목록 캐시에 새 세션을 낙관적으로 prepend → ChatHeader / Sidebar 가 바로 인식.
+        // 사이드바 목록 캐시에 prepend. 백엔드가 idempotent 라 기존 세션이 재사용될 수 있으므로
+        // 같은 id 가 이미 있으면 중복 추가 대신 맨 위로만 올린다.
         queryClient.setQueryData<ChatSessionListResponse>(
           ["chats"],
           (old) => {
             if (!old) return { sessions: [created], total: 1 };
-            return { sessions: [created, ...old.sessions], total: old.total + 1 };
+            const filtered = old.sessions.filter((s) => s.id !== created.id);
+            const wasNew = filtered.length === old.sessions.length;
+            return {
+              sessions: [created, ...filtered],
+              total: wasNew ? old.total + 1 : old.total,
+            };
           },
         );
 

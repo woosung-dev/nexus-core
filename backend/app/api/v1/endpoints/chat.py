@@ -66,12 +66,23 @@ async def create_chat_session(
 ) -> ChatSessionResponse:
     """
     새로운 채팅 세션을 생성합니다.
+
+    Idempotent: 동일 user+bot 으로 메시지 0 개인 최근 빈 세션이 이미 있으면
+    새로 만들지 않고 그 세션을 그대로 반환한다. 봇 선택 후 첫 메시지를 안 보내고 떠난 경우
+    사이드바에 "새 대화" 가 누적되는 것을 막기 위함.
     """
     bot_obj = None
     if bot_id:
         bot_obj = await crud_bot.get_active_bot(session, bot_id)
         if not bot_obj:
             raise BotNotFoundError()
+
+    existing = await crud_chat.find_recent_empty_session(session, current_user.id, bot_id)
+    if existing is not None:
+        sess_dict = existing.model_dump()
+        if bot_obj:
+            sess_dict["bot"] = bot_obj.model_dump()
+        return ChatSessionResponse.model_validate(sess_dict)
 
     chat_session = await crud_chat.create_chat_session(
         session=session, user_id=current_user.id, bot_id=bot_id, title=title

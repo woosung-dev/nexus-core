@@ -6,6 +6,7 @@ Chat 관련 DB 연산(CRUD)을 담당하는 Repository.
 from typing import Sequence
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, desc, func
+from sqlalchemy import exists
 
 from app.models.bot import Bot
 from app.models.chat import ChatSession, Message
@@ -57,6 +58,31 @@ async def create_chat_session(
     await session.flush()
     await session.refresh(chat_session)
     return chat_session
+
+
+async def find_recent_empty_session(
+    session: AsyncSession, user_id: int, bot_id: int | None
+) -> ChatSession | None:
+    """동일 user+bot 으로 메시지 0 개인 가장 최근 세션을 찾는다.
+
+    봇 선택 시 빈 세션이 사이드바에 누적되는 것을 막기 위한 idempotent precreate 의 핵심.
+    찾으면 그 세션을 재사용, 없으면 호출자가 새로 만든다.
+    """
+    has_message = exists().where(Message.session_id == ChatSession.id)
+    stmt = (
+        select(ChatSession)
+        .where(ChatSession.user_id == user_id)
+        .where(~has_message)
+        .order_by(desc(ChatSession.created_at))
+        .limit(1)
+    )
+    if bot_id is None:
+        stmt = stmt.where(ChatSession.bot_id.is_(None))
+    else:
+        stmt = stmt.where(ChatSession.bot_id == bot_id)
+
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
 
 
 async def get_session_messages(session: AsyncSession, session_id: int) -> Sequence[Message]:
