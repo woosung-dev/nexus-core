@@ -8,12 +8,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useChat } from "@/app/(protected)/chat/ChatProvider";
 
 export function ChatComposer() {
-  const { phase, sendMessage } = useChat();
+  const { awaiting, sendMessage } = useChat();
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const busy =
-    phase === "submitting" || phase === "searching" || phase === "streaming";
+  const busy = awaiting;
 
   useEffect(() => {
     if (textareaRef.current) {

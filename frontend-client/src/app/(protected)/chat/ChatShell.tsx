@@ -1,12 +1,12 @@
 // 채팅 쉘 — Provider 의 phase 에 따라 두 가지 레이아웃을 전환한다.
-// (a) 빈/새 채팅: 입력칸이 수직 중앙에 배치 (Gemini 의 /app 초기 상태)
-// (b) 세션 진행: 메시지 위, 입력칸은 하단
-// 두 모드는 framer-motion `layoutId="chat-composer"` 로 부드럽게 모핑된다.
+// composer: 입력칸이 수직 중앙 (Gemini /app 초기 상태)
+// thread:   메시지 영역 + 하단 입력칸 (= 사용자가 submit 한 순간부터 응답 도착까지 동일)
+// empty:    children (catch-all 이 제공하는 안내 UI) 표시
+// 두 모드의 composer 는 framer-motion `layoutId="chat-composer"` 로 부드럽게 모핑된다.
 "use client";
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2 } from "lucide-react";
 
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatHeader } from "@/components/chat/ChatHeader";
@@ -16,17 +16,8 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useChat } from "./ChatProvider";
 
 export function ChatShell({ children }: { children?: React.ReactNode }) {
-  const { phase, sessionId, botId, statusLabel } = useChat();
+  const { phase, sessionId, botId } = useChat();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // 입력칸을 중앙에 배치하는 모드 (= 메시지 0 + idle)
-  const isCentered = phase === "new";
-  // 메시지 영역을 노출하는 모드 (세션 진행 중 또는 첫 응답을 기다리는 중)
-  const showThread =
-    phase === "session" ||
-    phase === "submitting" ||
-    phase === "searching" ||
-    phase === "streaming";
 
   return (
     <div className="flex bg-slate-50 h-dvh overflow-hidden selection:bg-amber-200">
@@ -48,14 +39,12 @@ export function ChatShell({ children }: { children?: React.ReactNode }) {
           botId={botId ?? undefined}
         />
 
-        {/* phase 가 empty 이면 children (catch-all 의 empty UI) 를 그대로 노출 */}
         {phase === "empty" && children}
 
-        {/* 새 채팅: 입력칸 중앙 정렬 */}
         <AnimatePresence mode="wait">
-          {isCentered && (
+          {phase === "composer" && (
             <motion.div
-              key="centered"
+              key="composer"
               className="flex-1 flex flex-col items-center justify-center px-4 sm:px-6"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -81,26 +70,10 @@ export function ChatShell({ children }: { children?: React.ReactNode }) {
           )}
         </AnimatePresence>
 
-        {/* 세션 진행: 메시지 + 하단 입력 */}
-        {showThread && (
+        {phase === "thread" && (
           <>
-            <div className="flex-1 min-h-0 relative">
-              {sessionId ? (
-                <ChatArea sessionId={sessionId} />
-              ) : (
-                <div className="flex-1" />
-              )}
-              {(phase === "submitting" || phase === "searching") && statusLabel && (
-                <motion.div
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 bg-white/90 backdrop-blur rounded-full border border-zinc-200 shadow-sm text-xs text-zinc-600"
-                >
-                  <Loader2 className="w-3.5 h-3.5 animate-spin text-amber-500" />
-                  <span className="font-medium">{statusLabel}</span>
-                </motion.div>
-              )}
+            <div className="flex-1 min-h-0">
+              <ChatArea sessionId={sessionId ?? undefined} />
             </div>
             <motion.div
               layoutId="chat-composer"

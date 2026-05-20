@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Sparkles, Loader2, ThumbsUp, ThumbsDown, Copy, Check, User } from "lucide-react";
+import { Bot, Sparkles, ThumbsUp, ThumbsDown, Copy, Check, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { useQuery } from "@tanstack/react-query";
 import { useChatStore } from "@/store/useChatStore";
 import api from "@/lib/api";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
-import { FeedbackType, MessageResponse } from "@/types/api";
+import { FeedbackType } from "@/types/api";
 import { FeedbackReasonForm } from "./FeedbackReasonForm";
 import { FollowupPills } from "./FollowupPills";
 import { useChat } from "@/app/(protected)/chat/ChatProvider";
@@ -20,10 +19,11 @@ type FeedbackState = {
 };
 
 export function ChatArea({ sessionId }: { sessionId?: string }) {
-  const { phase, streamingText, sendMessage } = useChat();
+  const { messages: providerMessages, awaiting, sendMessage } = useChat();
   const { latestFollowups } = useChatStore();
-  // 기존 코드 호환용 alias — phase 가 "searching" / "streaming" 일 때 메시지 영역도 스크롤/렌더 분기.
-  const isStreaming = phase === "searching" || phase === "streaming" || phase === "submitting";
+  // streaming 텍스트는 더 이상 별도 인디케이터로 보여주지 않음 (응답 도착하면 messages 로 들어감)
+  const streamingText = "";
+  const isStreaming = awaiting;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   // ChatGPT/Claude 스타일 스크롤 — 사용자 메시지를 viewport 최상단으로 보내고, 응답이 그 아래로 들어오게 한다.
@@ -95,14 +95,8 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
     void patchFeedback(id, type, reasons, comment);
   };
 
-  const { data: messages = [] } = useQuery<MessageResponse[]>({
-    queryKey: ['messages', sessionId],
-    queryFn: async () => {
-      const response = await api.get(`/chats/${sessionId}/messages`);
-      return response.data;
-    },
-    enabled: !!sessionId,
-  });
+  // Provider 가 단일 진실원 — useQuery 는 ChatProvider 안에서만 수행.
+  const messages = providerMessages;
 
   // 서버에서 받은 기존 피드백 상태를 로컬 맵으로 하이드레이션 (기존 사용자가 다시 열었을 때 기록 보존)
   useEffect(() => {
@@ -325,44 +319,24 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                 );
               })}
 
-              {/* Streaming/Loading Bot Presence - 질문 바로 아래에서 대기 중인 모습 */}
+              {/* Typing dots — 사용자 메시지 바로 아래에 인라인 노출. 단일 인디케이터. */}
               {isStreaming && (
                 <motion.div
-                  key="bot-loading"
+                  key="bot-typing"
                   layout
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
+                  transition={{ duration: 0.2 }}
                   className="flex w-full justify-start"
                 >
                   <div className="flex gap-4 max-w-[92%] sm:max-w-[85%] flex-row">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-1 shadow-lg bg-white border border-zinc-100 text-amber-500 relative">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-1 shadow-lg bg-white border border-zinc-100 text-amber-500">
                       <Bot className="w-5 h-5" />
-                      <div className="absolute -inset-1 bg-amber-500/5 rounded-xl animate-pulse -z-10" />
                     </div>
-                    <div className="flex flex-col gap-2.5 min-w-0 w-full">
-                      <div className="px-5 py-3.5 rounded-[20px] bg-white border border-zinc-100 text-zinc-800 rounded-tl-sm backdrop-blur-xl shadow-sm min-h-[58px] flex items-center">
-                        {streamingText ? (
-                          <div className="prose prose-zinc max-w-none prose-p:leading-relaxed prose-code:text-amber-600 prose-a:text-amber-500 w-full">
-                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                              {streamingText}
-                            </ReactMarkdown>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-3 text-zinc-400 italic text-[14px]">
-                            <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-                            <span>Nexus Core가 생각 중입니다...</span>
-                          </div>
-                        )}
-                      </div>
-                      {!streamingText && (
-                        <div className="flex gap-2.5 px-1 items-center">
-                           <div className="h-1 w-10 bg-zinc-100 rounded-full overflow-hidden">
-                              <div className="h-full bg-amber-400/60 w-1/2 animate-[shimmer_1.5s_infinite]" />
-                           </div>
-                           <span className="text-[10px] text-zinc-400 font-bold tracking-tight uppercase">Analyzing context</span>
-                        </div>
-                      )}
+                    <div className="px-5 py-4 rounded-[20px] bg-white border border-zinc-100 rounded-tl-sm shadow-sm flex items-center gap-1.5">
+                      <span className="w-2 h-2 bg-amber-400/80 rounded-full animate-bounce [animation-delay:0ms]" />
+                      <span className="w-2 h-2 bg-amber-400/80 rounded-full animate-bounce [animation-delay:150ms]" />
+                      <span className="w-2 h-2 bg-amber-400/80 rounded-full animate-bounce [animation-delay:300ms]" />
                     </div>
                   </div>
                 </motion.div>

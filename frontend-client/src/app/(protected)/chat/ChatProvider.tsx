@@ -1,12 +1,17 @@
 // chat 도메인의 단일 상태 컨테이너.
-// - URL (useParams) 을 watch 해서 phase/sessionId/botId 결정
-// - 첫 submit 시점에 POST /chats → history.replaceState 로 URL 만 silent 변경 → POST /completions
-// - 메시지 캐시는 React Query 가 권리원. 본 Provider 는 phase 와 임시 streaming/searching 상태만 보관.
+//
+// 설계 원칙:
+// 1) phase 는 **3가지**만 갖는다: empty / composer / thread.
+//    제출 직후 ~ 응답 도착 전까지의 중간 상태(submitting/searching/streaming) 는
+//    별도 phase 가 아니라 thread 안의 `awaiting` 플래그로 표현 → 화면이 깜빡이지 않음.
+// 2) 메시지는 Provider 의 로컬 state. 사용자가 submit 하는 순간 UI 에 즉시 push 한다 —
+//    POST /chats 응답을 기다리는 동안 사용자가 자기 메시지를 못 보는 사고를 차단.
+// 3) URL 은 history.replaceState 로만 갱신, Next.js 내부 route tree(__PRIVATE_NEXTJS_INTERNALS_TREE) 보존.
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
 import {
   ChatSessionListResponse,
@@ -15,22 +20,15 @@ import {
 } from "@/types/api";
 import { useChatStore } from "@/store/useChatStore";
 
-export type ChatPhase =
-  | "empty"        // /chat — 봇 미선택
-  | "new"          // /chat/new/{botId} — 봇 선택, 첫 입력 대기
-  | "session"      // /chat/{id} — 세션 활성, idle
-  | "submitting"   // 첫 메시지 submit 직후, POST /chats 중
-  | "searching"    // POST /completions 중 (Gemini 의 "찾고 있음" 단계)
-  | "streaming";   // streaming 응답 중
+export type ChatPhase = "empty" | "composer" | "thread";
 
 interface ChatContextValue {
   phase: ChatPhase;
   sessionId: string | null;
   botId: string | null;
   messages: MessageResponse[];
-  streamingText: string;
-  // 화면에 보여줄 상태 라벨 ("찾고 있음…" 등). null 이면 비표시.
-  statusLabel: string | null;
+  // 봇 응답을 기다리는 중. true 면 마지막 사용자 메시지 아래에 typing dots 노출.
+  awaiting: boolean;
   sendMessage: (content: string) => Promise<void>;
 }
 
@@ -65,81 +63,106 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   const { urlSessionId, urlBotId } = parseSlug(params?.slug);
 
-  // 내부 상태 — URL 이 1차 입력, submit/응답 단계는 setState 로 직접 갱신
   const [sessionId, setSessionId] = useState<string | null>(urlSessionId);
   const [botId, setBotId] = useState<string | null>(urlBotId);
+  const [messages, setMessages] = useState<MessageResponse[]>([]);
+  const [awaiting, setAwaiting] = useState(false);
   const [phase, setPhase] = useState<ChatPhase>(
-    urlSessionId ? "session" : urlBotId ? "new" : "empty",
+    urlSessionId ? "thread" : urlBotId ? "composer" : "empty",
   );
-  const [streamingText, setStreamingText] = useState("");
-  const [statusLabel, setStatusLabel] = useState<string | null>(null);
 
-  // URL 변경(사이드바 클릭, 뒤로가기) → 내부 상태 sync
-  // history.replaceState 는 useParams 를 변경하지 않으므로 안전.
+  // URL 변경(사이드바 클릭, 뒤로가기) → 내부 상태 sync.
+  // history.replaceState 는 useParams 를 갱신하지 않으므로 안전.
   useEffect(() => {
     if (urlSessionId) {
       setSessionId(urlSessionId);
       setBotId(null);
-      setPhase("session");
+      setPhase("thread");
+      setAwaiting(false);
+      setMessages([]); // 새 세션 메시지는 아래 fetch 에서 채움
     } else if (urlBotId) {
       setSessionId(null);
       setBotId(urlBotId);
-      setPhase("new");
+      setPhase("composer");
+      setAwaiting(false);
+      setMessages([]);
     } else {
       setSessionId(null);
       setBotId(null);
       setPhase("empty");
+      setAwaiting(false);
+      setMessages([]);
     }
-    setStreamingText("");
-    setStatusLabel(null);
   }, [urlSessionId, urlBotId]);
 
-  // 메시지 캐시 (sessionId 있을 때만 fetch)
-  const { data: messagesData } = useQuery<MessageResponse[]>({
-    queryKey: ["messages", sessionId],
-    queryFn: async () => {
-      const token = await getToken({ template: "nexus-backend" });
-      const res = await fetch(`/api/v1/chats/${sessionId}/messages`, {
-        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-      });
-      if (!res.ok) throw new Error("messages fetch failed");
-      return res.json();
-    },
-    enabled: !!sessionId,
-  });
-
-  const messages = messagesData ?? [];
+  // sessionId 가 정해지면 기존 메시지 fetch (사이드바 클릭/직접 URL 진입 케이스)
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getToken({ template: "nexus-backend" });
+        const res = await fetch(`/api/v1/chats/${sessionId}/messages`, {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        });
+        if (!res.ok) return;
+        const data: MessageResponse[] = await res.json();
+        if (cancelled) return;
+        setMessages((prev) => {
+          // 사용자가 막 보낸 임시 메시지(음수 id)가 있으면 보존
+          const tempLocal = prev.filter((m) => m.id < 0);
+          // 서버에서 받은 메시지에 중복(서버가 같은 메시지를 갖고 있는 경우) 없으면 그대로
+          return [...data, ...tempLocal];
+        });
+      } catch (err) {
+        console.error("messages fetch error", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, getToken]);
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!content.trim()) return;
-      if (phase === "submitting" || phase === "searching" || phase === "streaming") return;
+      if (!content.trim() || awaiting) return;
+
+      const trimmed = content.trim();
+      const tmpUserId = -Date.now();
+      const tmpAssistantId = tmpUserId - 1;
+
+      const userMsg: MessageResponse = {
+        id: tmpUserId,
+        session_id: sessionId ? parseInt(sessionId, 10) : 0,
+        role: "user",
+        content: trimmed,
+        created_at: new Date().toISOString(),
+      };
+
+      // ★ 사용자 메시지 즉시 노출 + phase 'thread' 로 전환 (POST 응답 기다리는 동안의 빈 화면 차단)
+      setMessages((prev) => [...prev, userMsg]);
+      setPhase("thread");
+      setAwaiting(true);
+      clearLatestFollowups();
 
       let activeSessionId = sessionId;
       const activeBotId = botId;
-      clearLatestFollowups();
 
       try {
         const token = await getToken({ template: "nexus-backend" });
 
-        // 1) submit-time 세션 생성 (없을 때만)
+        // 세션이 없으면 (= /chat/new/{bot} 첫 submit) POST /chats 로 만들고 URL silent 변경
         if (!activeSessionId) {
-          if (!activeBotId) {
-            console.error("sendMessage: 세션도 봇도 없음");
-            return;
-          }
-          setPhase("submitting");
-          setStatusLabel("대화를 준비하고 있어요…");
-
+          if (!activeBotId) throw new Error("no session or bot");
           const createRes = await fetch(`/api/v1/chats?bot_id=${activeBotId}`, {
             method: "POST",
             headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
           });
-          if (!createRes.ok) throw new Error(`세션 생성 실패 ${createRes.status}`);
+          if (!createRes.ok) throw new Error(`session create failed ${createRes.status}`);
           const created: ChatSessionResponse = await createRes.json();
           activeSessionId = String(created.id);
 
-          // 사이드바 캐시 prepend (dedupe — 백엔드 idempotent precreate 대응)
+          // 사이드바 캐시 prepend (idempotent precreate dedupe)
           queryClient.setQueryData<ChatSessionListResponse>(
             ["chats"],
             (old) => {
@@ -153,55 +176,29 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             },
           );
 
-          // ★ 핵심: history.replaceState 로 URL 만 변경 (Next.js 내부 route tree 보존)
+          // URL 만 silent 변경 — Next.js 내부 route tree 보존
           window.history.replaceState(
             window.history.state,
             "",
             `/chat/${activeSessionId}`,
           );
-
-          // 내부 state 도 동기 — useParams 는 stale 이어도 ChatProvider 가 sessionId 를 알고 있음.
           setSessionId(activeSessionId);
         }
 
-        // 2) 유저 메시지를 캐시에 즉시 append
-        const tmpUserId = -Date.now();
-        const tmpAssistantId = tmpUserId - 1;
-        const sessionIdNum = parseInt(activeSessionId, 10);
-
-        queryClient.setQueryData<MessageResponse[]>(
-          ["messages", activeSessionId],
-          (old = []) => [
-            ...old,
-            {
-              id: tmpUserId,
-              session_id: sessionIdNum,
-              role: "user",
-              content,
-              created_at: new Date().toISOString(),
-            },
-          ],
-        );
-
-        // 3) /completions
-        setPhase("searching");
-        setStatusLabel("찾고 있어요…");
-
-        // botId 확정 (세션을 막 만들었으면 이미 가짐, 기존 세션이면 캐시에서 추출)
+        // botId 확정
         let resolvedBotId: number | undefined;
         if (activeBotId) {
           resolvedBotId = Number(activeBotId);
         } else {
           const chatData = queryClient.getQueryData<ChatSessionListResponse>(["chats"]);
           const found = chatData?.sessions.find(
-            (s) => s.id === sessionIdNum,
+            (s) => s.id === parseInt(activeSessionId!, 10),
           );
           if (found?.bot_id) resolvedBotId = found.bot_id;
         }
-        if (!resolvedBotId) {
-          throw new Error("botId resolve 실패");
-        }
+        if (!resolvedBotId) throw new Error("botId resolve 실패");
 
+        // /completions
         const compRes = await fetch("/api/v1/chats/completions", {
           method: "POST",
           headers: {
@@ -209,108 +206,50 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({
-            message: content,
+            message: trimmed,
             bot_id: resolvedBotId,
-            session_id: sessionIdNum,
+            session_id: parseInt(activeSessionId!, 10),
             stream: false,
             use_rag: true,
           }),
         });
-        if (!compRes.ok) throw new Error(`completions 실패 ${compRes.status}`);
+        if (!compRes.ok) throw new Error(`completions failed ${compRes.status}`);
+        const data = await compRes.json();
 
-        const contentType = compRes.headers.get("content-type") || "";
-        if (contentType.includes("application/json")) {
-          const data = await compRes.json();
-          setPhase("streaming");
-          setStatusLabel(null);
+        const assistantMsg: MessageResponse = {
+          id: tmpAssistantId,
+          session_id: parseInt(activeSessionId!, 10),
+          role: "assistant",
+          content: data.content || "",
+          created_at: new Date().toISOString(),
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
 
-          queryClient.setQueryData<MessageResponse[]>(
-            ["messages", activeSessionId],
-            (old = []) => [
-              ...old,
-              {
-                id: tmpAssistantId,
-                session_id: sessionIdNum,
-                role: "assistant",
-                content: data.content || "",
-                created_at: new Date().toISOString(),
-              },
-            ],
-          );
-          if (Array.isArray(data.followups) && data.followups.length > 0) {
-            setLatestFollowups(data.followups);
-          }
-        } else {
-          // SSE 스트리밍 — 챙겨두긴 하지만 현재 클라이언트는 stream:false 만 씀
-          const reader = compRes.body?.getReader();
-          if (!reader) throw new Error("no body reader");
-          const decoder = new TextDecoder("utf-8");
-          let tempText = "";
-          setPhase("streaming");
-          setStatusLabel(null);
-
-          while (true) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            for (const line of chunk.split("\n")) {
-              if (!line.startsWith("data: ")) continue;
-              const dataStr = line.replace("data: ", "").trim();
-              if (dataStr === "[DONE]") continue;
-              try {
-                const data = JSON.parse(dataStr);
-                if (typeof data.content === "string") {
-                  tempText += data.content;
-                  setStreamingText(tempText);
-                }
-              } catch {
-                /* ignore partial json */
-              }
-            }
-          }
-
-          if (tempText) {
-            queryClient.setQueryData<MessageResponse[]>(
-              ["messages", activeSessionId],
-              (old = []) => [
-                ...old,
-                {
-                  id: tmpAssistantId,
-                  session_id: sessionIdNum,
-                  role: "assistant",
-                  content: tempText,
-                  created_at: new Date().toISOString(),
-                },
-              ],
-            );
-          }
+        if (Array.isArray(data.followups) && data.followups.length > 0) {
+          setLatestFollowups(data.followups);
         }
 
         queryClient.invalidateQueries({ queryKey: ["chats"] });
-        setStreamingText("");
-        setPhase("session");
-        setStatusLabel(null);
       } catch (err) {
         console.error("sendMessage error:", err);
-        setStreamingText("");
-        setPhase(activeSessionId ? "session" : botId ? "new" : "empty");
-        setStatusLabel(null);
+      } finally {
+        setAwaiting(false);
       }
     },
-    [phase, sessionId, botId, getToken, queryClient, setLatestFollowups, clearLatestFollowups],
+    [
+      awaiting,
+      sessionId,
+      botId,
+      getToken,
+      queryClient,
+      setLatestFollowups,
+      clearLatestFollowups,
+    ],
   );
 
   return (
     <ChatContext.Provider
-      value={{
-        phase,
-        sessionId,
-        botId,
-        messages,
-        streamingText,
-        statusLabel,
-        sendMessage,
-      }}
+      value={{ phase, sessionId, botId, messages, awaiting, sendMessage }}
     >
       {children}
     </ChatContext.Provider>
