@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Sparkles, Loader2, ThumbsUp, ThumbsDown, Copy, Check, User } from "lucide-react";
+import { Bot, Sparkles, Loader2, ThumbsUp, ThumbsDown, Copy, Check, User, Plus } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { useQuery } from "@tanstack/react-query";
@@ -8,7 +8,14 @@ import { useChatStore } from "@/store/useChatStore";
 import api from "@/lib/api";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
-import { MessageResponse } from "@/types/api";
+import { FeedbackType, MessageResponse } from "@/types/api";
+import { FeedbackReasonForm } from "./FeedbackReasonForm";
+
+type FeedbackState = {
+  type: FeedbackType | null;
+  reasons: string[];
+  comment: string;
+};
 
 export function ChatArea({ sessionId }: { sessionId?: string }) {
   const { isStreaming, streamingText } = useChatStore();
@@ -23,7 +30,8 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
 
   // 피드백 및 복사 기능 상태
   const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
-  const [feedbacks, setFeedbacks] = useState<Record<number, 'up' | 'down' | undefined>>({});
+  const [feedbackMap, setFeedbackMap] = useState<Record<number, FeedbackState>>({});
+  const [openForm, setOpenForm] = useState<Record<number, boolean>>({});
 
   const handleCopy = (id: number, content: string) => {
     navigator.clipboard.writeText(content);
@@ -31,23 +39,62 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
     setTimeout(() => setCopiedMessageId(null), 2000);
   };
 
-  const handleFeedback = async (id: number, type: 'up' | 'down') => {
-    const newFeedback = feedbacks[id] === type ? null : type;
-    
-    // 로컬 상태 즉시 반영 (Optimistic Update)
-    setFeedbacks(prev => ({
-      ...prev,
-      [id]: newFeedback ?? undefined
-    }));
-
+  const patchFeedback = async (
+    id: number,
+    type: FeedbackType | null,
+    reasons: string[],
+    comment: string,
+  ) => {
     try {
       await api.patch(`/chats/messages/${id}`, {
-        feedback: newFeedback
+        feedback: type,
+        feedback_reasons: type ? reasons : [],
+        feedback_comment: type ? (comment || null) : null,
       });
     } catch (error) {
       console.error("Failed to update feedback:", error);
-      // 에러 시 롤백 (선택 사항, 여기서는 단순 로깅)
     }
+  };
+
+  const handleFeedback = (id: number, type: FeedbackType) => {
+    const current = feedbackMap[id];
+    const isToggleOff = current?.type === type;
+    const newType: FeedbackType | null = isToggleOff ? null : type;
+
+    // Optimistic local update — 토글 오프 시 reasons/comment 도 초기화
+    const nextState: FeedbackState = newType
+      ? {
+          type: newType,
+          reasons: current?.reasons ?? [],
+          comment: current?.comment ?? "",
+        }
+      : { type: null, reasons: [], comment: "" };
+
+    setFeedbackMap((prev) => ({ ...prev, [id]: nextState }));
+
+    // 폼: 새로 down 으로 켜지면 자동 펼침, 그 외엔 닫음
+    setOpenForm((prev) => ({ ...prev, [id]: newType === "down" }));
+
+    void patchFeedback(id, newType, nextState.reasons, nextState.comment);
+  };
+
+  const handleReasonSave = (id: number, reasons: string[], comment: string) => {
+    const current = feedbackMap[id];
+    if (!current?.type) return;
+
+    const nextState: FeedbackState = { type: current.type, reasons, comment };
+    setFeedbackMap((prev) => ({ ...prev, [id]: nextState }));
+    setOpenForm((prev) => ({ ...prev, [id]: false }));
+
+    void patchFeedback(id, current.type, reasons, comment);
+  };
+
+  const handleFormClose = (id: number) => {
+    setOpenForm((prev) => ({ ...prev, [id]: false }));
+  };
+
+  const handleOpenForm = (id: number) => {
+    setOpenForm((prev) => ({ ...prev, [id]: true }));
   };
 
   const { data: messages = [] } = useQuery<MessageResponse[]>({
@@ -58,6 +105,25 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
     },
     enabled: !!sessionId,
   });
+
+  // 서버에서 받은 기존 피드백 상태를 로컬 맵으로 하이드레이션 (기존 사용자가 다시 열었을 때 기록 보존)
+  useEffect(() => {
+    if (messages.length === 0) return;
+    setFeedbackMap((prev) => {
+      const next = { ...prev };
+      messages.forEach((msg) => {
+        if (next[msg.id]) return; // 이미 로컬에 있는 건 건드리지 않음 (사용자 토글 보존)
+        if (msg.feedback === "up" || msg.feedback === "down") {
+          next[msg.id] = {
+            type: msg.feedback,
+            reasons: msg.feedback_reasons ?? [],
+            comment: msg.feedback_comment ?? "",
+          };
+        }
+      });
+      return next;
+    });
+  }, [messages]);
 
   // 스크롤 위치 감지
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
@@ -175,42 +241,81 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                                 </ReactMarkdown>
                               </div>
                               {/* Action Bar */}
-                              <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100">
-                                <button
-                                  onClick={() => handleCopy(msg.id, msg.content)}
-                                  className="p-1.5 text-zinc-400 hover:text-amber-500 hover:bg-amber-50 rounded-md transition-colors"
-                                  title="복사하기"
-                                >
-                                  {copiedMessageId === msg.id ? (
-                                    <Check className="w-4 h-4 text-emerald-500" />
-                                  ) : (
-                                    <Copy className="w-4 h-4" />
-                                  )}
-                                </button>
-                                <div className="h-4 w-px bg-zinc-200 mx-1" />
-                                <button
-                                  onClick={() => handleFeedback(msg.id, 'up')}
-                                  className={`p-1.5 rounded-md transition-colors ${
-                                    feedbacks[msg.id] === 'up' 
-                                      ? 'text-amber-500 bg-amber-50' 
-                                      : 'text-zinc-400 hover:text-amber-500 hover:bg-amber-50'
-                                  }`}
-                                  title="좋아요"
-                                >
-                                  <ThumbsUp className={`w-4 h-4 ${feedbacks[msg.id] === 'up' ? 'fill-amber-500/20' : ''}`} />
-                                </button>
-                                <button
-                                  onClick={() => handleFeedback(msg.id, 'down')}
-                                  className={`p-1.5 rounded-md transition-colors ${
-                                    feedbacks[msg.id] === 'down' 
-                                      ? 'text-red-500 bg-red-50' 
-                                      : 'text-zinc-400 hover:text-red-500 hover:bg-red-50'
-                                  }`}
-                                  title="싫어요"
-                                >
-                                  <ThumbsDown className={`w-4 h-4 ${feedbacks[msg.id] === 'down' ? 'fill-red-500/20' : ''}`} />
-                                </button>
-                              </div>
+                              {(() => {
+                                const fb = feedbackMap[msg.id];
+                                const isUp = fb?.type === "up";
+                                const isDown = fb?.type === "down";
+                                const formOpen = !!openForm[msg.id];
+                                const showAddReasonLink = !!fb?.type && !formOpen;
+                                return (
+                                  <>
+                                    <div className="flex items-center gap-1.5 mt-3 pt-3 border-t border-zinc-100">
+                                      <button
+                                        onClick={() => handleCopy(msg.id, msg.content)}
+                                        className="p-1.5 text-zinc-400 hover:text-amber-500 hover:bg-amber-50 rounded-md transition-colors"
+                                        title="복사하기"
+                                      >
+                                        {copiedMessageId === msg.id ? (
+                                          <Check className="w-4 h-4 text-emerald-500" />
+                                        ) : (
+                                          <Copy className="w-4 h-4" />
+                                        )}
+                                      </button>
+                                      <div className="h-4 w-px bg-zinc-200 mx-1" />
+                                      <button
+                                        onClick={() => handleFeedback(msg.id, 'up')}
+                                        className={`p-1.5 rounded-md transition-colors ${
+                                          isUp
+                                            ? 'text-amber-500 bg-amber-50'
+                                            : 'text-zinc-400 hover:text-amber-500 hover:bg-amber-50'
+                                        }`}
+                                        title="좋아요"
+                                      >
+                                        <ThumbsUp className={`w-4 h-4 ${isUp ? 'fill-amber-500/20' : ''}`} />
+                                      </button>
+                                      <button
+                                        onClick={() => handleFeedback(msg.id, 'down')}
+                                        className={`p-1.5 rounded-md transition-colors ${
+                                          isDown
+                                            ? 'text-red-500 bg-red-50'
+                                            : 'text-zinc-400 hover:text-red-500 hover:bg-red-50'
+                                        }`}
+                                        title="싫어요"
+                                      >
+                                        <ThumbsDown className={`w-4 h-4 ${isDown ? 'fill-red-500/20' : ''}`} />
+                                      </button>
+                                      {showAddReasonLink && (
+                                        <>
+                                          <div className="h-4 w-px bg-zinc-200 mx-1" />
+                                          <button
+                                            onClick={() => handleOpenForm(msg.id)}
+                                            className="inline-flex items-center gap-1 px-2 py-1 text-[11px] text-zinc-500 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
+                                          >
+                                            <Plus className="w-3 h-3" />
+                                            {fb?.reasons.length || fb?.comment
+                                              ? "사유 수정"
+                                              : "사유 추가"}
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                    <AnimatePresence>
+                                      {formOpen && fb?.type && (
+                                        <FeedbackReasonForm
+                                          key={`form-${msg.id}`}
+                                          type={fb.type}
+                                          initialReasons={fb.reasons}
+                                          initialComment={fb.comment}
+                                          onSave={(reasons, comment) =>
+                                            handleReasonSave(msg.id, reasons, comment)
+                                          }
+                                          onClose={() => handleFormClose(msg.id)}
+                                        />
+                                      )}
+                                    </AnimatePresence>
+                                  </>
+                                );
+                              })()}
                             </div>
                           )}
                         </div>

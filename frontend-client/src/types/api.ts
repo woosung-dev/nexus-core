@@ -44,8 +44,30 @@ export interface MessageResponse {
   session_id: number;
   role: MessageRole;
   content: string;
+  feedback?: "up" | "down" | null;
+  feedback_reasons?: string[];
+  feedback_comment?: string | null;
   created_at: string;
 }
+
+export type FeedbackType = "up" | "down";
+
+export const POSITIVE_FEEDBACK_REASONS = [
+  { code: "accurate", label: "정확함" },
+  { code: "helpful", label: "도움 됨" },
+  { code: "kind", label: "친절함" },
+  { code: "clear", label: "명확함" },
+  { code: "other", label: "기타" },
+] as const;
+
+export const NEGATIVE_FEEDBACK_REASONS = [
+  { code: "inaccurate", label: "부정확함" },
+  { code: "not_helpful", label: "도움 안 됨" },
+  { code: "unsupported", label: "근거 부족" },
+  { code: "too_long", label: "너무 김" },
+  { code: "inappropriate", label: "부적절" },
+  { code: "other", label: "기타" },
+] as const;
 
 export interface ChatCompletionRequest {
   bot_id: number;
