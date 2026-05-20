@@ -157,9 +157,11 @@ async def chat_completions(
             )
         # 사이드바 가독성: 빈 세션의 기본 제목("새 대화") 을 첫 메시지로 자동 갱신.
         # 이후 메시지에서는 이미 다른 제목이 들어있으므로 건드리지 않는다.
+        # 멀티라인 메시지 대비: 첫 줄만 사용 + strip (사이드바 layout 깨짐 방지).
         if chat_session.title == "새 대화":
+            first_line = request.message.split("\n", 1)[0].strip() or request.message[:20]
             chat_session.title = (
-                request.message[:20] + "..." if len(request.message) > 20 else request.message
+                first_line[:20] + "..." if len(first_line) > 20 else first_line
             )
             session.add(chat_session)
             await session.flush()

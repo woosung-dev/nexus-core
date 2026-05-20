@@ -9,7 +9,7 @@
 // 3) URL 은 history.replaceState 로만 갱신, Next.js 내부 route tree(__PRIVATE_NEXTJS_INTERNALS_TREE) 보존.
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@clerk/nextjs";
@@ -31,17 +31,19 @@ async function authedFetch(
   getToken: (opts?: { template?: string; skipCache?: boolean }) => Promise<string | null>,
 ): Promise<Response> {
   const cached = await getToken({ template: "nexus-backend" });
-  const baseHeaders: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
-  if (cached) baseHeaders.Authorization = `Bearer ${cached}`;
+  // Headers API 사용 — 호출자가 plain object / Headers 인스턴스 / [string,string][] 어느 형태를 줘도
+  // 안전. plain object spread 만 쓰면 Headers 인스턴스가 그냥 비어버리는 footgun 있음.
+  const headers = new Headers(init.headers);
+  if (cached) headers.set("Authorization", `Bearer ${cached}`);
 
-  let res = await fetch(url, { ...init, headers: baseHeaders });
+  let res = await fetch(url, { ...init, headers });
   if (res.status !== 401) return res;
 
   const fresh = await getToken({ template: "nexus-backend", skipCache: true });
   if (!fresh) return res;
-  const freshHeaders: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
-  freshHeaders.Authorization = `Bearer ${fresh}`;
-  res = await fetch(url, { ...init, headers: freshHeaders });
+  const retryHeaders = new Headers(init.headers);
+  retryHeaders.set("Authorization", `Bearer ${fresh}`);
+  res = await fetch(url, { ...init, headers: retryHeaders });
   return res;
 }
 
@@ -98,6 +100,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     urlSessionId ? "thread" : urlBotId ? "thread" : "empty",
   );
 
+  // in-flight sendMessage 가 응답을 받았을 때 사용자가 다른 세션으로 이동했는지 판단하기 위한 ref.
+  // sessionId state 와 항상 sync — sendMessage 클로저에서 stale 한 sessionId 가 아닌 "지금 보고 있는" 세션을 비교.
+  const activeSessionRef = useRef<string | null>(sessionId);
+  useEffect(() => {
+    activeSessionRef.current = sessionId;
+  }, [sessionId]);
+
   // URL 변경(사이드바 클릭, 뒤로가기) → 내부 상태 sync.
   // history.replaceState 는 useParams 를 갱신하지 않으므로 안전.
   useEffect(() => {
@@ -133,9 +142,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         const data: MessageResponse[] = await res.json();
         if (cancelled) return;
         setMessages((prev) => {
-          // 사용자가 막 보낸 임시 메시지(음수 id)가 있으면 보존
-          const tempLocal = prev.filter((m) => m.id < 0);
-          // 서버에서 받은 메시지에 중복(서버가 같은 메시지를 갖고 있는 경우) 없으면 그대로
+          // 사용자가 막 보낸 임시 메시지 보존 — 단, **현재 세션 의 것만**.
+          // 세션 A 에서 보낸 직후 세션 B 로 사이드바 전환하면 A 의 임시 메시지가 B 화면에 새지 않도록.
+          const sidNum = parseInt(sessionId, 10);
+          const tempLocal = prev.filter((m) => m.id < 0 && m.session_id === sidNum);
           return [...data, ...tempLocal];
         });
       } catch (err) {
@@ -240,36 +250,42 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         if (!compRes.ok) throw new Error(`completions failed ${compRes.status}`);
         const data = await compRes.json();
 
-        const assistantMsg: MessageResponse = {
-          id: tmpAssistantId,
-          session_id: parseInt(activeSessionId!, 10),
-          role: "assistant",
-          content: data.content || "",
-          created_at: new Date().toISOString(),
-        };
-        setMessages((prev) => [...prev, assistantMsg]);
+        // ★ 응답 받은 시점에 사용자가 이미 다른 세션으로 이동했다면 state 오염 방지.
+        // 사이드바 캐시(invalidate) 와 followups store 갱신은 그대로 (다른 세션과 무관).
+        const stillOnSession = activeSessionRef.current === activeSessionId;
 
         if (Array.isArray(data.followups) && data.followups.length > 0) {
           setLatestFollowups(data.followups);
         }
-
         queryClient.invalidateQueries({ queryKey: ["chats"] });
 
-        // 서버에서 진짜 message id 를 갖는 메시지로 교체 — feedback PATCH 가 음수 임시 id 로
-        // 호출되지 않도록. (음수는 PostgreSQL int32 범위를 벗어나 500 발생.)
-        try {
-          const refetchRes = await authedFetch(
-            `/api/v1/chats/${activeSessionId}/messages`,
-            {},
-            getToken,
-          );
-          if (refetchRes.ok) {
-            const real: MessageResponse[] = await refetchRes.json();
-            setMessages(real);
+        if (stillOnSession) {
+          const assistantMsg: MessageResponse = {
+            id: tmpAssistantId,
+            session_id: parseInt(activeSessionId!, 10),
+            role: "assistant",
+            content: data.content || "",
+            created_at: new Date().toISOString(),
+          };
+          setMessages((prev) => [...prev, assistantMsg]);
+
+          // 서버에서 진짜 message id 를 갖는 메시지로 교체 — feedback PATCH 가 음수 임시 id 로
+          // 호출되지 않도록. (음수는 PostgreSQL int32 범위를 벗어나 500 발생.)
+          try {
+            const refetchRes = await authedFetch(
+              `/api/v1/chats/${activeSessionId}/messages`,
+              {},
+              getToken,
+            );
+            // refetch 도중 사용자가 또 다른 세션으로 이동했을 수 있으므로 한 번 더 체크.
+            if (refetchRes.ok && activeSessionRef.current === activeSessionId) {
+              const real: MessageResponse[] = await refetchRes.json();
+              setMessages(real);
+            }
+          } catch (refetchErr) {
+            // refetch 실패해도 사용자는 응답 자체는 본 상태 — silent. 다음 라우트 진입 시 정상화됨.
+            console.warn("messages refetch after completion failed", refetchErr);
           }
-        } catch (refetchErr) {
-          // refetch 실패해도 사용자는 응답 자체는 본 상태 — silent. 다음 라우트 진입 시 정상화됨.
-          console.warn("messages refetch after completion failed", refetchErr);
         }
       } catch (err) {
         console.error("sendMessage error:", err);
