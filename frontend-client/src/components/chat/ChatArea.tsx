@@ -11,7 +11,7 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { FeedbackType, MessageResponse } from "@/types/api";
 import { FeedbackReasonForm } from "./FeedbackReasonForm";
 import { FollowupPills } from "./FollowupPills";
-import { useChatStream } from "@/hooks/useChatStream";
+import { useChat } from "@/app/(protected)/chat/ChatProvider";
 
 type FeedbackState = {
   type: FeedbackType | null;
@@ -20,8 +20,10 @@ type FeedbackState = {
 };
 
 export function ChatArea({ sessionId }: { sessionId?: string }) {
-  const { isStreaming, streamingText, latestFollowups } = useChatStore();
-  const { sendMessage } = useChatStream({ sessionId });
+  const { phase, streamingText, sendMessage } = useChat();
+  const { latestFollowups } = useChatStore();
+  // 기존 코드 호환용 alias — phase 가 "searching" / "streaming" 일 때 메시지 영역도 스크롤/렌더 분기.
+  const isStreaming = phase === "searching" || phase === "streaming" || phase === "submitting";
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   // ChatGPT/Claude 스타일 스크롤 — 사용자 메시지를 viewport 최상단으로 보내고, 응답이 그 아래로 들어오게 한다.

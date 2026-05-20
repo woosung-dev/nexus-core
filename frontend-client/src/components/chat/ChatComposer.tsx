@@ -1,57 +1,66 @@
-import { useState, KeyboardEvent, useRef, useEffect } from "react";
-import { ArrowUp, CornerDownLeft, Loader2 } from "lucide-react";
-import { useChatStream } from "@/hooks/useChatStream";
-import { motion, AnimatePresence } from "framer-motion";
+// 입력 + 전송 컴포넌트. 세션 유무는 useChat() 의 sendMessage 가 알아서 처리한다.
+// (sessionId 없을 때 sendMessage 가 submit 시점에 POST /chats → history.replaceState 까지 수행.)
+"use client";
 
-export function ChatInput({ sessionId }: { sessionId: string }) {
+import { KeyboardEvent, useEffect, useRef, useState } from "react";
+import { ArrowUp, CornerDownLeft, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useChat } from "@/app/(protected)/chat/ChatProvider";
+
+export function ChatComposer() {
+  const { phase, sendMessage } = useChat();
   const [input, setInput] = useState("");
-  const { sendMessage, isStreaming } = useChatStream({ sessionId });
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // 메시지 전송 후 높이 초기화
+  const busy =
+    phase === "submitting" || phase === "searching" || phase === "streaming";
+
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "inherit";
-      const scrollHeight = textareaRef.current.scrollHeight;
-      textareaRef.current.style.height = `${Math.min(scrollHeight, 200)}px`;
+      const sh = textareaRef.current.scrollHeight;
+      textareaRef.current.style.height = `${Math.min(sh, 200)}px`;
     }
   }, [input]);
 
   const handleSend = () => {
-    if (!input.trim() || isStreaming) return;
-    sendMessage(input);
+    const trimmed = input.trim();
+    if (!trimmed || busy) return;
     setInput("");
+    void sendMessage(trimmed);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
-    // IME 조합 중인 Enter는 마지막 글자 손실/잔존을 유발하므로 무시 (한/중/일 입력기)
     if (e.nativeEvent.isComposing) return;
-    if (e.key === "Enter" && !e.shiftKey) {
-      if (window.innerWidth > 768) { // 데스크탑에서만 엔터로 전송
-        e.preventDefault();
-        handleSend();
-      }
+    if (e.key === "Enter" && !e.shiftKey && window.innerWidth > 768) {
+      e.preventDefault();
+      handleSend();
     }
   };
 
   const isEmpty = !input.trim();
 
   return (
-    <div className="shrink-0 bg-white/80 backdrop-blur-xl border-t border-amber-100/30 pb-8 pt-4 px-4 sm:px-6 relative z-20">
+    <div className="shrink-0 bg-white/80 backdrop-blur-xl border-t border-amber-100/30 pb-6 pt-4 px-4 sm:px-6 relative z-20">
       <div className="max-w-3xl mx-auto">
-        <div className={`relative flex items-end gap-2 bg-white border transition-all duration-300 rounded-[32px] p-1.5 shadow-lg shadow-amber-500/5 ${
-          isEmpty ? "border-zinc-200 shadow-zinc-200/5" : "border-amber-400 ring-4 ring-amber-500/5 shadow-amber-500/10"
-        }`}>
-          <textarea 
+        <div
+          className={`relative flex items-end gap-2 bg-white border transition-all duration-300 rounded-[32px] p-1.5 shadow-lg ${
+            isEmpty
+              ? "border-zinc-200 shadow-zinc-200/10"
+              : "border-amber-400 ring-4 ring-amber-500/5 shadow-amber-500/10"
+          }`}
+        >
+          <textarea
             ref={textareaRef}
             rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="AI에게 무엇이든 물어보세요..." 
-            className="flex-1 bg-transparent border-0 focus:ring-0 focus:outline-none text-[15px] text-zinc-900 placeholder:text-zinc-400 py-3 pl-4 pr-4 resize-none max-h-[200px] leading-relaxed scrollbar-hide overflow-y-auto"
+            placeholder="AI에게 무엇이든 물어보세요..."
+            disabled={busy}
+            className="flex-1 bg-transparent border-0 focus:ring-0 focus:outline-none text-[15px] text-zinc-900 placeholder:text-zinc-400 py-3 pl-4 pr-4 resize-none max-h-[200px] leading-relaxed scrollbar-hide overflow-y-auto disabled:opacity-60"
           />
-          
+
           <div className="flex items-center gap-2 pr-1 pb-1">
             <AnimatePresence>
               {!isEmpty && (
@@ -67,18 +76,18 @@ export function ChatInput({ sessionId }: { sessionId: string }) {
               )}
             </AnimatePresence>
 
-            <button 
+            <button
               onClick={handleSend}
-              disabled={isEmpty || isStreaming}
+              disabled={isEmpty || busy}
               className={`w-10 h-10 shrink-0 flex items-center justify-center rounded-2xl transition-all duration-300 ${
-                isStreaming
+                busy
                   ? "bg-amber-50 text-amber-500 cursor-not-allowed"
                   : isEmpty
                     ? "bg-zinc-50 text-zinc-300 grayscale cursor-not-allowed"
                     : "bg-linear-to-br from-amber-400 to-amber-500 text-white shadow-lg shadow-amber-100 hover:scale-105 active:scale-95"
               }`}
             >
-              {isStreaming ? (
+              {busy ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <ArrowUp className="w-6 h-6 transition-transform duration-300" />
@@ -86,12 +95,10 @@ export function ChatInput({ sessionId }: { sessionId: string }) {
             </button>
           </div>
         </div>
-        
-        <p className="mt-3 text-[10px] text-center text-zinc-400 font-bold tracking-tight">
-            Nexus Core는 실수를 할 수 있습니다. 중요한 정보를 확인하세요.
+        <p className="mt-2 text-[10px] text-center text-zinc-400 font-bold tracking-tight">
+          Nexus Core는 실수를 할 수 있습니다. 중요한 정보를 확인하세요.
         </p>
       </div>
     </div>
   );
 }
-
