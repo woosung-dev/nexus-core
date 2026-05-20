@@ -20,7 +20,34 @@ import {
 } from "@/types/api";
 import { useChatStore } from "@/store/useChatStore";
 
-export type ChatPhase = "empty" | "composer" | "thread";
+/**
+ * Clerk JWT 를 첨부한 fetch — 401 받으면 skipCache:true 로 fresh 토큰 minting 후 1회 자동 재시도.
+ * Clerk SDK 의 ~50s 토큰 캐시와 60s JWT TTL 사이 타이밍 차이로 가끔 stale 토큰이 첨부되는 문제 회피.
+ * (axios interceptor 와 동일한 패턴 — raw fetch 호출이라 직접 구현 필요.)
+ */
+async function authedFetch(
+  url: string,
+  init: RequestInit,
+  getToken: (opts?: { template?: string; skipCache?: boolean }) => Promise<string | null>,
+): Promise<Response> {
+  const cached = await getToken({ template: "nexus-backend" });
+  const baseHeaders: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
+  if (cached) baseHeaders.Authorization = `Bearer ${cached}`;
+
+  let res = await fetch(url, { ...init, headers: baseHeaders });
+  if (res.status !== 401) return res;
+
+  const fresh = await getToken({ template: "nexus-backend", skipCache: true });
+  if (!fresh) return res;
+  const freshHeaders: Record<string, string> = { ...(init.headers as Record<string, string> | undefined) };
+  freshHeaders.Authorization = `Bearer ${fresh}`;
+  res = await fetch(url, { ...init, headers: freshHeaders });
+  return res;
+}
+
+// 단순화: 빈 상태 vs thread (메시지 영역 + 하단 입력) 두 가지뿐.
+// /chat/new/{bot} 도 thread 의 빈 상태로 표시되어 입력칸이 처음부터 하단에 고정된다.
+export type ChatPhase = "empty" | "thread";
 
 interface ChatContextValue {
   phase: ChatPhase;
@@ -68,7 +95,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [awaiting, setAwaiting] = useState(false);
   const [phase, setPhase] = useState<ChatPhase>(
-    urlSessionId ? "thread" : urlBotId ? "composer" : "empty",
+    urlSessionId ? "thread" : urlBotId ? "thread" : "empty",
   );
 
   // URL 변경(사이드바 클릭, 뒤로가기) → 내부 상태 sync.
@@ -83,7 +110,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     } else if (urlBotId) {
       setSessionId(null);
       setBotId(urlBotId);
-      setPhase("composer");
+      setPhase("thread");
       setAwaiting(false);
       setMessages([]);
     } else {
@@ -101,10 +128,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const token = await getToken({ template: "nexus-backend" });
-        const res = await fetch(`/api/v1/chats/${sessionId}/messages`, {
-          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        });
+        const res = await authedFetch(`/api/v1/chats/${sessionId}/messages`, {}, getToken);
         if (!res.ok) return;
         const data: MessageResponse[] = await res.json();
         if (cancelled) return;
@@ -149,15 +173,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       const activeBotId = botId;
 
       try {
-        const token = await getToken({ template: "nexus-backend" });
-
         // 세션이 없으면 (= /chat/new/{bot} 첫 submit) POST /chats 로 만들고 URL silent 변경
         if (!activeSessionId) {
           if (!activeBotId) throw new Error("no session or bot");
-          const createRes = await fetch(`/api/v1/chats?bot_id=${activeBotId}`, {
-            method: "POST",
-            headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          });
+          const createRes = await authedFetch(
+            `/api/v1/chats?bot_id=${activeBotId}`,
+            { method: "POST" },
+            getToken,
+          );
           if (!createRes.ok) throw new Error(`session create failed ${createRes.status}`);
           const created: ChatSessionResponse = await createRes.json();
           activeSessionId = String(created.id);
@@ -199,20 +222,21 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         if (!resolvedBotId) throw new Error("botId resolve 실패");
 
         // /completions
-        const compRes = await fetch("/api/v1/chats/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        const compRes = await authedFetch(
+          "/api/v1/chats/completions",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message: trimmed,
+              bot_id: resolvedBotId,
+              session_id: parseInt(activeSessionId!, 10),
+              stream: false,
+              use_rag: true,
+            }),
           },
-          body: JSON.stringify({
-            message: trimmed,
-            bot_id: resolvedBotId,
-            session_id: parseInt(activeSessionId!, 10),
-            stream: false,
-            use_rag: true,
-          }),
-        });
+          getToken,
+        );
         if (!compRes.ok) throw new Error(`completions failed ${compRes.status}`);
         const data = await compRes.json();
 
@@ -230,6 +254,23 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         }
 
         queryClient.invalidateQueries({ queryKey: ["chats"] });
+
+        // 서버에서 진짜 message id 를 갖는 메시지로 교체 — feedback PATCH 가 음수 임시 id 로
+        // 호출되지 않도록. (음수는 PostgreSQL int32 범위를 벗어나 500 발생.)
+        try {
+          const refetchRes = await authedFetch(
+            `/api/v1/chats/${activeSessionId}/messages`,
+            {},
+            getToken,
+          );
+          if (refetchRes.ok) {
+            const real: MessageResponse[] = await refetchRes.json();
+            setMessages(real);
+          }
+        } catch (refetchErr) {
+          // refetch 실패해도 사용자는 응답 자체는 본 상태 — silent. 다음 라우트 진입 시 정상화됨.
+          console.warn("messages refetch after completion failed", refetchErr);
+        }
       } catch (err) {
         console.error("sendMessage error:", err);
       } finally {

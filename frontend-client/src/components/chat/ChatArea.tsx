@@ -10,6 +10,7 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { FeedbackType } from "@/types/api";
 import { FeedbackReasonForm } from "./FeedbackReasonForm";
 import { FollowupPills } from "./FollowupPills";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { useChat } from "@/app/(protected)/chat/ChatProvider";
 
 type FeedbackState = {
@@ -254,40 +255,68 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                                         )}
                                       </button>
                                       <div className="h-4 w-px bg-zinc-200 mx-1" />
-                                      <button
-                                        onClick={() => handleFeedbackButton(msg.id, 'up')}
-                                        className={`p-1.5 rounded-md transition-colors ${
-                                          isUp
-                                            ? 'text-amber-500 bg-amber-50'
-                                            : 'text-zinc-400 hover:text-amber-500 hover:bg-amber-50'
-                                        }`}
-                                        title="좋아요"
-                                      >
-                                        <ThumbsUp className={`w-4 h-4 ${isUp ? 'fill-amber-500/20' : ''}`} />
-                                      </button>
-                                      <button
-                                        onClick={() => handleFeedbackButton(msg.id, 'down')}
-                                        className={`p-1.5 rounded-md transition-colors ${
-                                          isDown
-                                            ? 'text-red-500 bg-red-50'
-                                            : 'text-zinc-400 hover:text-red-500 hover:bg-red-50'
-                                        }`}
-                                        title="싫어요"
-                                      >
-                                        <ThumbsDown className={`w-4 h-4 ${isDown ? 'fill-red-500/20' : ''}`} />
-                                      </button>
-                                    </div>
-                                    <AnimatePresence>
-                                      {openType && (
-                                        <FeedbackReasonForm
-                                          key={`form-${msg.id}-${openType}`}
-                                          type={openType}
-                                          onSubmit={(reasons, comment) =>
-                                            handleReasonSubmit(msg.id, reasons, comment)
+                                      <Popover
+                                        open={openType === "up"}
+                                        onOpenChange={(o) => {
+                                          // Popover 외부 클릭/Escape — 모달만 닫고 저장된 피드백은 유지
+                                          if (!o && openType === "up") {
+                                            setOpenModalFor((prev) => ({ ...prev, [msg.id]: null }));
                                           }
-                                        />
-                                      )}
-                                    </AnimatePresence>
+                                        }}
+                                      >
+                                        <PopoverTrigger asChild>
+                                          <button
+                                            onClick={() => handleFeedbackButton(msg.id, 'up')}
+                                            className={`p-1.5 rounded-md transition-colors ${
+                                              isUp
+                                                ? 'text-amber-500 bg-amber-50'
+                                                : 'text-zinc-400 hover:text-amber-500 hover:bg-amber-50'
+                                            }`}
+                                            title="좋아요"
+                                          >
+                                            <ThumbsUp className={`w-4 h-4 ${isUp ? 'fill-amber-500/20' : ''}`} />
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="top" align="start" className="border-amber-100">
+                                          <FeedbackReasonForm
+                                            type="up"
+                                            onSubmit={(reasons, comment) =>
+                                              handleReasonSubmit(msg.id, reasons, comment)
+                                            }
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                      <Popover
+                                        open={openType === "down"}
+                                        onOpenChange={(o) => {
+                                          if (!o && openType === "down") {
+                                            setOpenModalFor((prev) => ({ ...prev, [msg.id]: null }));
+                                          }
+                                        }}
+                                      >
+                                        <PopoverTrigger asChild>
+                                          <button
+                                            onClick={() => handleFeedbackButton(msg.id, 'down')}
+                                            className={`p-1.5 rounded-md transition-colors ${
+                                              isDown
+                                                ? 'text-red-500 bg-red-50'
+                                                : 'text-zinc-400 hover:text-red-500 hover:bg-red-50'
+                                            }`}
+                                            title="싫어요"
+                                          >
+                                            <ThumbsDown className={`w-4 h-4 ${isDown ? 'fill-red-500/20' : ''}`} />
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent side="top" align="start" className="border-red-100">
+                                          <FeedbackReasonForm
+                                            type="down"
+                                            onSubmit={(reasons, comment) =>
+                                              handleReasonSubmit(msg.id, reasons, comment)
+                                            }
+                                          />
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
                                   </>
                                 );
                               })()}
