@@ -61,14 +61,18 @@ async def search_faq_override(
     try:
         # 0. 사전 확인: 해당 봇에 활성 FAQ(벡터 포함)이 존재하는지 먼저 체크
         #    TTL 캐시 타겟 없으면 DB 쿼리 수행, 있으면 캐시로 증답
+        t_total = time.perf_counter()
         now = time.monotonic()
         cached = _FAQ_COUNT_CACHE.get(bot_id)
         if cached and now - cached[1] < _FAQ_COUNT_TTL_SEC:
             # 캐시 HIT: DB 쿼리 생략
             faq_count = cached[0]
+            count_ms = 0.0
+            cache_state = "hit"
             logger.debug(f"FAQ count 캐시 HIT: bot_id={bot_id}, count={faq_count}")
         else:
             # 캐시 MISS: DB에서 COUNT 쿼리
+            t_count = time.perf_counter()
             count_result = await session.execute(
                 text("""
                     SELECT COUNT(*) FROM faqs
@@ -79,15 +83,26 @@ async def search_faq_override(
                 {"bot_id": bot_id},
             )
             faq_count = count_result.scalar() or 0
+            count_ms = (time.perf_counter() - t_count) * 1000
             _FAQ_COUNT_CACHE[bot_id] = (faq_count, now)
+            cache_state = "miss"
             logger.debug(f"FAQ count 캐시 MISS: bot_id={bot_id}, count={faq_count}")
 
         if not faq_count:
-            logger.debug(f"FAQ 없음, 임베딩 생략: bot_id={bot_id}")
+            total_ms = (time.perf_counter() - t_total) * 1000
+            logger.info(
+                "faq search skipped (no faqs) — bot_id=%s cache=%s count_ms=%.1f total_ms=%.1f",
+                bot_id,
+                cache_state,
+                count_ms,
+                total_ms,
+            )
             return None
 
         # 1. FAQ가 존재하는 경우에만 사용자 질문 임베딩 생성
+        t_emb = time.perf_counter()
         query_vector = await get_embedding(query_text)
+        emb_ms = (time.perf_counter() - t_emb) * 1000
         vector_str = f"[{','.join(str(v) for v in query_vector)}]"
 
         # 2. pgvector 코사인 거리 검색
@@ -105,11 +120,24 @@ async def search_faq_override(
             ORDER BY question_vector <=> '{vector_str}'::vector
             LIMIT 1
         """
+        t_vec = time.perf_counter()
         result = await session.execute(
             text(sql),
             {"bot_id": bot_id},
         )
         row = result.fetchone()
+        vec_ms = (time.perf_counter() - t_vec) * 1000
+        total_ms = (time.perf_counter() - t_total) * 1000
+        logger.info(
+            "faq search ran — bot_id=%s cache=%s count_ms=%.1f emb_ms=%.1f vec_ms=%.1f total_ms=%.1f faqs=%d",
+            bot_id,
+            cache_state,
+            count_ms,
+            emb_ms,
+            vec_ms,
+            total_ms,
+            faq_count,
+        )
 
         if not row:
             logger.debug(f"FAQ 검색 결과 없음: bot_id={bot_id}")

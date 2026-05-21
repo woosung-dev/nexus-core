@@ -7,6 +7,7 @@ Gemini File Search API 기반 RAG 서비스.
 
 import io
 import logging
+import time
 from datetime import datetime
 
 from google import genai
@@ -36,16 +37,25 @@ class GeminiRAGService(BaseRAGService):
         Returns:
             Store의 리소스 이름 (e.g., "fileSearchStores/abc123")
         """
+        # 캐시 hit — 외부 API 호출 0회.
         if self._store_resource_name:
+            logger.debug("ensure_store cache hit")
             return self._store_resource_name
 
+        # 캐시 miss — list + (필요 시) create. 둘 다 외부 API.
+        t0 = time.perf_counter()
         # 기존 Store 검색
         try:
             stores = await self._client.aio.file_search_stores.list()
             async for store in stores:
                 if store.display_name == self._store_name:
                     self._store_resource_name = store.name
-                    logger.info(f"기존 Store 발견: {store.name}")
+                    elapsed_ms = (time.perf_counter() - t0) * 1000
+                    logger.info(
+                        "ensure_store cache miss (list hit) — store=%s elapsed=%.1fms",
+                        store.name,
+                        elapsed_ms,
+                    )
                     return self._store_resource_name
         except Exception as e:
             logger.warning(f"Store 목록 조회 실패: {e}")
@@ -55,7 +65,12 @@ class GeminiRAGService(BaseRAGService):
             config={"display_name": self._store_name},
         )
         self._store_resource_name = store.name
-        logger.info(f"새 Store 생성: {store.name}")
+        elapsed_ms = (time.perf_counter() - t0) * 1000
+        logger.info(
+            "ensure_store cache miss (new store created) — store=%s elapsed=%.1fms",
+            store.name,
+            elapsed_ms,
+        )
         return self._store_resource_name
 
     async def upload_document(
@@ -226,7 +241,7 @@ class GeminiRAGService(BaseRAGService):
         """
         # 기본 모델 지정
         actual_model_name = model_name or "gemini-2.5-flash"
-        
+
         store_name = await self.ensure_store()
 
         config = types.GenerateContentConfig(
@@ -243,18 +258,22 @@ class GeminiRAGService(BaseRAGService):
             ],
         )
 
-        # generate_content는 이미 async 지원 (aio)
+        # generate_content는 이미 async 지원 (aio). 외부 API wall-time을 단독 측정한다.
+        t_gen = time.perf_counter()
         response = await self._client.aio.models.generate_content(
             model=actual_model_name,
             contents=prompt,
             config=config,
         )
+        gen_ms = (time.perf_counter() - t_gen) * 1000
 
         # 인용 정보 추출
         citations: list[RAGCitation] = []
+        chunk_count = 0
         try:
             grounding = response.candidates[0].grounding_metadata
             if grounding and grounding.grounding_chunks:
+                chunk_count = len(grounding.grounding_chunks)
                 for chunk in grounding.grounding_chunks:
                     if chunk.retrieved_context:
                         citations.append(
@@ -269,6 +288,19 @@ class GeminiRAGService(BaseRAGService):
                         )
         except (AttributeError, IndexError) as e:
             logger.debug(f"인용 정보 추출 실패 (정상 케이스일 수 있음): {e}")
+
+        # 핵심 측정 지점: generate_content 자체 wall-time + retrieval 양.
+        answer_len = len(response.text or "")
+        logger.info(
+            "gemini RAG generate_content elapsed=%.1fms model=%s bot_id=%s "
+            "answer_len=%d grounding_chunks=%d citations=%d",
+            gen_ms,
+            actual_model_name,
+            bot_id,
+            answer_len,
+            chunk_count,
+            len(citations),
+        )
 
         return RAGResponse(
             answer=response.text or "",

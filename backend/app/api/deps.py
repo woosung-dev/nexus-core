@@ -54,7 +54,14 @@ async def get_current_user(
 
     try:
         # JWKS에서 이 토큰에 맞는 공개키를 자동으로 찾아 검증
+        # 캐시 hit이면 마이크로초, miss면 Clerk JWKS endpoint로 sync HTTP가 발생해 event loop를 막을 수 있어 측정.
+        t_jwks = time.perf_counter()
         signing_key = jwks_client.get_signing_key_from_jwt(token)
+        jwks_ms = (time.perf_counter() - t_jwks) * 1000
+        if jwks_ms >= 5.0:
+            logger.info("jwks lookup elapsed=%.1fms (cache miss likely)", jwks_ms)
+        else:
+            logger.debug("jwks lookup elapsed=%.1fms", jwks_ms)
 
         # iat 검증 비활성화 + leeway 유지:
         # - PyJWT 2.6+ 가 RFC 7519 보다 엄격하게 iat(미래값)을 거부하는데, 이게 Clerk 서버 시계가
@@ -114,6 +121,7 @@ async def get_current_user(
     provider = payload.get("provider", "unknown")
     avatar_url = payload.get("avatar_url")
 
+    t_user = time.perf_counter()
     user = await crud_user.get_or_create_by_clerk_id(
         session=session,
         clerk_user_id=clerk_user_id,
@@ -121,6 +129,11 @@ async def get_current_user(
         provider=provider,
         avatar_url=avatar_url,
     )
+    user_ms = (time.perf_counter() - t_user) * 1000
+    if user_ms >= 50.0:
+        logger.info("user upsert elapsed=%.1fms (slow DB?)", user_ms)
+    else:
+        logger.debug("user upsert elapsed=%.1fms", user_ms)
 
     if not user.is_active:
         raise HTTPException(
