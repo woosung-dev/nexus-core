@@ -8,6 +8,7 @@ import { HeroSection } from "@/components/landing/HeroSection";
 import { SearchAndFilter } from "@/components/landing/SearchAndFilter";
 import { BotGrid } from "@/components/landing/BotGrid";
 import { BotListResponse } from "@/types/api";
+import { API_BASE_URL } from "@/lib/api";
 
 export function LandingClient() {
   const [activeCategory, setActiveCategory] = useState("전체");
@@ -22,7 +23,7 @@ export function LandingClient() {
     // 클라이언트 마운트 시 필요하다면 client API 호출 함수가 들어가야 하지만, 
     // RSC Hydration의 힘으로 이 함수는 캐시가 만료되기 전까지 실행되지 않음
     queryFn: async () => {
-      const res = await fetch('/api/v1/bots');
+      const res = await fetch(`${API_BASE_URL}/bots`);
       return res.json();
     }
   });
@@ -34,7 +35,7 @@ export function LandingClient() {
     queryKey: ['bot-categories'],
     queryFn: async () => {
       try {
-        const res = await fetch('/api/v1/bots/categories');
+        const res = await fetch(`${API_BASE_URL}/bots/categories`);
         if (!res.ok) return [];
         return await res.json();
       } catch (error) {
