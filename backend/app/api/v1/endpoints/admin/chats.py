@@ -93,11 +93,12 @@ async def list_feedback_messages(
     )
 
     items = []
-    for msg_obj, session_title, bot_name, user_email in rows:
+    for msg_obj, session_title, bot_name, user_email, user_question in rows:
         data = msg_obj.model_dump()
         data["session_title"] = session_title
         data["bot_name"] = bot_name
         data["user_email"] = user_email
+        data["user_question"] = user_question
         items.append(FeedbackMessageResponse.model_validate(data))
 
     return FeedbackMessageListResponse(items=items, total=total)

@@ -7,10 +7,12 @@ from dataclasses import dataclass
 from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 from sqlmodel import select, col, func
 
 from app.models.bot import Bot
 from app.models.chat import ChatSession, Message
+from app.models.enums import MessageRole
 from app.models.user import User
 
 
@@ -129,14 +131,33 @@ async def get_feedback_messages(
 ) -> Sequence[tuple]:
     """
     피드백이 달린 메시지 목록 조회 (세션+봇+유저 조인).
-    반환값: [(Message, session_title, bot_name, user_email), ...]
+    반환값: [(Message, session_title, bot_name, user_email, user_question), ...]
+
+    user_question: 피드백을 받은 (대개 assistant) 메시지의 직전 사용자 질문.
+    같은 세션 안에서 created_at 이 더 빠른 user 메시지 중 가장 최근 것을 correlated
+    scalar subquery 로 가져온다. 없는 경우 NULL.
     """
+    user_msg_alias = aliased(Message)
+    prev_user_question_sq = (
+        select(user_msg_alias.content)
+        .where(
+            user_msg_alias.session_id == Message.session_id,
+            user_msg_alias.role == MessageRole.USER,
+            user_msg_alias.created_at < Message.created_at,
+        )
+        .order_by(col(user_msg_alias.created_at).desc())
+        .limit(1)
+        .correlate(Message)
+        .scalar_subquery()
+    )
+
     statement = (
         select(
             Message,
             ChatSession.title.label("session_title"),
             Bot.name.label("bot_name"),
             User.email.label("user_email"),
+            prev_user_question_sq.label("user_question"),
         )
         .join(ChatSession, Message.session_id == ChatSession.id)
         .outerjoin(Bot, ChatSession.bot_id == Bot.id)
