@@ -24,9 +24,11 @@ class GeminiRAGService(BaseRAGService):
     """Gemini File Search 기반 RAG 응답 및 업로드 서비스"""
 
     def __init__(self) -> None:
+        # 프로세스 레벨 싱글톤 client 재사용 (메인 LLM/followup과 동일).
+        from app.services.llm.gemini import _get_genai_client
+
         settings = get_settings()
-        api_key = settings.GEMINI_API_KEY.get_secret_value() if settings.GEMINI_API_KEY else None
-        self._client = genai.Client(api_key=api_key)
+        self._client = _get_genai_client()
         self._store_name = settings.FILE_SEARCH_STORE_NAME
         self._store_resource_name: str | None = None
 
