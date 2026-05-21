@@ -1,8 +1,11 @@
 # 봇 답변 이후 사용자가 자연스럽게 이어 물을 만한 후속 질문 3개를 빠른 LLM 으로 생성
 """
 truewords-platform 의 suggested_followups 패턴 포팅.
-- 메인 답변 스트리밍이 끝난 직후에 호출, asyncio.wait_for 로 짧은 timeout
+- 메인 답변이 끝난 직후 호출, asyncio.wait_for 로 짧은 timeout
 - 실패하면 silent fallback (빈 리스트 반환) → 사용자에겐 followups 가 안 보일 뿐 메인 응답은 그대로 노출
+- Provider: Gemini 단일 (truewords와 동일). OpenAI 분기는 비용/한도 분산 의도였으나
+  운영에서 5초 timeout 풀히트로 직렬 9.5초가 메인 응답 wall-time 에 그대로 붙어
+  단일 provider 로 통일.
 """
 
 import asyncio
@@ -10,17 +13,18 @@ import logging
 import re
 
 from app.services.llm.gemini import GeminiService
-from app.services.llm.openai import OpenAIService
 
 logger = logging.getLogger(__name__)
 
 
-FOLLOWUP_TIMEOUT_SEC = 5.0
-# 1차로 OpenAI gpt-4o-mini 사용 — Gemini Free tier 일일 20회 한도와 무관, 가격 매우 저렴.
-# OpenAI 호출 실패 시 Gemini Flash 로 fallback.
-FOLLOWUP_MODEL_PRIMARY = "gpt-4o-mini"
-FOLLOWUP_MODEL_FALLBACK = "gemini-2.5-flash"
+# truewords-platform 의 SUGGESTED_FOLLOWUPS_TIMEOUT_SECONDS = 3.0 동일.
+# 실측 hot call 0.6~1.5s 범위라 3초면 충분.
+FOLLOWUP_TIMEOUT_SEC = 3.0
+FOLLOWUP_MODEL = "gemini-3.1-flash-lite"
 ANSWER_TRUNCATE = 1200
+
+# 모듈 레벨 싱글톤 — genai.Client 재사용으로 매 요청 핸드셰이크 제거.
+_followup_llm = GeminiService(model_name=FOLLOWUP_MODEL)
 
 _PREFIX_PATTERN = re.compile(r'^\s*(?:\d+[.)]|[-*•])\s*')
 
@@ -71,42 +75,26 @@ def _parse_followups(raw: str) -> list[str]:
     return out
 
 
-async def _generate_with(model_service, prompt: str) -> str:
-    return await asyncio.wait_for(
-        model_service.generate(
-            prompt=prompt,
-            system_prompt=SUGGESTED_FOLLOWUPS_SYSTEM_PROMPT,
-            temperature=0.6,
-            max_tokens=512,
-        ),
-        timeout=FOLLOWUP_TIMEOUT_SEC,
-    )
-
-
 async def generate_followups(query: str, answer: str) -> list[str]:
-    """짧은 timeout 안에 후속 질문 최대 3개를 생성. OpenAI 1차, Gemini fallback. 둘 다 실패 시 빈 리스트."""
+    """짧은 timeout 안에 Gemini 1회 호출로 후속 질문 최대 3개 생성. 실패 시 빈 리스트."""
     if not query or not answer:
         return []
 
     prompt = _build_prompt(query, answer)
 
-    # 1차: OpenAI (Gemini Free tier 일일 한도와 무관)
     try:
-        raw = await _generate_with(OpenAIService(model_name=FOLLOWUP_MODEL_PRIMARY), prompt)
-        parsed = _parse_followups(raw)
-        if parsed:
-            return parsed
-    except asyncio.TimeoutError:
-        logger.info("followup OpenAI timeout — Gemini 로 fallback")
-    except Exception as e:
-        logger.info("followup OpenAI 실패 (%s) — Gemini 로 fallback", e)
-
-    # 2차: Gemini Flash fallback
-    try:
-        raw = await _generate_with(GeminiService(model_name=FOLLOWUP_MODEL_FALLBACK), prompt)
+        raw = await asyncio.wait_for(
+            _followup_llm.generate(
+                prompt=prompt,
+                system_prompt=SUGGESTED_FOLLOWUPS_SYSTEM_PROMPT,
+                temperature=0.6,
+                max_tokens=512,
+            ),
+            timeout=FOLLOWUP_TIMEOUT_SEC,
+        )
         return _parse_followups(raw)
     except asyncio.TimeoutError:
-        logger.info("followup Gemini timeout — silent")
+        logger.info("followup Gemini timeout (>%.1fs) — silent", FOLLOWUP_TIMEOUT_SEC)
         return []
     except Exception as e:
         logger.warning("followup Gemini 실패: %s", e)

@@ -38,6 +38,17 @@ class ChatService:
         FAQ Override 검색 결과, RAG 사용 여부, 스트리밍 여부에 따라 적절한 응답 형식을 반환합니다.
         스트리밍 시 DB 저장은 제너레이터(SSE)가 끝날 때 내부적으로 호출됩니다.
         """
+        # 진단용 분기 식별 로그: 어느 경로(FAQ/RAG/일반 LLM, OpenAI/Gemini)로 빠지는지 운영에서 한 줄로 확인.
+        logger.info(
+            "chat req — bot_id=%s model=%s stream=%s use_rag=%s msg_len=%d session_id=%s",
+            bot.id,
+            bot.llm_model,
+            request.stream,
+            request.use_rag,
+            len(request.message),
+            chat_session.id,
+        )
+
         # 1. FAQ Override 검색 (시맨틱 라우팅)
         faq_match = await search_faq_override(
             session=self.session,
@@ -71,6 +82,13 @@ class ChatService:
         # 2. (분기) RAG 처리
         if request.use_rag:
             rag_service = get_rag_service(provider=bot.llm_model)
+            # 인스턴스 캐시 검증: store_cached=False면 매 요청 ensure_store가 외부 API를 호출 중.
+            logger.info(
+                "rag instance id=%s provider=%s store_cached=%s",
+                id(rag_service),
+                bot.llm_model,
+                bool(getattr(rag_service, "_store_resource_name", None)),
+            )
 
             if request.stream:
                 return StreamingResponse(
