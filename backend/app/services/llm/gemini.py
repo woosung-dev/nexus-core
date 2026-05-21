@@ -5,6 +5,7 @@ google-genai SDK 사용.
 
 import logging
 from collections.abc import AsyncGenerator
+from functools import lru_cache
 
 from google import genai
 from google.genai import types
@@ -15,12 +16,18 @@ from app.services.llm.base import LLMService
 logger = logging.getLogger(__name__)
 
 
+@lru_cache(maxsize=1)
+def _get_genai_client() -> genai.Client:
+    """프로세스 레벨 싱글톤 — TCP 핸드셰이크/SDK 초기화 비용을 메인 LLM/followup/RAG에서 공유."""
+    settings = get_settings()
+    return genai.Client(api_key=settings.GEMINI_API_KEY.get_secret_value())
+
+
 class GeminiService(LLMService):
     """Google Gemini Flash 모델 서비스"""
 
     def __init__(self, model_name: str = "gemini-2.5-flash") -> None:
-        settings = get_settings()
-        self._client = genai.Client(api_key=settings.GEMINI_API_KEY.get_secret_value())
+        self._client = _get_genai_client()
         self._model_name = model_name
 
     async def generate(
