@@ -27,6 +27,12 @@ security = HTTPBearer()
 # 플랫폼 교체 시 AUTH_JWKS_URL 환경변수만 변경하면 됩니다.
 jwks_client = PyJWKClient(settings.AUTH_JWKS_URL, cache_keys=True)
 
+# User TTL 캐시 — clerk_user_id별로 SELECT 결과를 짧게 메모이즈해 매 요청 ~400ms DB 호출을 제거.
+# 30초 TTL이면 admin이 유저 deactivate 시 최악 30초간 stale 접근. 챗봇 워크로드에서는 수용 가능.
+# 캐시는 process 로컬이므로 worker가 여러 개라면 worker별로 독립.
+_user_cache: dict[str, tuple[User, float]] = {}
+_USER_CACHE_TTL_SEC = 30.0
+
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
@@ -122,18 +128,29 @@ async def get_current_user(
     avatar_url = payload.get("avatar_url")
 
     t_user = time.perf_counter()
-    user = await crud_user.get_or_create_by_clerk_id(
-        session=session,
-        clerk_user_id=clerk_user_id,
-        email=email,
-        provider=provider,
-        avatar_url=avatar_url,
-    )
-    user_ms = (time.perf_counter() - t_user) * 1000
-    if user_ms >= 50.0:
-        logger.info("user upsert elapsed=%.1fms (slow DB?)", user_ms)
+    now = time.monotonic()
+    cached = _user_cache.get(clerk_user_id)
+    if cached and now - cached[1] < _USER_CACHE_TTL_SEC:
+        user = cached[0]
+        user_ms = (time.perf_counter() - t_user) * 1000
+        logger.debug("user cache hit elapsed=%.3fms", user_ms)
     else:
-        logger.debug("user upsert elapsed=%.1fms", user_ms)
+        user = await crud_user.get_or_create_by_clerk_id(
+            session=session,
+            clerk_user_id=clerk_user_id,
+            email=email,
+            provider=provider,
+            avatar_url=avatar_url,
+        )
+        # session에서 detach해 캐시에 보관 — 후속 요청은 다른 session 컨텍스트라
+        # 그대로 두면 DetachedInstanceError 가능. 읽기 전용 필드만 사용한다는 가정.
+        session.expunge(user)
+        _user_cache[clerk_user_id] = (user, now)
+        user_ms = (time.perf_counter() - t_user) * 1000
+        if user_ms >= 50.0:
+            logger.info("user upsert elapsed=%.1fms (cache miss, cold DB)", user_ms)
+        else:
+            logger.debug("user upsert elapsed=%.1fms (cache miss)", user_ms)
 
     if not user.is_active:
         raise HTTPException(
