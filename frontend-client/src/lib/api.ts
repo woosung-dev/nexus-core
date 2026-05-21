@@ -11,15 +11,19 @@ import axios, { AxiosRequestConfig } from "axios";
 import { useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 
+// 브라우저/서버 양쪽에서 같은 절대 URL 사용 — Next dev rewrite 프록시(30초 소켓 hang up)
+// 우회. RAG 그라운딩 호출이 30초를 넘어가는 경우 프록시가 ECONNRESET 으로 끊어 500 으로 보였음.
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1";
+
 const api = axios.create({
-  baseURL:
-    typeof window !== "undefined"
-      ? "/api/v1"
-      : process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080/api/v1",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json",
   },
 });
+
+export { API_BASE_URL };
 
 // React hook 외부의 interceptor 에서 사용할 module-level token getter.
 // cached — 평상시 (Clerk SDK 의 ~50초 캐시 활용, 빠름)

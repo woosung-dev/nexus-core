@@ -19,6 +19,7 @@ import {
   MessageResponse,
 } from "@/types/api";
 import { useChatStore } from "@/store/useChatStore";
+import { API_BASE_URL } from "@/lib/api";
 
 /**
  * Clerk JWT 를 첨부한 fetch — 401 받으면 skipCache:true 로 fresh 토큰 minting 후 1회 자동 재시도.
@@ -137,7 +138,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     (async () => {
       try {
-        const res = await authedFetch(`/api/v1/chats/${sessionId}/messages`, {}, getToken);
+        const res = await authedFetch(
+          `${API_BASE_URL}/chats/${sessionId}/messages`,
+          {},
+          getToken,
+        );
         if (!res.ok) return;
         const data: MessageResponse[] = await res.json();
         if (cancelled) return;
@@ -187,7 +192,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         if (!activeSessionId) {
           if (!activeBotId) throw new Error("no session or bot");
           const createRes = await authedFetch(
-            `/api/v1/chats?bot_id=${activeBotId}`,
+            `${API_BASE_URL}/chats?bot_id=${activeBotId}`,
             { method: "POST" },
             getToken,
           );
@@ -215,6 +220,16 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             "",
             `/chat/${activeSessionId}`,
           );
+          // 방금 만든 세션 id 로 임시 user 메시지의 session_id 를 보정.
+          // setSessionId 가 fetch effect 를 발화시키는데, 거기서 임시 메시지는 session-scoped
+          // 필터(session_id === sidNum) 를 통과해야 살아남는다. 보정을 안 하면 sessionId=null
+          // 시점에 들어간 session_id=0 짜리가 필터에서 탈락 → 첫 메시지가 화면에서 사라짐.
+          const newSidNum = parseInt(activeSessionId, 10);
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id < 0 && m.session_id === 0 ? { ...m, session_id: newSidNum } : m,
+            ),
+          );
           setSessionId(activeSessionId);
         }
 
@@ -233,7 +248,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
         // /completions
         const compRes = await authedFetch(
-          "/api/v1/chats/completions",
+          `${API_BASE_URL}/chats/completions`,
           {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -273,7 +288,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           // 호출되지 않도록. (음수는 PostgreSQL int32 범위를 벗어나 500 발생.)
           try {
             const refetchRes = await authedFetch(
-              `/api/v1/chats/${activeSessionId}/messages`,
+              `${API_BASE_URL}/chats/${activeSessionId}/messages`,
               {},
               getToken,
             );
