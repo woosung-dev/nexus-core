@@ -128,12 +128,13 @@ export function FeedbackMessageList({
 
       <div className="bg-white rounded-xl border border-zinc-100 shadow-sm overflow-hidden flex flex-col">
         <div className="overflow-x-auto min-h-[400px]">
-          <Table className="w-full min-w-[960px]">
+          <Table className="w-full min-w-[1160px]">
             <TableHeader className="bg-zinc-50/80 sticky top-0 z-10 backdrop-blur-sm">
               <TableRow className="hover:bg-transparent border-zinc-100">
                 <TableHead className="w-[100px] font-semibold text-zinc-600">상태</TableHead>
                 <TableHead className="w-[180px] font-semibold text-zinc-600">세션/봇 정보</TableHead>
                 <TableHead className="w-[180px] font-semibold text-zinc-600">사용자</TableHead>
+                <TableHead className="min-w-[200px] font-semibold text-zinc-600">사용자 질문</TableHead>
                 <TableHead className="min-w-[220px] font-semibold text-zinc-600">피드백 내용 (봇 응답)</TableHead>
                 <TableHead className="w-[220px] font-semibold text-zinc-600">사유</TableHead>
                 <TableHead className="w-[140px] font-semibold text-zinc-600 text-right pr-4">일시</TableHead>
@@ -147,13 +148,14 @@ export function FeedbackMessageList({
                     <TableCell><Skeleton className="h-4 w-24 mb-1" /><Skeleton className="h-3 w-16" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-32" /></TableCell>
                     <TableCell><Skeleton className="h-8 w-full" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-full" /></TableCell>
                     <TableCell><Skeleton className="h-6 w-32" /></TableCell>
                     <TableCell className="text-right pr-4"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                   </TableRow>
                 ))
               ) : items.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-48 text-center text-zinc-500">
+                  <TableCell colSpan={7} className="h-48 text-center text-zinc-500">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <MessageSquare className="w-8 h-8 text-zinc-300" />
                       <p>피드백을 받은 메시지가 없습니다.</p>
@@ -203,6 +205,18 @@ export function FeedbackMessageList({
                             {msg.user_email || "익명"}
                           </span>
                         </div>
+                      </TableCell>
+                      <TableCell className="py-5 align-top">
+                        {msg.user_question ? (
+                          <div
+                            className="text-[13px] text-zinc-600 font-normal leading-relaxed whitespace-normal break-all line-clamp-3 overflow-hidden"
+                            title={msg.user_question}
+                          >
+                            {msg.user_question}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-zinc-400 italic">(직전 질문 없음)</span>
+                        )}
                       </TableCell>
                       <TableCell className="py-5 align-top">
                         <div

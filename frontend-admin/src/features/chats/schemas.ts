@@ -57,6 +57,8 @@ export interface FeedbackMessageResponse {
   bot_name?: string | null;
   user_email?: string | null;
   session_title?: string | null;
+  // 피드백 받은 메시지 직전의 user 질문 (어드민 컨텍스트용)
+  user_question?: string | null;
 }
 
 export const POSITIVE_REASON_LABELS: Record<string, string> = {
