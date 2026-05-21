@@ -38,6 +38,9 @@ class Bot(SQLModel, table=True):
     # AI 관련 설정 — 봇마다 다른 모델/프롬프트 사용 가능
     system_prompt: str = Field(default="")
     llm_model: str = Field(default="gemini-2.0-flash", max_length=100)
+    # RAG(file_search) 활성화 여부 — store에 문서가 없는 봇은 False로 두면 RAG tool 호출 자체를 skip해
+    # 매 요청 7-12초의 빈 retrieval 비용을 절약. frontend의 use_rag 요청과 AND로 평가됨.
+    use_rag: bool = Field(default=True)
 
     # 활성화 여부
     is_active: bool = Field(default=True)

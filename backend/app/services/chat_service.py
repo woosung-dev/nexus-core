@@ -40,11 +40,12 @@ class ChatService:
         """
         # 진단용 분기 식별 로그: 어느 경로(FAQ/RAG/일반 LLM, OpenAI/Gemini)로 빠지는지 운영에서 한 줄로 확인.
         logger.info(
-            "chat req — bot_id=%s model=%s stream=%s use_rag=%s msg_len=%d session_id=%s",
+            "chat req — bot_id=%s model=%s stream=%s req_use_rag=%s bot_use_rag=%s msg_len=%d session_id=%s",
             bot.id,
             bot.llm_model,
             request.stream,
             request.use_rag,
+            bot.use_rag,
             len(request.message),
             chat_session.id,
         )
@@ -80,7 +81,10 @@ class ChatService:
             )
 
         # 2. (분기) RAG 처리
-        if request.use_rag:
+        # bot.use_rag 로 봇 단위 토글 제공 — file_search store가 비어있는 봇은 admin에서 False로
+        # 설정해 매 요청 7-12s의 빈 retrieval 호출을 차단한다. request.use_rag와 AND 평가.
+        effective_use_rag = request.use_rag and bot.use_rag
+        if effective_use_rag:
             rag_service = get_rag_service(provider=bot.llm_model)
             # 인스턴스 캐시 검증: store_cached=False면 매 요청 ensure_store가 외부 API를 호출 중.
             logger.info(
