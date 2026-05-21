@@ -1,6 +1,6 @@
 # Nexus Core
 
-> 멀티 페르소나 AI 챗봇 플랫폼 백엔드 — **Blessing Q&A** 상담 핵심
+> 멀티 페르소나 AI 챗봇 플랫폼 백엔드 — **Blessing Q&A** 상담 핵심.
 
 ## 기술 스택
 
