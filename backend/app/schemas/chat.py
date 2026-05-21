@@ -160,6 +160,8 @@ class FeedbackMessageResponse(BaseModel):
     bot_name: str | None = None
     user_email: str | None = None
     session_title: str | None = None
+    # 피드백을 받은 메시지(대개 assistant) 직전 user 질문 — 어드민 피드백 포커스 UI 표시용
+    user_question: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
