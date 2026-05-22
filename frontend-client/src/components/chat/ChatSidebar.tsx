@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search, User, Bot, Sparkles, X } from "lucide-react";
+import { Search, User, Bot, Sparkles, X, SquarePen } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -60,7 +60,17 @@ export function ChatSidebar({ className }: { className?: string }) {
             </span>
           </Link>
         </div>
-        
+
+        <Link
+          href="/"
+          className="flex items-center gap-2 h-10 mb-3 px-3 bg-white border border-zinc-200 rounded-lg hover:border-amber-300 hover:bg-amber-50/40 hover:shadow-sm transition-all group"
+        >
+          <SquarePen className="w-4 h-4 text-amber-500 shrink-0" />
+          <span className="text-sm font-medium text-zinc-800 group-hover:text-amber-600 transition-colors">
+            새 채팅
+          </span>
+        </Link>
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
           <input
