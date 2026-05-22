@@ -121,15 +121,15 @@ class ChatService:
                 chat_session.updated_at = datetime.now(timezone.utc)
                 await self.session.commit()
 
-                followups = await generate_followups(request.message, rag_response.answer)
-
+                # followups 는 RAG 호출(rag_service.generate_with_rag) 1회 안에서 같이 받음.
+                # 별도 LLM call(followup_service) 을 제거해 wall-time/비용 절반 + timeout 사고 차단.
                 return ChatCompletionResponse(
                     session_id=chat_session.id,
                     content=rag_response.answer,
                     bot_id=bot.id,
                     citations=rag_response.citations,
                     source="rag",
-                    followups=followups,
+                    followups=rag_response.followups,
                 )
 
         # 3. 일반 LLM 처리

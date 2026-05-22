@@ -11,15 +11,17 @@ truewords-platform 의 suggested_followups 패턴 포팅.
 import asyncio
 import logging
 import re
+import time
 
 from app.services.llm.gemini import GeminiService
 
 logger = logging.getLogger(__name__)
 
 
-# truewords-platform 의 SUGGESTED_FOLLOWUPS_TIMEOUT_SECONDS = 3.0 동일.
-# 실측 hot call 0.6~1.5s 범위라 3초면 충분.
-FOLLOWUP_TIMEOUT_SEC = 3.0
+# RAG 본문 답변(긴 generate_content) 직후 같은 gemini-flash-lite 풀에 직렬로 호출되면
+# 0.6~1.5s 의 hot call 가정이 깨져 3초로는 부족한 케이스를 운영에서 확인 (followups=[]
+# 빈 리스트로 사용자에게 후속 질문이 안 보임). 5초로 늘려 throttled cold path 흡수.
+FOLLOWUP_TIMEOUT_SEC = 5.0
 FOLLOWUP_MODEL = "gemini-3.1-flash-lite"
 ANSWER_TRUNCATE = 1200
 
@@ -82,6 +84,7 @@ async def generate_followups(query: str, answer: str) -> list[str]:
 
     prompt = _build_prompt(query, answer)
 
+    t = time.perf_counter()
     try:
         raw = await asyncio.wait_for(
             _followup_llm.generate(
@@ -92,10 +95,30 @@ async def generate_followups(query: str, answer: str) -> list[str]:
             ),
             timeout=FOLLOWUP_TIMEOUT_SEC,
         )
-        return _parse_followups(raw)
+        items = _parse_followups(raw)
+        elapsed_ms = (time.perf_counter() - t) * 1000
+        logger.info(
+            "followup generated elapsed=%.1fms count=%d answer_len=%d",
+            elapsed_ms,
+            len(items),
+            len(answer),
+        )
+        return items
     except asyncio.TimeoutError:
-        logger.info("followup Gemini timeout (>%.1fs) — silent", FOLLOWUP_TIMEOUT_SEC)
+        elapsed_ms = (time.perf_counter() - t) * 1000
+        logger.warning(
+            "followup Gemini timeout elapsed=%.1fms (>%.1fs) answer_len=%d — silent",
+            elapsed_ms,
+            FOLLOWUP_TIMEOUT_SEC,
+            len(answer),
+        )
         return []
     except Exception as e:
-        logger.warning("followup Gemini 실패: %s", e)
+        elapsed_ms = (time.perf_counter() - t) * 1000
+        logger.warning(
+            "followup Gemini 실패 elapsed=%.1fms %s: %s",
+            elapsed_ms,
+            type(e).__name__,
+            e,
+        )
         return []

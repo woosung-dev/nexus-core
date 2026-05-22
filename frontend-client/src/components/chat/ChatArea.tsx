@@ -20,8 +20,8 @@ type FeedbackState = {
 };
 
 export function ChatArea({ sessionId }: { sessionId?: string }) {
-  const { messages: providerMessages, awaiting, sendMessage } = useChat();
-  const { latestFollowups } = useChatStore();
+  const { messages: providerMessages, awaiting } = useChat();
+  const { latestFollowups, setComposerDraft } = useChatStore();
   // streaming 텍스트는 더 이상 별도 인디케이터로 보여주지 않음 (응답 도착하면 messages 로 들어감)
   const streamingText = "";
   const isStreaming = awaiting;
@@ -126,13 +126,36 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
     setIsAtBottom(isBottom);
   };
 
-  // 1) 기존 세션 첫 진입 시 즉시 최하단으로 점프 (대화 히스토리 끝부분 노출)
+  // 1) 기존 세션 첫 진입 시 마지막 user 메시지를 viewport 상단으로
+  //    (ChatGPT/Claude/Gemini 패턴 — 최근 질문이 화면 위에 보이고 답변이 그 아래로 노출).
+  //    user 메시지가 하나도 없는 비정상 케이스에만 최하단 fallback.
   useEffect(() => {
     if (!sessionId || messages.length === 0) return;
     if (initializedSessionRef.current === sessionId) return;
     const sc = getViewport();
     if (!sc) return;
-    sc.scrollTop = sc.scrollHeight;
+
+    // motion.div initial/animate transition 이 layout 에 안정화된 뒤(2프레임 후) 스크롤.
+    // 1프레임만 기다리면 transform: translateY(20px) 잔여로 user bubble top이 음수로 잘리는
+    // 경우가 생긴다. 두 번째 rAF에서 측정하면 안정.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const userBubbles = sc.querySelectorAll<HTMLElement>('[data-msg-role="user"]');
+        const lastUser = userBubbles[userBubbles.length - 1];
+        if (lastUser) {
+          const containerRect = sc.getBoundingClientRect();
+          const bubbleRect = lastUser.getBoundingClientRect();
+          const targetTop = sc.scrollTop + (bubbleRect.top - containerRect.top) - 24;
+          // 첫 진입은 instant (스무스 스크롤은 사용자가 의도해서 보낸 직후에만 의미 있음)
+          sc.scrollTo({ top: targetTop, behavior: "auto" });
+        } else {
+          sc.scrollTop = sc.scrollHeight;
+        }
+        // 자동 follow 가 활성화되도록 anchor 갱신
+        setIsAtBottom(true);
+      });
+    });
+
     initializedSessionRef.current = sessionId;
   }, [sessionId, messages.length]);
 
@@ -144,17 +167,19 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
 
     const sc = getViewport();
     if (!sc) return;
-    // motion.div 의 initial 상태가 layout 에 반영된 다음 프레임에 스크롤
+    // motion.div initial→animate transition 안정화 후 측정 (2프레임 대기 — Effect#1 과 동일).
     requestAnimationFrame(() => {
-      const userBubbles = sc.querySelectorAll<HTMLElement>('[data-msg-role="user"]');
-      const lastUser = userBubbles[userBubbles.length - 1];
-      if (!lastUser) return;
-      const containerRect = sc.getBoundingClientRect();
-      const bubbleRect = lastUser.getBoundingClientRect();
-      const targetTop = sc.scrollTop + (bubbleRect.top - containerRect.top) - 16; // 상단 패딩 16px
-      sc.scrollTo({ top: targetTop, behavior: "smooth" });
-      // 스트리밍 단계에서 자동 follow 가 작동하도록 anchor 갱신
-      setIsAtBottom(true);
+      requestAnimationFrame(() => {
+        const userBubbles = sc.querySelectorAll<HTMLElement>('[data-msg-role="user"]');
+        const lastUser = userBubbles[userBubbles.length - 1];
+        if (!lastUser) return;
+        const containerRect = sc.getBoundingClientRect();
+        const bubbleRect = lastUser.getBoundingClientRect();
+        const targetTop = sc.scrollTop + (bubbleRect.top - containerRect.top) - 24;
+        sc.scrollTo({ top: targetTop, behavior: "smooth" });
+        // 스트리밍 단계에서 자동 follow 가 작동하도록 anchor 갱신
+        setIsAtBottom(true);
+      });
     });
   }, [isStreaming]);
 
@@ -330,7 +355,7 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                           latestFollowups.length > 0 && (
                             <FollowupPills
                               items={latestFollowups}
-                              onSelect={(q) => sendMessage(q)}
+                              onSelect={(q) => setComposerDraft(q)}
                             />
                           )}
                         <div className="flex items-center gap-2 px-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">

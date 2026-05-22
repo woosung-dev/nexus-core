@@ -26,7 +26,7 @@ export const LLM_MODEL_OPTIONS = [
   },
   {
     label: "Gemini 3.1 Flash Lite",
-    value: "gemini-3.1-flash-lite-preview",
+    value: "gemini-3.1-flash-lite",
     provider: "gemini",
   },
 ] as const;

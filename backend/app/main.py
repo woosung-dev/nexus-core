@@ -70,16 +70,39 @@ def create_app() -> FastAPI:
         start = time.perf_counter()
         try:
             response: Response = await call_next(request)
-        except Exception:
+        except Exception as exc:
+            # BaseHTTPMiddleware 안에서 raise 하면 CORS 미들웨어가 헤더를 못 붙여 클라이언트가
+            # 'TypeError: Failed to fetch' 로 본다. 미들웨어 레벨에서 직접 500 응답을 만들어
+            # 반환해야 CORS 가 그 응답에 헤더를 붙일 수 있다.
+            # google.genai.errors.APIError 같은 외부 호출 실패의 reason/code/details 도 함께 남겨
+            # 다음 사고 진단을 1줄 로그로 끝낼 수 있게 한다.
             elapsed_ms = (time.perf_counter() - start) * 1000
+            extra = {
+                attr: getattr(exc, attr, None)
+                for attr in ("code", "status", "details", "message")
+                if hasattr(exc, attr)
+            }
             logger.exception(
-                "req FAILED %s %s elapsed=%.1fms",
+                "req FAILED %s %s elapsed=%.1fms | %s: %s | extra=%s",
                 request.method,
                 request.url.path,
                 elapsed_ms,
+                type(exc).__name__,
+                exc,
+                extra or "(no extra fields)",
             )
+            response = JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content=ErrorResponse(
+                    success=False,
+                    error_code="INTERNAL_SERVER_ERROR",
+                    message="서버 내부 오류가 발생했습니다. 관리자에게 문의하세요.",
+                ).model_dump(),
+            )
+            response.headers["X-Request-Id"] = req_id
+            response.headers["Server-Timing"] = f"total;dur={elapsed_ms:.1f}"
             reset_request_id(token)
-            raise
+            return response
         elapsed_ms = (time.perf_counter() - start) * 1000
         response.headers["X-Request-Id"] = req_id
         # 기존 Server-Timing이 있으면 보존하고 total span만 append.
@@ -145,7 +168,23 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
-        logger.error(f"Unhandled Exception: {str(exc)}", exc_info=True)
+        # google.genai.errors.APIError (ClientError/ServerError 포함) 는 reason/code/details 가
+        # 진단의 핵심 — 그냥 str(exc) 만 찍으면 'Failed to embed content' 같은 모호한 message 만 남고
+        # RESOURCE_EXHAUSTED 의 reason (MODEL_CAPACITY_EXHAUSTED vs USER_QUOTA_EXCEEDED) 을 잃는다.
+        extra: dict[str, object] = {}
+        for attr in ("code", "status", "details", "message", "response_json"):
+            if hasattr(exc, attr):
+                try:
+                    extra[attr] = getattr(exc, attr)
+                except Exception:
+                    pass
+        if extra:
+            logger.error(
+                f"Unhandled Exception: {type(exc).__name__}: {exc} | extra={extra}",
+                exc_info=True,
+            )
+        else:
+            logger.error(f"Unhandled Exception: {exc}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=ErrorResponse(

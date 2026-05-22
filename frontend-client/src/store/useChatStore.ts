@@ -16,12 +16,16 @@ interface ChatState {
   streamingText: string;
   // 가장 마지막 봇 응답의 후속 질문 (페이지 리로드 시 휘발 — ephemeral)
   latestFollowups: string[];
+  // 입력창 텍스트. ChatComposer 가 controlled 로 읽고, FollowupPills 클릭 시
+  // 즉시 전송 대신 이 값을 채워 사용자가 send 를 직접 누르도록 한다.
+  composerDraft: string;
   // new flow 한정 세션 매핑 (URL 이 /chat/new/{botId} 인 동안에만 의미 있음)
   newFlowSession: NewFlowSession | null;
   setIsStreaming: (isStreaming: boolean) => void;
   setStreamingText: (text: string) => void;
   setLatestFollowups: (items: string[]) => void;
   clearLatestFollowups: () => void;
+  setComposerDraft: (text: string) => void;
   beginNewFlow: (botId: string) => void;
   completeNewFlow: (botId: string, sessionId: string) => void;
   clearNewFlow: () => void;
@@ -31,11 +35,13 @@ export const useChatStore = create<ChatState>((set) => ({
   isStreaming: false,
   streamingText: "",
   latestFollowups: [],
+  composerDraft: "",
   newFlowSession: null,
   setIsStreaming: (isStreaming) => set({ isStreaming }),
   setStreamingText: (streamingText) => set({ streamingText }),
   setLatestFollowups: (latestFollowups) => set({ latestFollowups }),
   clearLatestFollowups: () => set({ latestFollowups: [] }),
+  setComposerDraft: (composerDraft) => set({ composerDraft }),
   // new flow 시작 — 직전 봇의 잔존 값을 덮어쓴다. sessionId 는 아직 null.
   beginNewFlow: (botId) => set({ newFlowSession: { botId, sessionId: null } }),
   // POST 응답 도착 — 같은 botId 인지 확인 후 sessionId 채운다 (out-of-order 응답 방어).

@@ -1,7 +1,6 @@
 import Header from "@/components/layout/Header";
 import { ProfileSection } from "@/components/mypage/ProfileSection";
 import { ActivityStatsSection } from "@/components/mypage/ActivityStatsSection";
-import { SettingsSection } from "@/components/mypage/SettingsSection";
 import { LogoutButton } from "@/components/mypage/LogoutButton";
 
 // 빌드 시 정적 최적화(SSG)를 방지하고 런타임에 항상 서버 사이드에서 실행되도록 설정
@@ -22,7 +21,6 @@ export default function MyPage() {
           <div className="flex flex-col gap-6">
             <ProfileSection />
             <ActivityStatsSection />
-            <SettingsSection />
             <LogoutButton />
           </div>
         </div>

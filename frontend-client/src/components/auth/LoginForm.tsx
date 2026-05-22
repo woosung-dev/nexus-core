@@ -19,7 +19,7 @@ import { Loader2 } from "lucide-react";
 
 export function LoginForm() {
   const router = useRouter();
-  const { signIn, isLoaded } = useSignIn();
+  const { signIn, isLoaded, setActive } = useSignIn();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -40,8 +40,12 @@ export function LoginForm() {
       });
 
       if (result.status === "complete") {
-        router.push("/");
-        router.refresh();
+        // setActive로 활성 세션을 즉시 반영(빠뜨리면 새로고침 전까지 비인증 상태).
+        // beforeEmit에서 router.push를 호출해 navigation을 emit과 동기화한다.
+        await setActive({
+          session: result.createdSessionId,
+          beforeEmit: () => router.push("/"),
+        });
       }
     } catch {
       setError("이메일 또는 비밀번호가 올바르지 않습니다.");
@@ -159,7 +163,7 @@ export function LoginForm() {
           {/* Google 로그인 */}
           <Button
             variant="outline"
-            disabled={!!oauthLoading}
+            disabled
             onClick={() => handleOAuthLogin("oauth_google")}
             className="w-full h-12 bg-white border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 transition-all text-zinc-700 shadow-sm"
           >
@@ -195,7 +199,7 @@ export function LoginForm() {
           {/* Apple 로그인 */}
           <Button
             variant="outline"
-            disabled={!!oauthLoading}
+            disabled
             onClick={() => handleOAuthLogin("oauth_apple")}
             className="w-full h-12 bg-white border border-zinc-200 hover:bg-zinc-50 hover:text-zinc-900 transition-all text-zinc-700 shadow-sm"
           >
