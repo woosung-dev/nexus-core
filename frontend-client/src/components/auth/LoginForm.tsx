@@ -223,12 +223,14 @@ export function LoginForm() {
       <CardFooter className="flex justify-center z-10 relative border-t border-zinc-100 pt-6 mt-2 pb-8">
         <p className="text-sm text-zinc-500 text-center">
           계정이 없으신가요?{" "}
-          <Link
-            href="/signup"
-            className="text-amber-500 font-semibold hover:text-amber-400 hover:underline underline-offset-4 transition-all"
+          {/* OAuth 버튼과 마찬가지로 가입 흐름 임시 비활성화.
+             * 추후 활성화 시 <Link href="/signup"> 로 복원. */}
+          <span
+            aria-disabled="true"
+            className="text-zinc-400 font-semibold opacity-50 cursor-not-allowed select-none"
           >
             가입하기
-          </Link>
+          </span>
         </p>
       </CardFooter>
     </Card>
