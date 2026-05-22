@@ -7,10 +7,15 @@ import Image from "next/image";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
+import { useChat } from "@/app/(protected)/chat/ChatProvider";
 
 import { ChatSessionListResponse } from "@/types/api";
 
 export function ChatSidebar({ className }: { className?: string }) {
+  // 현재 챗봇 컨텍스트(/chat/new/{bot} 의 urlBotId, 또는 /chat/{sid} 세션의 bot_id)가 있으면
+  // 같은 봇의 새 채팅으로, 없으면 봇 픽커(홈)로 라우팅.
+  const { botId, sessionId } = useChat();
+
   const { data } = useQuery<ChatSessionListResponse>({
     queryKey: ['chats'],
     queryFn: async () => {
@@ -18,6 +23,16 @@ export function ChatSidebar({ className }: { className?: string }) {
       return response.data;
     },
   });
+
+  const currentBotId = useMemo(() => {
+    if (botId) return botId;
+    if (!sessionId) return null;
+    const sidNum = Number(sessionId);
+    const found = data?.sessions.find((s) => s.id === sidNum);
+    return found?.bot_id ? String(found.bot_id) : null;
+  }, [botId, sessionId, data?.sessions]);
+
+  const newChatHref = currentBotId ? `/chat/new/${currentBotId}` : "/";
 
   // 사이드바 검색 — 사용자가 화면에서 보는 'title'(첫 사용자 메시지로 저장된 값) 기준 클라이언트 필터.
   // 보조로 봇 이름도 매칭 — '축복 상담 AI' 같은 봇 이름으로도 찾을 수 있게.
@@ -62,7 +77,7 @@ export function ChatSidebar({ className }: { className?: string }) {
         </div>
 
         <Link
-          href="/"
+          href={newChatHref}
           className="flex items-center gap-2 h-10 mb-3 px-3 bg-white border border-zinc-200 rounded-lg hover:border-amber-300 hover:bg-amber-50/40 hover:shadow-sm transition-all group"
         >
           <SquarePen className="w-4 h-4 text-amber-500 shrink-0" />
