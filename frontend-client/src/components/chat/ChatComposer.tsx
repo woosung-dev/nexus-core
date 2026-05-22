@@ -109,7 +109,7 @@ export function ChatComposer() {
           </div>
         </div>
         <p className="mt-2 text-[10px] text-center text-zinc-400 font-bold tracking-tight">
-          Nexus Core는 실수를 할 수 있습니다. 중요한 정보를 확인하세요.
+          Nexus는 실수를 할 수 있습니다. 중요한 정보를 확인하세요.
         </p>
       </div>
     </div>

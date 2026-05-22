@@ -22,7 +22,7 @@ export function AdminSidebar({ className }: { className?: string }) {
           <div className="flex size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
             <Box className="size-4" />
           </div>
-          <span>Nexus Core</span>
+          <span>Nexus</span>
         </Link>
       </div>
       <div className="flex-1 overflow-auto py-4 bg-sidebar">
