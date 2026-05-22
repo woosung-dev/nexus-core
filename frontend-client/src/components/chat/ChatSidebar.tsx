@@ -31,11 +31,16 @@ export function ChatSidebar({ className }: { className?: string }) {
       <div className="p-4 border-b border-zinc-200 shrink-0">
         <div className="flex items-center mb-4">
           <Link href="/" className="group flex items-center space-x-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-200 group-hover:bg-amber-500/20 group-hover:border-amber-300 transition-all">
-              <span className="font-bold text-amber-500">N</span>
-            </div>
+            <Image
+              src="/nexus-logo.png"
+              alt="Nexus"
+              width={36}
+              height={36}
+              priority
+              className="rounded-xl"
+            />
             <span className="font-bold text-lg text-zinc-900 tracking-tight group-hover:text-amber-600 transition-colors">
-              Nexus Core
+              Nexus
             </span>
           </Link>
         </div>

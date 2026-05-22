@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { User } from "lucide-react";
@@ -28,11 +29,16 @@ export default function Header() {
         <div className="flex flex-1 items-center justify-between">
           {/* Logo & Brand */}
           <Link href="/" className="group flex items-center space-x-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-200 group-hover:bg-amber-500/20 group-hover:border-amber-300 transition-all">
-              <span className="font-bold text-amber-500">N</span>
-            </div>
+            <Image
+              src="/nexus-logo.png"
+              alt="Nexus"
+              width={36}
+              height={36}
+              priority
+              className="rounded-xl"
+            />
             <span className="font-bold inline-block text-lg text-zinc-900 tracking-tight shrink-0 group-hover:text-amber-600 transition-colors">
-              Nexus Core
+              Nexus
             </span>
           </Link>
 
