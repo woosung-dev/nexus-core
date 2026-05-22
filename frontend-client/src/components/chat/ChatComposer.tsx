@@ -2,14 +2,18 @@
 // (sessionId 없을 때 sendMessage 가 submit 시점에 POST /chats → history.replaceState 까지 수행.)
 "use client";
 
-import { KeyboardEvent, useEffect, useRef, useState } from "react";
+import { KeyboardEvent, useEffect, useRef } from "react";
 import { ArrowUp, CornerDownLeft, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useChat } from "@/app/(protected)/chat/ChatProvider";
+import { useChatStore } from "@/store/useChatStore";
 
 export function ChatComposer() {
   const { awaiting, sendMessage } = useChat();
-  const [input, setInput] = useState("");
+  // 입력값은 store로 끌어올린 controlled state. FollowupPills 클릭이 store만 set하면
+  // 이쪽이 자동 반영되어 입력창에 prefill 된다.
+  const input = useChatStore((s) => s.composerDraft);
+  const setInput = useChatStore((s) => s.setComposerDraft);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const busy = awaiting;
@@ -19,6 +23,16 @@ export function ChatComposer() {
       textareaRef.current.style.height = "inherit";
       const sh = textareaRef.current.scrollHeight;
       textareaRef.current.style.height = `${Math.min(sh, 200)}px`;
+    }
+  }, [input]);
+
+  // store에 외부에서 값이 채워지면(=follow-up 클릭) 자동으로 textarea에 포커스.
+  useEffect(() => {
+    if (input && document.activeElement !== textareaRef.current) {
+      textareaRef.current?.focus();
+      // 커서를 텍스트 끝으로
+      const len = textareaRef.current?.value.length ?? 0;
+      textareaRef.current?.setSelectionRange(len, len);
     }
   }, [input]);
 

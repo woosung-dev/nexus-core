@@ -1,4 +1,5 @@
-// 봇 답변 아래에 노출되는 후속 질문 칩. 클릭 시 즉시 sendMessage 호출.
+// 봇 답변 아래에 노출되는 후속 질문 칩. 클릭 시 입력창에 텍스트만 채우고
+// 실제 전송은 사용자가 send 버튼을 눌러야 일어남.
 import { Lightbulb } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
