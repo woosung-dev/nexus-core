@@ -1,8 +1,7 @@
-import { Search, PenSquare, Bolt, User, Bot, Sparkles } from "lucide-react";
+import { Search, User, Bot, Sparkles } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/api";
 
@@ -30,17 +29,14 @@ export function ChatSidebar({ className }: { className?: string }) {
     <aside className={`bg-slate-50 flex flex-col h-full border-r border-zinc-200 w-80 shrink-0 ${className}`}>
       {/* Sidebar Header */}
       <div className="p-4 border-b border-zinc-200 shrink-0">
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/" className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-linear-to-br from-amber-500 to-amber-600 flex items-center justify-center shrink-0">
-              <Bolt className="w-4 h-4 text-black" fill="currentColor" />
+        <div className="flex items-center mb-4">
+          <Link href="/" className="group flex items-center space-x-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-200 group-hover:bg-amber-500/20 group-hover:border-amber-300 transition-all">
+              <span className="font-bold text-amber-500">N</span>
             </div>
-            <span className="font-bold text-lg text-zinc-900 tracking-tight">AI Chat Hub</span>
-          </Link>
-          <Link href="/" passHref>
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-500 hover:text-amber-600 hover:bg-amber-50 rounded-lg">
-              <PenSquare className="w-4 h-4" />
-            </Button>
+            <span className="font-bold text-lg text-zinc-900 tracking-tight group-hover:text-amber-600 transition-colors">
+              Nexus Core
+            </span>
           </Link>
         </div>
         

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, User } from "lucide-react";
+import { User } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { UserMenu } from "./UserMenu";
 
@@ -41,17 +41,6 @@ export default function Header() {
             {!isLoading && isAuthenticated ? (
               <div className="flex items-center gap-3">
                 {/* 인증된 사용자 */}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  asChild
-                  className="text-zinc-600 hover:text-amber-600 hover:bg-amber-50 hidden sm:inline-flex"
-                >
-                  <Link href="/chat">
-                    <MessageSquare className="h-4 w-4 mr-2" />
-                    채팅하기
-                  </Link>
-                </Button>
                 <UserMenu />
               </div>
             ) : !isLoading ? (
