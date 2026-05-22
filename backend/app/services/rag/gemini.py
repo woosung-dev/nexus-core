@@ -41,7 +41,10 @@ _FOLLOWUPS_INSTRUCTION = """
 - 화자는 사용자, 청자는 챗봇. "~알려줘", "~뭐야?", "~어떻게 해?" 등 사용자→챗봇 어투.
 - "~궁금하신가요?", "~필요하세요?" 같이 챗봇이 사용자에게 묻는 어투는 절대 금지.
 - 각 질문은 30자 이내, 자연스러운 한국어 한 줄.
-- 번호/마커/따옴표/마크다운 금지.
+- 줄 앞에 "1." / "1)" / "-" / "•" / "*" 같은 리스트 마커를 붙이지 말 것.
+- **단, "3일 행사", "40일 성별" 처럼 단어 일부인 숫자는 반드시 그대로 보존하라.**
+  잘못된 예: "일 행사가 뭐야" / 올바른 예: "3일 행사가 뭐야"
+- 따옴표/마크다운 금지.
 - 봇 도메인 안에서만 추천 (탈선 금지).
 """
 
@@ -53,6 +56,9 @@ _FOLLOWUPS_BLOCK_RE = re.compile(r"<followups>(.*?)</followups>", re.DOTALL | re
 _CITATION_MARKER_RE = re.compile(r"\s*\[[\d.,\s]+\]")
 # followup 블록 앞쪽의 `---` 같은 구분자 잔여 제거용.
 _TRAILING_SEPARATOR_RE = re.compile(r"\n\s*-{3,}\s*$", re.MULTILINE)
+# 줄 앞의 list marker 만 잡는 패턴 — 숫자 뒤에 ".)" 같은 구분자가 따라와야 인정.
+# "3." / "3)" / "- " / "* " / "• " 는 매칭, "3일 행사" 는 비매칭.
+_LIST_MARKER_RE = re.compile(r"^\s*(?:\d+[.)]\s+|[-*•]\s+)")
 
 
 def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
@@ -65,7 +71,7 @@ def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
     if match:
         block = match.group(1)
         for line in block.splitlines():
-            cleaned = line.strip().strip('"').strip("'").lstrip("0123456789.)- *•").strip()
+            cleaned = _LIST_MARKER_RE.sub("", line).strip().strip('"').strip("'")
             if len(cleaned) >= 3:
                 followups.append(cleaned)
             if len(followups) >= 3:
