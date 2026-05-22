@@ -65,5 +65,17 @@ async def get_embedding(text: str) -> list[float]:
         return list(embedding)
 
     except Exception as e:
-        logger.error(f"임베딩 생성 실패: {e}")
+        # google.genai 의 ClientError 는 code/status/details 가 결정적 — 평문 str(e) 만 찍으면
+        # 429 vs 400 vs 500, RESOURCE_EXHAUSTED 의 reason 같은 핵심 정보가 누락된다.
+        extra = {
+            attr: getattr(e, attr, None)
+            for attr in ("code", "status", "details", "message")
+            if hasattr(e, attr)
+        }
+        logger.error(
+            "임베딩 생성 실패: %s: %s | extra=%s",
+            type(e).__name__,
+            e,
+            extra or "(no extra fields)",
+        )
         raise RuntimeError(f"임베딩 생성에 실패했습니다: {e}") from e
