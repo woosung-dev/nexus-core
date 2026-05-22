@@ -63,15 +63,16 @@ export function ChatComposer() {
               : "border-amber-400 ring-4 ring-amber-500/5 shadow-amber-500/10"
           }`}
         >
+          {/* 응답 대기 중에도 입력은 허용 — 사용자가 다음 질문을 미리 적어둘 수 있도록.
+              실제 전송은 handleSend / sendMessage 가 busy 면 무시하므로 race 없음. */}
           <textarea
             ref={textareaRef}
             rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="AI에게 무엇이든 물어보세요..."
-            disabled={busy}
-            className="flex-1 bg-transparent border-0 focus:ring-0 focus:outline-none text-[15px] text-zinc-900 placeholder:text-zinc-400 py-3 pl-4 pr-4 resize-none max-h-[200px] leading-relaxed scrollbar-hide overflow-y-auto disabled:opacity-60"
+            placeholder={busy ? "답변이 끝나면 보낼 메시지를 미리 적어두세요..." : "AI에게 무엇이든 물어보세요..."}
+            className="flex-1 bg-transparent border-0 focus:ring-0 focus:outline-none text-[15px] text-zinc-900 placeholder:text-zinc-400 py-3 pl-4 pr-4 resize-none max-h-[200px] leading-relaxed scrollbar-hide overflow-y-auto"
           />
 
           <div className="flex items-center gap-2 pr-1 pb-1">
