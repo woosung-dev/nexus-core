@@ -15,6 +15,9 @@ class RAGResponse(BaseModel):
     """RAG 기반 응답"""
     answer: str
     citations: list[RAGCitation] = []
+    # RAG 호출 1회로 본문과 같이 받은 후속 질문 (최대 3개). 별도 LLM 호출(followup_service)을
+    # 대체해 wall-time/비용 절반으로 줄이고 timeout 사고를 차단한다.
+    followups: list[str] = []
 
 
 class DocumentInfo(BaseModel):

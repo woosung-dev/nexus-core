@@ -7,6 +7,7 @@ Gemini File Search API 기반 RAG 서비스.
 
 import io
 import logging
+import re
 import time
 from datetime import datetime
 
@@ -18,6 +19,66 @@ from app.schemas.rag import DocumentInfo, RAGCitation, RAGResponse
 from app.services.rag.base import BaseRAGService
 
 logger = logging.getLogger(__name__)
+
+
+# RAG 응답 1회로 본문과 followup 을 같이 받기 위한 system_prompt suffix.
+# tools=[FileSearch] 와 response_schema 가 동시 사용 불가라 텍스트 마커로 분리한다.
+# 모델이 포맷을 어겨 파싱이 실패해도 본문은 그대로 노출되고 followups 만 비어 나간다.
+_FOLLOWUPS_INSTRUCTION = """
+
+---
+[FOLLOWUP_INSTRUCTION]
+답변이 끝난 뒤 줄바꿈 두 번 후, 사용자가 챗봇에게 이어서 물을 다음 질문 3개를
+정확히 아래 형식으로 첨부하라. 본문에는 절대 노출하지 말고, 형식을 그대로 지켜라.
+
+<followups>
+질문1
+질문2
+질문3
+</followups>
+
+규칙:
+- 화자는 사용자, 청자는 챗봇. "~알려줘", "~뭐야?", "~어떻게 해?" 등 사용자→챗봇 어투.
+- "~궁금하신가요?", "~필요하세요?" 같이 챗봇이 사용자에게 묻는 어투는 절대 금지.
+- 각 질문은 30자 이내, 자연스러운 한국어 한 줄.
+- 번호/마커/따옴표/마크다운 금지.
+- 봇 도메인 안에서만 추천 (탈선 금지).
+"""
+
+
+# 본문에서 followups 블록과 RAG citation marker 를 분리하기 위한 정규식.
+_FOLLOWUPS_BLOCK_RE = re.compile(r"<followups>(.*?)</followups>", re.DOTALL | re.IGNORECASE)
+# Gemini file_search grounding 이 본문에 자동 삽입하는 `[1.2, 1.5]` 같은 인용 마커.
+# 사용자에겐 의미 불명이라 시각 노이즈로 작용 → 본문에서 제거 (citations 배열은 보존).
+_CITATION_MARKER_RE = re.compile(r"\s*\[[\d.,\s]+\]")
+# followup 블록 앞쪽의 `---` 같은 구분자 잔여 제거용.
+_TRAILING_SEPARATOR_RE = re.compile(r"\n\s*-{3,}\s*$", re.MULTILINE)
+
+
+def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
+    """모델 응답에서 <followups> 블록을 떼어 본문/추천 질문으로 분리한다."""
+    if not raw:
+        return "", []
+
+    followups: list[str] = []
+    match = _FOLLOWUPS_BLOCK_RE.search(raw)
+    if match:
+        block = match.group(1)
+        for line in block.splitlines():
+            cleaned = line.strip().strip('"').strip("'").lstrip("0123456789.)- *•").strip()
+            if len(cleaned) >= 3:
+                followups.append(cleaned)
+            if len(followups) >= 3:
+                break
+        # 본문에서 블록 자체와 그 앞 구분자 흔적 제거
+        raw = _FOLLOWUPS_BLOCK_RE.sub("", raw)
+
+    # citation marker 제거 (citations 배열은 그대로 유지되므로 출처 추적은 가능)
+    raw = _CITATION_MARKER_RE.sub("", raw)
+    # followup 안내 직전에 넣어둔 `---` 잔여 제거
+    raw = _TRAILING_SEPARATOR_RE.sub("", raw)
+
+    return raw.strip(), followups
 
 
 class GeminiRAGService(BaseRAGService):
@@ -246,10 +307,14 @@ class GeminiRAGService(BaseRAGService):
 
         store_name = await self.ensure_store()
 
+        # 본문 + followups 를 1회 호출에 같이 받기 위해 system_instruction 끝에 지시 첨부.
+        # max_output_tokens 도 followup 3줄 분량을 흡수할 정도로 약간 늘린다 (~120 tokens).
+        merged_system_instruction = (system_prompt or "") + _FOLLOWUPS_INSTRUCTION
+
         config = types.GenerateContentConfig(
-            system_instruction=system_prompt or None,
+            system_instruction=merged_system_instruction or None,
             temperature=temperature,
-            max_output_tokens=max_tokens,
+            max_output_tokens=max_tokens + 256,
             tools=[
                 types.Tool(
                     file_search=types.FileSearch(
@@ -291,22 +356,26 @@ class GeminiRAGService(BaseRAGService):
         except (AttributeError, IndexError) as e:
             logger.debug(f"인용 정보 추출 실패 (정상 케이스일 수 있음): {e}")
 
-        # 핵심 측정 지점: generate_content 자체 wall-time + retrieval 양.
-        answer_len = len(response.text or "")
+        # 본문/followups 분리 + citation marker 제거.
+        clean_answer, followups = _split_answer_and_followups(response.text or "")
+
+        # 핵심 측정 지점: generate_content 자체 wall-time + retrieval 양 + followup 추출 결과.
         logger.info(
             "gemini RAG generate_content elapsed=%.1fms model=%s bot_id=%s "
-            "answer_len=%d grounding_chunks=%d citations=%d",
+            "answer_len=%d grounding_chunks=%d citations=%d followups=%d",
             gen_ms,
             actual_model_name,
             bot_id,
-            answer_len,
+            len(clean_answer),
             chunk_count,
             len(citations),
+            len(followups),
         )
 
         return RAGResponse(
-            answer=response.text or "",
+            answer=clean_answer,
             citations=citations,
+            followups=followups,
         )
 
     async def generate_stream_with_rag(
