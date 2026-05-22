@@ -20,7 +20,7 @@ import { Loader2 } from "lucide-react";
 
 export function SignupForm() {
   const router = useRouter();
-  const { signUp, isLoaded } = useSignUp();
+  const { signUp, isLoaded, setActive } = useSignUp();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -73,8 +73,11 @@ export function SignupForm() {
         code: otpCode,
       });
       if (result.status === "complete") {
-        router.push("/");
-        router.refresh();
+        // OTP 검증 직후 활성 세션을 클라이언트에 즉시 반영해야 헤더가 갱신됨.
+        await setActive({
+          session: result.createdSessionId,
+          beforeEmit: () => router.push("/"),
+        });
       }
     } catch {
       setError("인증 코드가 올바르지 않습니다. 다시 확인해 주세요.");
@@ -182,7 +185,7 @@ export function SignupForm() {
         <div className="flex flex-col gap-3">
           <Button
             variant="outline"
-            disabled={!!oauthLoading}
+            disabled
             onClick={() => handleOAuthSignup("oauth_google")}
             className="w-full h-12 bg-zinc-900/30 border-zinc-800 hover:bg-zinc-800 hover:text-white transition-all text-zinc-300"
           >
@@ -217,7 +220,7 @@ export function SignupForm() {
 
           <Button
             variant="outline"
-            disabled={!!oauthLoading}
+            disabled
             onClick={() => handleOAuthSignup("oauth_apple")}
             className="w-full h-12 bg-zinc-900/30 border-zinc-800 hover:bg-zinc-800 hover:text-white transition-all text-zinc-300"
           >
