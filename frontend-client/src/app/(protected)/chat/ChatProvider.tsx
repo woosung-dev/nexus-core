@@ -59,6 +59,8 @@ interface ChatContextValue {
   messages: MessageResponse[];
   // 봇 응답을 기다리는 중. true 면 마지막 사용자 메시지 아래에 typing dots 노출.
   awaiting: boolean;
+  // 사이드바 클릭/직접 URL 진입 시 해당 세션 메시지 fetch 중. 스켈레톤/스피너 표시용.
+  isLoadingMessages: boolean;
   sendMessage: (content: string) => Promise<void>;
 }
 
@@ -97,6 +99,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [botId, setBotId] = useState<string | null>(urlBotId);
   const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [awaiting, setAwaiting] = useState(false);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [phase, setPhase] = useState<ChatPhase>(
     urlSessionId ? "thread" : urlBotId ? "thread" : "empty",
   );
@@ -134,8 +137,12 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   // sessionId 가 정해지면 기존 메시지 fetch (사이드바 클릭/직접 URL 진입 케이스)
   useEffect(() => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      setIsLoadingMessages(false);
+      return;
+    }
     let cancelled = false;
+    setIsLoadingMessages(true);
     (async () => {
       try {
         const res = await authedFetch(
@@ -155,6 +162,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (err) {
         console.error("messages fetch error", err);
+      } finally {
+        if (!cancelled) setIsLoadingMessages(false);
       }
     })();
     return () => {
@@ -321,7 +330,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ChatContext.Provider
-      value={{ phase, sessionId, botId, messages, awaiting, sendMessage }}
+      value={{ phase, sessionId, botId, messages, awaiting, isLoadingMessages, sendMessage }}
     >
       {children}
     </ChatContext.Provider>

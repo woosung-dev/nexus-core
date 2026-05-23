@@ -20,7 +20,7 @@ type FeedbackState = {
 };
 
 export function ChatArea({ sessionId }: { sessionId?: string }) {
-  const { messages: providerMessages, awaiting } = useChat();
+  const { messages: providerMessages, awaiting, isLoadingMessages } = useChat();
   const { latestFollowups, setComposerDraft } = useChatStore();
   // streaming 텍스트는 더 이상 별도 인디케이터로 보여주지 않음 (응답 도착하면 messages 로 들어감)
   const streamingText = "";
@@ -33,6 +33,17 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
 
   const getViewport = () =>
     scrollRef.current?.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]') ?? null;
+
+  // 메시지 fetch 가 150ms 이상 걸릴 때만 스켈레톤 노출 — 빠른 응답 시 깜빡임 방지.
+  const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false);
+  useEffect(() => {
+    if (!isLoadingMessages) {
+      setShowLoadingSkeleton(false);
+      return;
+    }
+    const t = setTimeout(() => setShowLoadingSkeleton(true), 150);
+    return () => clearTimeout(t);
+  }, [isLoadingMessages]);
 
   // 피드백 및 복사 기능 상태
   const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
@@ -217,6 +228,71 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
           )}
 
           <div className="flex flex-col gap-10">
+            {/* 메시지 fetch 스켈레톤 — 150ms 이상 걸릴 때만, 그리고 아직 메시지가 없을 때만 표시.
+                bubble 폭은 px 로 고정해 실제 메시지처럼 보이게 하고, bar 펄스는 70ms 씩 stagger.  */}
+            {showLoadingSkeleton && messages.length === 0 && (
+              <motion.div
+                key="messages-skeleton"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="flex flex-col gap-10"
+                aria-label="대화 불러오는 중"
+                aria-busy="true"
+              >
+                {[
+                  { role: "assistant", bubbleWidth: 520, lines: [{ w: "96%", h: 14 }, { w: "84%", h: 14 }, { w: "62%", h: 14 }] },
+                  { role: "user",      bubbleWidth: 320, lines: [{ w: "100%", h: 14 }, { w: "62%", h: 14 }] },
+                  { role: "assistant", bubbleWidth: 440, lines: [{ w: "92%", h: 14 }, { w: "70%", h: 14 }] },
+                ].map((row, i) => {
+                  const isUser = row.role === "user";
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.25, delay: i * 0.08, ease: "easeOut" }}
+                      className={`flex w-full ${isUser ? "justify-end" : "justify-start"}`}
+                    >
+                      <div className={`flex gap-4 max-w-[92%] sm:max-w-[85%] ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+                        {/* Avatar placeholder — 실제와 동일한 9×9 rounded-xl */}
+                        <div
+                          className={`w-9 h-9 rounded-xl shrink-0 mt-1 shadow-sm animate-pulse ${
+                            isUser ? "bg-amber-200/70" : "bg-zinc-200/80"
+                          }`}
+                          style={{ animationDelay: `${i * 120}ms` }}
+                        />
+                        {/* Bubble — 고정 px 폭으로 메시지 다양성 모방.
+                            flex 컨테이너에서 % 폭 모호성 회피 위해 width(px) + maxWidth(100%) 분리 지정. */}
+                        <div
+                          className={`px-5 py-4 rounded-[20px] border shadow-sm flex flex-col gap-2.5 ${
+                            isUser
+                              ? "bg-amber-50 border-amber-100/80 rounded-tr-sm"
+                              : "bg-white border-zinc-100 rounded-tl-sm"
+                          }`}
+                          style={{ width: `${row.bubbleWidth}px`, maxWidth: "100%" }}
+                        >
+                          {row.lines.map((line, j) => (
+                            <div
+                              key={j}
+                              className={`rounded-full animate-pulse ${
+                                isUser ? "bg-amber-200/80" : "bg-zinc-200/80"
+                              }`}
+                              style={{
+                                width: line.w,
+                                height: `${line.h}px`,
+                                animationDelay: `${i * 120 + j * 70}ms`,
+                              }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </motion.div>
+            )}
             <AnimatePresence mode="popLayout" initial={false}>
               {messages.map((msg, idx) => {
                 const isUser = msg.role === "user";
