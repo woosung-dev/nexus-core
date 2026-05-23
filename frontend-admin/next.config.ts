@@ -13,10 +13,16 @@ const nextConfig: NextConfig = {
     ],
   },
   async rewrites() {
+    // rewrite 는 컨테이너 내부에서 평가/실행되므로 도커 네트워크용 INTERNAL_API_URL 우선.
+    // 미설정 시(호스트 직접 실행) NEXT_PUBLIC_API_URL → 마지막 localhost 폴백.
+    const target =
+      process.env.INTERNAL_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:8080";
     return [
       {
         source: "/api/v1/:path*",
-        destination: `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/v1/:path*`,
+        destination: `${target}/api/v1/:path*`,
       },
     ];
   },

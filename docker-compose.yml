@@ -25,9 +25,9 @@ services:
     # 가상환경이 보호되었으므로 내부 uvicorn 명령어로 실행 가능
     command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 
-  # 로컬 데이터베이스
+  # 로컬 데이터베이스 (pgvector 확장 포함)
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg15
     container_name: nexus_db
     restart: always
     ports:
@@ -39,8 +39,7 @@ services:
       - POSTGRES_DB=nexus_core
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      # 최초 구동 시 스키마 자동 생성 스크립트 실행
-      - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+      # 스키마는 alembic 마이그레이션으로 관리 (별도 init SQL 없음)
 
   # 🟢 Next.js 일반 사용자 웹 서비스 (Nexus Portal)
   client:
@@ -72,7 +71,11 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8080/api/v1
+      # 브라우저 JS 에 인라인되는 변수 — 봇 이미지 미리보기 등 클라이언트 컴포넌트가 직접 사용.
+      # 호스트의 localhost:8080 (도커가 api 컨테이너로 포트매핑) 이어야 브라우저가 풀 수 있음.
+      - NEXT_PUBLIC_API_URL=http://localhost:8080
+      # next.config.ts rewrite destination 전용. 컨테이너 내부 SSR fetch 라 도커 네트워크 hostname 사용.
+      - INTERNAL_API_URL=http://api:8080
     depends_on:
       - api
     volumes:
