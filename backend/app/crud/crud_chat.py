@@ -97,19 +97,27 @@ async def get_session_messages(session: AsyncSession, session_id: int) -> Sequen
 
 
 async def create_message(
-    session: AsyncSession, session_id: int, role: MessageRole, content: str
+    session: AsyncSession,
+    session_id: int,
+    role: MessageRole,
+    content: str,
+    citations: list | None = None,
+    followups: list | None = None,
 ) -> Message:
     """
     새로운 메시지 생성 기록 (Flush).
     실제 DB 영속화는 상위 서비스/라우터의 commit()에서 일괄 처리.
+    citations/followups 는 RAG 응답일 때만 채워지며, 그 외 분기는 None 으로 둔다.
     """
     msg = Message(
         session_id=session_id,
         role=role,
         content=content,
+        citations=citations,
+        followups=followups,
     )
     session.add(msg)
-    await session.flush() 
+    await session.flush()
     return msg
 
 

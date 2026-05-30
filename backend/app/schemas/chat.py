@@ -58,6 +58,8 @@ class MessageResponse(BaseModel):
     feedback: str | None = None
     feedback_reasons: list[str] = Field(default_factory=list)
     feedback_comment: str | None = None
+    citations: list[RAGCitation] = Field(default_factory=list)  # RAG 인용 출처 (없거나 도입 전 대화면 빈 배열)
+    followups: list[str] = Field(default_factory=list)  # 후속 추천 질문
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -78,6 +80,12 @@ class MessageResponse(BaseModel):
             except json.JSONDecodeError:
                 return []
         return []
+
+    @field_validator("citations", "followups", mode="before")
+    @classmethod
+    def _none_to_list(cls, v):
+        """DB 컬럼이 NULL(도입 전 대화)이면 빈 배열로 보정."""
+        return v if isinstance(v, list) else []
 
 
 class ChatSessionListResponse(BaseModel):

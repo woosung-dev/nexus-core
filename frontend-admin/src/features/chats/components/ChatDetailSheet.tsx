@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/sheet";
 import { Bot, User, Clock, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useChatMessages } from "../hooks";
+import { MessageCitations } from "./MessageCitations";
+import { MessageFollowups } from "./MessageFollowups";
 
 interface ChatDetailSheetProps {
   sessionId: number | null;
@@ -136,6 +138,17 @@ export function ChatDetailSheet({ sessionId, onClose }: ChatDetailSheetProps) {
                         </div>
                       )}
                     </div>
+
+                    {!isUser && (
+                      <>
+                        <MessageCitations citations={msg.citations} />
+                        <MessageFollowups items={msg.followups} />
+                        {(!msg.citations || msg.citations.length === 0) &&
+                          (!msg.followups || msg.followups.length === 0) && (
+                            <p className="text-[11px] text-zinc-400 pl-1 mt-1">인용 기록 없음</p>
+                          )}
+                      </>
+                    )}
                   </div>
 
                   {isUser && (
