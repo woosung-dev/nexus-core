@@ -23,3 +23,14 @@ logs/
 
 # 시스템 프롬프트 실험 응답 결과물
 syste-prompt-ver/_responses/
+
+# 등록 통계 관련
+/exports
+
+# 에이전트/도구 작업 스크래치
+.context/
+/checklist.md
+/context-notes.md
+
+# 시스템 프롬프트 실험 원본 응답 덤프 (프롬프트/비교 md는 추적)
+syste-prompt-ver/_experiment/results_*.json
