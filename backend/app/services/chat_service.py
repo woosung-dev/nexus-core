@@ -117,6 +117,8 @@ class ChatService:
                     session_id=chat_session.id,
                     role=MessageRole.ASSISTANT,
                     content=rag_response.answer,
+                    citations=[c.model_dump() for c in rag_response.citations],
+                    followups=rag_response.followups,
                 )
                 chat_session.updated_at = datetime.now(timezone.utc)
                 await self.session.commit()
@@ -151,16 +153,18 @@ class ChatService:
                 system_prompt=bot.system_prompt,
             )
 
+            # followups 를 먼저 생성해 메시지에 함께 영속화 (관리자 상세에서 후속질문 표시).
+            followups = await generate_followups(request.message, content)
+
             await crud_chat.create_message(
                 session=self.session,
                 session_id=chat_session.id,
                 role=MessageRole.ASSISTANT,
                 content=content,
+                followups=followups,
             )
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
-
-            followups = await generate_followups(request.message, content)
 
             return ChatCompletionResponse(
                 session_id=chat_session.id,
@@ -176,28 +180,37 @@ class ChatService:
             meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
             yield f"data: {meta_data}\n\n"
 
+            captured_citations: list | None = None
             async for chunk in rag_service.generate_stream_with_rag(
                 bot_id=bot.id,
                 prompt=request.message,
                 system_prompt=bot.system_prompt,
                 model_name=bot.llm_model,
             ):
+                # 본문은 str, 스트림 종료 시 인용 메타데이터는 dict 로 1회 전달된다.
+                # 인용은 DB 저장만 하고 클라이언트 SSE 와이어 포맷은 기존 그대로 유지한다.
+                if isinstance(chunk, dict):
+                    captured_citations = chunk.get("citations")
+                    continue
                 full_response_content += chunk
                 data = json.dumps({"content": chunk}, ensure_ascii=False)
                 yield f"data: {data}\n\n"
 
-            # 스트리밍 완료 후 1회 commit → message_id 확보
+            # 후속 질문 생성 (silent on failure) — 메시지에 함께 영속화하기 위해 commit 전에 생성
+            followups = await generate_followups(request.message, full_response_content)
+
+            # 스트리밍 완료 후 1회 commit → message_id 확보 (인용/후속 함께 저장)
             assistant_msg = await crud_chat.create_message(
                 session=self.session,
                 session_id=chat_session.id,
                 role=MessageRole.ASSISTANT,
                 content=full_response_content,
+                citations=captured_citations,
+                followups=followups or None,
             )
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
 
-            # 후속 질문 생성 (silent on failure)
-            followups = await generate_followups(request.message, full_response_content)
             if followups:
                 payload = json.dumps(
                     {"type": "followups", "message_id": assistant_msg.id, "items": followups},

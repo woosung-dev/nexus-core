@@ -1,11 +1,19 @@
 import { z } from "zod";
 
+export const citationSchema = z.object({
+  title: z.string().nullable().optional(),
+  content: z.string().nullable().optional(),
+});
+
 export const chatMessageSchema = z.object({
   id: z.number(),
   session_id: z.number(),
   role: z.enum(["user", "assistant", "system"]),
   content: z.string(),
   feedback: z.string().nullable().optional(),
+  // RAG 응답 근거 — 기능 도입 이후 대화부터 채워짐(이전 대화는 빈 배열).
+  citations: z.array(citationSchema).optional().default([]),
+  followups: z.array(z.string()).optional().default([]),
   created_at: z.string(),
 });
 

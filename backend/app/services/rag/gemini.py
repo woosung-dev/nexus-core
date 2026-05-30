@@ -353,7 +353,7 @@ class GeminiRAGService(BaseRAGService):
                             RAGCitation(
                                 title=chunk.retrieved_context.title,
                                 content=(
-                                    chunk.retrieved_context.text[:300]
+                                    chunk.retrieved_context.text[:800]
                                     if chunk.retrieved_context.text
                                     else None
                                 ),
@@ -415,10 +415,37 @@ class GeminiRAGService(BaseRAGService):
             ],
         )
 
+        # grounding(인용)은 보통 마지막 청크에 실린다 — 가장 최근 값을 보관했다가 스트림 종료 후 1회 방출.
+        last_grounding = None
         async for chunk in await self._client.aio.models.generate_content_stream(
             model=actual_model_name,
             contents=prompt,
             config=config,
         ):
+            try:
+                cand = chunk.candidates[0] if chunk.candidates else None
+                gm = cand.grounding_metadata if cand else None
+                if gm and gm.grounding_chunks:
+                    last_grounding = gm
+            except (AttributeError, IndexError):
+                pass
             if chunk.text:
                 yield chunk.text
+
+        # 스트림 종료 후 인용 메타데이터를 dict 로 1회 yield (본문 str 청크와 구분).
+        # generate_with_rag(비스트리밍)과 동일한 추출 로직.
+        citations: list[RAGCitation] = []
+        if last_grounding and last_grounding.grounding_chunks:
+            for gc in last_grounding.grounding_chunks:
+                if gc.retrieved_context:
+                    citations.append(
+                        RAGCitation(
+                            title=gc.retrieved_context.title,
+                            content=(
+                                gc.retrieved_context.text[:800]
+                                if gc.retrieved_context.text
+                                else None
+                            ),
+                        )
+                    )
+        yield {"citations": [c.model_dump() for c in citations]}

@@ -6,7 +6,7 @@ ChatSession & Message 모델.
 from datetime import datetime, timezone
 
 from sqlmodel import Field, SQLModel
-from sqlalchemy import Column, DateTime, Enum as SAEnum, func
+from sqlalchemy import Column, DateTime, Enum as SAEnum, JSON, func
 from app.models.enums import MessageRole
 
 
@@ -55,6 +55,17 @@ class Message(SQLModel, table=True):
     feedback: str | None = Field(default=None, max_length=10, description="피드백 (up, down 등)")
     feedback_reasons: str | None = Field(default=None, max_length=255, description="피드백 사유 코드 JSON 배열 문자열, 예: '[\"inaccurate\",\"unsupported\"]'")
     feedback_comment: str | None = Field(default=None, max_length=1000, description="피드백 자유 텍스트 (선택 입력)")
+    # RAG 응답 근거. 채팅 시점에만 생성되던 인용/후속을 영속화 (기능 도입 이후 대화부터 채워짐).
+    citations: list | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+        description="RAG 인용 출처 JSON 배열 [{title, content}] — RAG 응답만",
+    )
+    followups: list | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+        description="후속 추천 질문 JSON 배열 [str]",
+    )
 
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),

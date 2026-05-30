@@ -106,11 +106,12 @@ class BaseRAGService(ABC):
         model_name: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
-    ) -> AsyncGenerator[str, None]:
+    ) -> AsyncGenerator[str | dict, None]:
         """
         RAG 기반 스트리밍 응답 생성 (SSE용).
         bot_id에 해당하는 문서만 검색하여 컨텍스트로 사용하며,
-        텍스트 청크를 순차적으로 yield한다.
+        텍스트 청크(str)를 순차적으로 yield한다.
+        구현에 따라 스트림 종료 후 인용 메타데이터를 dict({"citations": [...]}) 로 1회 yield할 수 있다.
 
         Args:
             bot_id: 검색 대상 봇 ID
