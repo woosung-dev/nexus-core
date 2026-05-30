@@ -353,7 +353,7 @@ class GeminiRAGService(BaseRAGService):
                             RAGCitation(
                                 title=chunk.retrieved_context.title,
                                 content=(
-                                    chunk.retrieved_context.text[:300]
+                                    chunk.retrieved_context.text[:800]
                                     if chunk.retrieved_context.text
                                     else None
                                 ),
@@ -442,7 +442,7 @@ class GeminiRAGService(BaseRAGService):
                         RAGCitation(
                             title=gc.retrieved_context.title,
                             content=(
-                                gc.retrieved_context.text[:300]
+                                gc.retrieved_context.text[:800]
                                 if gc.retrieved_context.text
                                 else None
                             ),
