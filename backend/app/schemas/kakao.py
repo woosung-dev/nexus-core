@@ -1,58 +1,59 @@
 """
-카카오톡 i Open Builder 콜백 스키마.
-향후 구현을 위한 구조 정의만 포함.
+카카오톡 i 오픈빌더 스킬 콜백 스키마.
+요청은 userRequest 안에 user/callbackUrl 이 들어온다(공식 페이로드 구조).
 """
 
 from pydantic import BaseModel
 
 
-# --- 카카오 요청 구조 ---
-class KakaoUserRequest(BaseModel):
-    """카카오톡 사용자 발화 정보"""
-    utterance: str
-    lang: str | None = None
-    timezone: str | None = None
-
-
+# --- 요청 ---
 class KakaoUser(BaseModel):
-    """카카오톡 사용자 식별 정보"""
     id: str
     type: str | None = None
     properties: dict | None = None
 
 
+class KakaoUserRequest(BaseModel):
+    utterance: str
+    user: KakaoUser
+    callbackUrl: str | None = None
+    lang: str | None = None
+    timezone: str | None = None
+
+
 class KakaoBot(BaseModel):
-    """카카오톡 봇 정보"""
     id: str
     name: str | None = None
 
 
 class KakaoCallbackRequest(BaseModel):
-    """카카오톡 i Open Builder 콜백 요청 본문"""
-    intent: dict | None = None
     userRequest: KakaoUserRequest
-    user: KakaoUser
     bot: KakaoBot
+    intent: dict | None = None
     action: dict | None = None
 
 
-# --- 카카오 응답 구조 ---
+# --- 응답(스키마 문서화용; 핸들러/워커는 dict 를 직접 만든다) ---
 class KakaoSimpleText(BaseModel):
-    """단순 텍스트 응답"""
     text: str
 
 
 class KakaoOutput(BaseModel):
-    """응답 출력 블록"""
     simpleText: KakaoSimpleText
 
 
+class KakaoQuickReply(BaseModel):
+    label: str
+    action: str = "message"
+    messageText: str
+
+
 class KakaoTemplate(BaseModel):
-    """응답 템플릿"""
     outputs: list[KakaoOutput]
+    quickReplies: list[KakaoQuickReply] | None = None
 
 
 class KakaoCallbackResponse(BaseModel):
-    """카카오톡 콜백 응답"""
     version: str = "2.0"
-    template: KakaoTemplate
+    useCallback: bool | None = None
+    template: KakaoTemplate | None = None

@@ -28,7 +28,7 @@ async def kakao_callback(request: KakaoCallbackRequest) -> KakaoCallbackResponse
     TODO: LLM 서비스 연동, 사용자 세션 관리
     현재는 에코 응답만 반환한다.
     """
-    logger.info(f"카카오톡 콜백 수신: user={request.user.id}, utterance={request.userRequest.utterance}")
+    logger.info(f"카카오톡 콜백 수신: user={request.userRequest.user.id}, utterance={request.userRequest.utterance}")
 
     # 임시 에코 응답
     return KakaoCallbackResponse(
