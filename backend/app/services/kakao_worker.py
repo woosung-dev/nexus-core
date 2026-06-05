@@ -18,25 +18,35 @@ WORKER_DEADLINE_SECONDS = 50.0
 async def process_kakao_callback(
     kakao_bot_id: str, bot_user_key: str, utterance: str, callback_url: str
 ) -> None:
-    """5초 즉시응답 이후 백그라운드에서 호출됨. 절대 deadline 안에 콜백 전송, 실패 시 fallback."""
+    """5초 즉시응답 이후 백그라운드에서 호출됨.
+    deadline 은 '응답 생성'만 감싼다(생성 실패 시 payload=None → fallback).
+    콜백 전송은 deadline 밖에서 정확히 1회만 — 중복 전송 원천 차단.
+    """
     settings = get_settings()
+    payload: dict | None = None
     try:
-        await asyncio.wait_for(
-            _process(kakao_bot_id, bot_user_key, utterance, callback_url),
+        payload = await asyncio.wait_for(
+            _build_answer(kakao_bot_id, bot_user_key, utterance),
             timeout=WORKER_DEADLINE_SECONDS,
         )
     except Exception as e:
-        # _process 의 마지막 단계가 본응답 send 이고 send_callback 은 예외를 삼켜 절대 raise 하지 않으므로,
-        # 이 except 에 도달했다는 건 본응답 콜백을 아직 보내지 않았다는 뜻 → fallback 1회 전송은 중복이 아니다.
-        logger.error("카카오 워커 실패(fallback 시도): %s", e)
-        if kakao_service.is_allowed_callback_host(
-            callback_url, settings.kakao_callback_allowed_hosts_list
-        ):
-            await kakao_service.send_callback(callback_url, kakao_service.fallback_payload())
+        logger.error("카카오 워커 응답 생성 실패(fallback 전송 예정): %s", e)
+
+    # SSRF 가드: 허용되지 않은 host 면 전송 중단(성공/실패 무관).
+    if not kakao_service.is_allowed_callback_host(
+        callback_url, settings.kakao_callback_allowed_hosts_list
+    ):
+        logger.error("허용되지 않은 callbackUrl host, 전송 중단: %s", callback_url)
+        return
+
+    # 콜백 URL 은 1회용 → 여기서 정확히 한 번만 전송.
+    await kakao_service.send_callback(
+        callback_url, payload or kakao_service.fallback_payload()
+    )
 
 
-async def _process(kakao_bot_id: str, bot_user_key: str, utterance: str, callback_url: str) -> None:
-    settings = get_settings()
+async def _build_answer(kakao_bot_id: str, bot_user_key: str, utterance: str) -> dict:
+    """새 DB 세션에서 LLM 응답을 생성해 카카오 콜백 payload(dict)를 반환. 실패 시 예외."""
     async with async_session() as session:
         channel = await crud_bot_kakao_channel.get_by_kakao_bot_id(session, kakao_bot_id)
         if channel is None or not channel.is_active:
@@ -60,12 +70,4 @@ async def _process(kakao_bot_id: str, bot_user_key: str, utterance: str, callbac
         response = await ChatService(session=session).process_chat_request(
             request=chat_request, bot=bot, chat_session=chat_session
         )
-
-        if not kakao_service.is_allowed_callback_host(
-            callback_url, settings.kakao_callback_allowed_hosts_list
-        ):
-            logger.error("허용되지 않은 callbackUrl host, 전송 중단: %s", callback_url)
-            return
-
-        payload = kakao_service.build_callback_payload(response.content, response.followups)
-        await kakao_service.send_callback(callback_url, payload)
+        return kakao_service.build_callback_payload(response.content, response.followups)

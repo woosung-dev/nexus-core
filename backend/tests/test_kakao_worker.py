@@ -1,4 +1,4 @@
-# 워커 fallback 경로 유닛 테스트 (DB 없이 _process 모킹)
+# 워커 fallback 경로 유닛 테스트 (DB 없이 _build_answer 모킹)
 import pytest
 
 from app.core.config import get_settings
@@ -12,7 +12,7 @@ async def test_fallback_sent_once_on_failure(monkeypatch):
     async def boom(*args, **kwargs):
         raise ValueError("boom")
 
-    monkeypatch.setattr(kakao_worker, "_process", boom)
+    monkeypatch.setattr(kakao_worker, "_build_answer", boom)
 
     sent = []
 
@@ -37,7 +37,7 @@ async def test_fallback_blocked_when_host_not_allowed(monkeypatch):
     async def boom(*args, **kwargs):
         raise ValueError("boom")
 
-    monkeypatch.setattr(kakao_worker, "_process", boom)
+    monkeypatch.setattr(kakao_worker, "_build_answer", boom)
 
     sent = []
 
