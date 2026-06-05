@@ -14,11 +14,14 @@ def _host_matches(host: str, suffix: str) -> bool:
 
 
 def is_allowed_callback_host(url: str, allowed_suffixes: list[str]) -> bool:
-    """callbackUrl host 가 허용 도메인(suffix)인지. SSRF 차단용."""
+    """callbackUrl host 가 허용 도메인(suffix)이고 http(s) 스킴인지. SSRF 차단용."""
     try:
-        host = urlparse(url).hostname
+        parsed = urlparse(url)
     except ValueError:
         return False
+    if parsed.scheme not in ("https", "http"):
+        return False
+    host = parsed.hostname
     if not host:
         return False
     host = host.lower()

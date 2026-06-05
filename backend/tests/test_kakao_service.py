@@ -76,3 +76,22 @@ def test_fallback_payload():
     p = fallback_payload()
     assert p["version"] == "2.0"
     assert p["template"]["outputs"][0]["simpleText"]["text"]
+
+
+def test_blocks_non_http_scheme():
+    assert is_allowed_callback_host("ftp://kakao.com/cb", [".kakao.com"]) is False
+    assert is_allowed_callback_host("//kakao.com/cb", [".kakao.com"]) is False
+
+
+def test_quick_reply_label_truncation():
+    long_q = "가" * 15  # KAKAO_QUICK_REPLY_LABEL_LIMIT(14) 초과
+    qr = to_quick_replies([long_q])
+    assert len(qr[0]["label"]) == 14
+    assert qr[0]["label"].endswith("…")
+    assert qr[0]["messageText"] == long_q  # 전체 텍스트 보존
+
+
+def test_quick_replies_skips_blank_items():
+    qr = to_quick_replies([None, "", "질문"])
+    assert len(qr) == 1
+    assert qr[0]["messageText"] == "질문"
