@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     # JSON 배열 형식도 지원 (예: '["http://a.com","http://b.com"]')
     CORS_ORIGINS: str = "http://localhost:3000"
 
+    # --- 카카오 채널 챗봇 ---
+    KAKAO_SKILL_SECRET: str | None = None
+    KAKAO_SKILL_SECRET_HEADER: str = "X-Kakao-Skill-Secret"
+    KAKAO_CALLBACK_ALLOWED_HOSTS: str = ".kakao.com"
+
     @computed_field
     @property
     def cors_origins_list(self) -> list[str]:
@@ -73,6 +78,18 @@ class Settings(BaseSettings):
                 pass
         # 콤마 구분 문자열인 경우
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
+
+    @computed_field
+    @property
+    def kakao_callback_allowed_hosts_list(self) -> list[str]:
+        """콤마 구분 또는 JSON 배열 → 허용 host suffix 리스트."""
+        raw = self.KAKAO_CALLBACK_ALLOWED_HOSTS.strip()
+        if raw.startswith("["):
+            try:
+                return json.loads(raw)
+            except json.JSONDecodeError:
+                pass
+        return [h.strip() for h in raw.split(",") if h.strip()]
 
 
 @lru_cache
