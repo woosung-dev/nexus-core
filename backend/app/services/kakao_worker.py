@@ -26,6 +26,8 @@ async def process_kakao_callback(
             timeout=WORKER_DEADLINE_SECONDS,
         )
     except Exception as e:
+        # _process 의 마지막 단계가 본응답 send 이고 send_callback 은 예외를 삼켜 절대 raise 하지 않으므로,
+        # 이 except 에 도달했다는 건 본응답 콜백을 아직 보내지 않았다는 뜻 → fallback 1회 전송은 중복이 아니다.
         logger.error("카카오 워커 실패(fallback 시도): %s", e)
         if kakao_service.is_allowed_callback_host(
             callback_url, settings.kakao_callback_allowed_hosts_list
