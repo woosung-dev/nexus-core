@@ -39,6 +39,7 @@ async def kakao_callback(
         provided = raw_request.headers.get(settings.KAKAO_SKILL_SECRET_HEADER, "")
         if not hmac.compare_digest(provided, settings.KAKAO_SKILL_SECRET):
             logger.warning("카카오 콜백 인증 실패")
+            # 카카오는 401 응답 바디를 무시하므로 앱 표준 ErrorResponse 형식을 쓰지 않는다.
             return JSONResponse(status_code=401, content={"message": "unauthorized"})
 
     # 2. callbackUrl 없으면 비동기 불가 → 동기 안내(블록 미설정/콜백 미승인)

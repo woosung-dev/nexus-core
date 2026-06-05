@@ -49,8 +49,9 @@ def test_accepts_good_secret(monkeypatch):
     monkeypatch.setattr(get_settings(), "KAKAO_SKILL_SECRET", "topsecret")
     _patch_worker(monkeypatch)
     client = TestClient(app)
+    header_name = get_settings().KAKAO_SKILL_SECRET_HEADER
     resp = client.post(
-        "/api/v1/kakao/callback", json=VALID, headers={"X-Kakao-Skill-Secret": "topsecret"}
+        "/api/v1/kakao/callback", json=VALID, headers={header_name: "topsecret"}
     )
     assert resp.status_code == 200
     assert resp.json()["useCallback"] is True
