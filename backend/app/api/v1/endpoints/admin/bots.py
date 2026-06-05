@@ -290,11 +290,11 @@ async def create_kakao_channel(
     if not bot:
         raise BotNotFoundError()
     try:
-        channel = await crud_bot_kakao_channel.create(session, bot_id, request.kakao_bot_id.strip())
+        channel = await crud_bot_kakao_channel.create(session, bot_id, request.kakao_bot_id)
     except IntegrityError:
         await session.rollback()
         raise ValidationError("이미 등록된 카카오 봇 ID 입니다.")
-    logger.info("카카오 채널 등록: bot_id=%s kakao_bot_id=%s", bot_id, request.kakao_bot_id)
+    logger.info("카카오 채널 등록: bot_id=%s kakao_bot_id=%s", bot_id, channel.kakao_bot_id)
     return KakaoChannelResponse.model_validate(channel)
 
 
@@ -305,6 +305,9 @@ async def delete_kakao_channel(
     session: AsyncSession = Depends(get_session),
 ) -> None:
     """카카오 채널 매핑 삭제."""
+    bot = await crud_bot.get_bot(session, bot_id)
+    if not bot:
+        raise BotNotFoundError()
     channels = await crud_bot_kakao_channel.list_by_bot(session, bot_id)
     target = next((c for c in channels if c.id == channel_id), None)
     if target is None:
