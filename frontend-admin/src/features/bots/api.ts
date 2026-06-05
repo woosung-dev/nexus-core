@@ -9,6 +9,8 @@ import type {
   BotListResponse,
   BotResponse,
   BotUpdateRequest,
+  KakaoChannelListResponse,
+  KakaoChannelResponse,
 } from "./types"
 
 // ─── Query Key Factory ────────────────────────────────────────
@@ -17,6 +19,7 @@ export const botKeys = {
   all: ["bots"] as const,
   lists: () => [...botKeys.all, "list"] as const,
   detail: (id: number) => [...botKeys.all, "detail", id] as const,
+  kakao: (botId: number) => [...botKeys.detail(botId), "kakao"] as const,
 }
 
 // ─── API 함수 ─────────────────────────────────────────────────
@@ -77,4 +80,34 @@ export async function uploadBotImage(
     }
   )
   return data
+}
+
+/** 봇의 카카오 채널 목록 */
+export async function fetchKakaoChannels(
+  botId: number
+): Promise<KakaoChannelListResponse> {
+  const { data } = await apiClient.get<KakaoChannelListResponse>(
+    `/api/v1/admin/bots/${botId}/kakao`
+  )
+  return data
+}
+
+/** 카카오 채널 등록 */
+export async function createKakaoChannel(
+  botId: number,
+  kakaoBotId: string
+): Promise<KakaoChannelResponse> {
+  const { data } = await apiClient.post<KakaoChannelResponse>(
+    `/api/v1/admin/bots/${botId}/kakao`,
+    { kakao_bot_id: kakaoBotId }
+  )
+  return data
+}
+
+/** 카카오 채널 삭제 */
+export async function deleteKakaoChannel(
+  botId: number,
+  channelId: number
+): Promise<void> {
+  await apiClient.delete(`/api/v1/admin/bots/${botId}/kakao/${channelId}`)
 }

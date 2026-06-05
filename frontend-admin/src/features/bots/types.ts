@@ -50,3 +50,18 @@ export type BotImageUploadResponse = {
   bot_id: number
   image_url: string
 }
+
+// GET /api/v1/admin/bots/:id/kakao — 카카오 채널 단건
+export interface KakaoChannelResponse {
+  id: number
+  bot_id: number
+  kakao_bot_id: string
+  is_active: boolean
+  created_at: string
+}
+
+// GET /api/v1/admin/bots/:id/kakao — 카카오 채널 목록
+export interface KakaoChannelListResponse {
+  items: KakaoChannelResponse[]
+  total: number
+}
