@@ -7,13 +7,19 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, UploadFile
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_session
 from app.core.exceptions import BotNotFoundError, NotFoundError, ValidationError
-from app.crud import crud_bot
+from app.crud import crud_bot, crud_bot_kakao_channel
 from app.schemas.bot import BotCreateRequest, BotListResponse, BotResponse, BotUpdateRequest, BotImageUploadResponse
+from app.schemas.bot_kakao_channel import (
+    KakaoChannelCreateRequest,
+    KakaoChannelListResponse,
+    KakaoChannelResponse,
+)
 from app.schemas.rag import DocumentListResponse, DocumentUploadResponse
 from app.services import bot_service
 from app.services.rag.factory import get_rag_service
@@ -247,3 +253,61 @@ async def delete_bot_document(
         raise NotFoundError(str(e))
 
     logger.info(f"봇 문서 삭제 완료: bot_id={bot_id}, file_id={file_id}")
+
+
+# ── 카카오 채널 매핑 ───────────────────────────────────────────────────
+
+
+@router.get("/bots/{bot_id}/kakao", response_model=KakaoChannelListResponse, tags=["Admin - 봇 관리"])
+async def list_kakao_channels(
+    bot_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> KakaoChannelListResponse:
+    """봇에 등록된 카카오 채널(오픈빌더 bot.id) 목록."""
+    bot = await crud_bot.get_bot(session, bot_id)
+    if not bot:
+        raise BotNotFoundError()
+    channels = await crud_bot_kakao_channel.list_by_bot(session, bot_id)
+    return KakaoChannelListResponse(
+        items=[KakaoChannelResponse.model_validate(c) for c in channels],
+        total=len(channels),
+    )
+
+
+@router.post(
+    "/bots/{bot_id}/kakao",
+    response_model=KakaoChannelResponse,
+    status_code=201,
+    tags=["Admin - 봇 관리"],
+)
+async def create_kakao_channel(
+    bot_id: int,
+    request: KakaoChannelCreateRequest,
+    session: AsyncSession = Depends(get_session),
+) -> KakaoChannelResponse:
+    """봇에 카카오 채널(오픈빌더 bot.id) 등록."""
+    bot = await crud_bot.get_bot(session, bot_id)
+    if not bot:
+        raise BotNotFoundError()
+    try:
+        channel = await crud_bot_kakao_channel.create(session, bot_id, request.kakao_bot_id.strip())
+    except IntegrityError:
+        await session.rollback()
+        raise ValidationError("이미 등록된 카카오 봇 ID 입니다.")
+    logger.info("카카오 채널 등록: bot_id=%s kakao_bot_id=%s", bot_id, request.kakao_bot_id)
+    return KakaoChannelResponse.model_validate(channel)
+
+
+@router.delete("/bots/{bot_id}/kakao/{channel_id}", status_code=204, tags=["Admin - 봇 관리"])
+async def delete_kakao_channel(
+    bot_id: int,
+    channel_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    """카카오 채널 매핑 삭제."""
+    channels = await crud_bot_kakao_channel.list_by_bot(session, bot_id)
+    target = next((c for c in channels if c.id == channel_id), None)
+    if target is None:
+        raise NotFoundError("카카오 채널을 찾을 수 없습니다.")
+    await crud_bot_kakao_channel.delete(session, target)
+    logger.info("카카오 채널 삭제: id=%s", channel_id)
