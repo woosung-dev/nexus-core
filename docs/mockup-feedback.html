@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>피드백 사유 기능 — 디자인 목업</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Apple SD Gothic Neo", sans-serif; background: #f5f5f5; color: #1a1a1a; padding: 32px; line-height: 1.5; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 24px; margin-bottom: 8px; }
+  h2 { font-size: 18px; margin: 32px 0 12px; color: #333; padding-bottom: 8px; border-bottom: 2px solid #ff6b00; }
+  .description { color: #666; margin-bottom: 16px; font-size: 14px; }
+  .mockup { background: white; border-radius: 12px; padding: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 24px; }
+
+  .chat-message { display: flex; flex-direction: column; gap: 12px; max-width: 720px; margin: 0 auto; }
+  .bot-msg { background: #f9f9f9; padding: 16px; border-radius: 12px; }
+  .bot-msg .label { font-size: 12px; color: #888; margin-bottom: 8px; }
+  .msg-actions { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
+  .icon-btn { background: none; border: none; padding: 6px; cursor: pointer; color: #666; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; font-size: 13px; }
+  .icon-btn:hover { background: #eee; }
+  .icon-btn.active-down { color: #e11d48; background: #fef2f2; }
+  .icon-btn.active-up { color: #2563eb; background: #eff6ff; }
+  .divider { width: 1px; height: 16px; background: #ddd; margin: 0 4px; }
+
+  .feedback-form { background: #fef7ed; border: 1px solid #fed7aa; border-radius: 10px; padding: 14px; margin-top: 10px; }
+  .feedback-form.up { background: #f0f7ff; border-color: #c5dbff; }
+  .feedback-form .title { font-size: 13px; color: #555; margin-bottom: 10px; font-weight: 500; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .chip { background: white; border: 1px solid #ddd; padding: 5px 12px; border-radius: 999px; font-size: 12px; cursor: pointer; transition: all 0.15s; }
+  .chip:hover { border-color: #1a1a1a; }
+  .chip.selected { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+  .feedback-form textarea { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 8px 10px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 50px; }
+  .feedback-form textarea:focus { outline: none; border-color: #ff6b00; }
+  .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+  .btn { padding: 6px 14px; border-radius: 6px; font-size: 13px; cursor: pointer; border: none; }
+  .btn-primary { background: #1a1a1a; color: white; }
+  .btn-primary:hover { background: #333; }
+  .btn-secondary { background: transparent; color: #666; }
+  .btn-secondary:hover { background: #f0f0f0; }
+
+  .reason-link { font-size: 12px; color: #666; text-decoration: none; padding: 6px 8px; cursor: pointer; }
+  .reason-link:hover { color: #ff6b00; }
+
+  .admin-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .admin-table th { text-align: left; padding: 12px 8px; font-weight: 500; color: #666; border-bottom: 1px solid #eee; font-size: 13px; }
+  .admin-table td { padding: 14px 8px; border-bottom: 1px solid #f5f5f5; vertical-align: top; }
+  .admin-table tr:hover { background: #fafafa; }
+
+  .badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 999px; font-size: 12px; }
+  .badge-down { background: #fef2f2; color: #dc2626; }
+  .badge-up { background: #eff6ff; color: #2563eb; }
+  .chip-mini { display: inline-block; background: #f1f5f9; color: #475569; padding: 2px 7px; border-radius: 4px; font-size: 11px; margin: 0 3px 3px 0; }
+
+  .bot-name { color: #ff6b00; font-weight: 500; }
+
+  .view-btn { display: inline-flex; align-items: center; gap: 4px; background: #f1f5f9; color: #475569; padding: 3px 8px; border-radius: 4px; font-size: 11px; cursor: pointer; border: none; margin-left: 6px; }
+  .view-btn:hover { background: #e2e8f0; color: #1a1a1a; }
+
+  .new-badge { background: #fef3c7; color: #d97706; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-left: 6px; font-weight: 500; }
+  .new-marker { background: #ff6b00; color: white; font-size: 9px; padding: 1px 5px; border-radius: 3px; margin-right: 5px; font-weight: 600; vertical-align: middle; }
+
+  select.filter-select { padding: 4px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; background: white; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>피드백 사유 기능 — 디자인 목업</h1>
+  <p class="description">기존 사이트에 새로 추가되는 요소는 <span class="new-marker">NEW</span> 로 표시했어요. 실제 적용 시 디자인 토큰/간격은 코드베이스 톤에 맞춰 조정.</p>
+
+  <h2>1. 클라이언트 — 부정 피드백 (👎) 클릭 직후</h2>
+  <p class="description">👎 누르는 즉시 <code>feedback=down</code> 기록 + 사유 폼이 인라인으로 자동 펼침. 카테고리 칩 + 자유 텍스트 + 건너뛰기.</p>
+  <div class="mockup">
+    <div class="chat-message">
+      <div class="bot-msg">
+        <div class="label">축복앱AI · 어시스턴트</div>
+        <div>축복 절차는 다음과 같습니다. 1) 사전 면담을 통해 가족 구성원과 일정을 조율하고, 2) 축복식 당일에는 정해진 순서에 따라 진행됩니다...</div>
+        <div class="msg-actions">
+          <button class="icon-btn">📋 복사</button>
+          <span class="divider"></span>
+          <button class="icon-btn">👍</button>
+          <button class="icon-btn active-down">👎</button>
+        </div>
+        <div class="feedback-form">
+          <div class="title"><span class="new-marker">NEW</span>어떤 점이 아쉬웠나요? <span style="color:#999;font-weight:400">(선택)</span></div>
+          <div class="chips">
+            <span class="chip selected">부정확함</span>
+            <span class="chip">도움 안 됨</span>
+            <span class="chip selected">근거 부족</span>
+            <span class="chip">너무 김</span>
+            <span class="chip">부적절</span>
+            <span class="chip">기타</span>
+          </div>
+          <textarea placeholder="좀 더 자세히 알려주시면 개선에 도움이 됩니다 (선택)">출처 페이지가 어디인지 안 나와있어서 신뢰하기 어려워요.</textarea>
+          <div class="form-actions">
+            <button class="btn btn-secondary">건너뛰기</button>
+            <button class="btn btn-primary">저장</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>2. 클라이언트 — 긍정 피드백 (👍) 클릭 직후</h2>
+  <p class="description">👍 클릭 시 즉시 <code>feedback=up</code> 기록. 사유 폼은 자동 안 열리고, 옆에 작은 "+ 사유 추가" 링크만 표시.</p>
+  <div class="mockup">
+    <div class="chat-message">
+      <div class="bot-msg">
+        <div class="label">축복앱AI · 어시스턴트</div>
+        <div>안녕하세요! 축복식 참석에 대해 안내드릴게요. 가족 외에도 친한 친구분들 모두 환영합니다. 다만 사전에 인원수를 알려주시면 좌석 준비에 도움이 됩니다.</div>
+        <div class="msg-actions">
+          <button class="icon-btn">📋 복사</button>
+          <span class="divider"></span>
+          <button class="icon-btn active-up">👍</button>
+          <button class="icon-btn">👎</button>
+          <span class="divider"></span>
+          <a class="reason-link"><span class="new-marker">NEW</span>+ 사유 추가</a>
+        </div>
+      </div>
+    </div>
+    <p style="text-align:center;color:#999;font-size:12px;margin-top:12px;">↑ "+ 사유 추가" 클릭 시 동일한 인라인 폼이 펼쳐짐 (긍정용 칩으로: 정확함, 도움 됨, 친절함, 명확함, 기타)</p>
+  </div>
+
+  <h2>3. 관리자 — 피드백 포커스 탭 (사유 컬럼 추가)</h2>
+  <p class="description">기존 컬럼 옆에 <strong>"사유"</strong> 컬럼을 추가. 카테고리는 작은 배지로, 자유 텍스트는 1~2줄 미리보기 + hover 시 전체.</p>
+  <div class="mockup">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>상태</th>
+          <th>봇 / 세션</th>
+          <th>사용자</th>
+          <th>피드백 받은 응답</th>
+          <th><span class="new-marker">NEW</span>사유</th>
+          <th>일시</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="badge badge-down">👎 부정</span></td>
+          <td><span class="bot-name">축복앱AI</span><br><span style="font-size:12px;color:#888">축복 절차에 대해서 알려줘</span></td>
+          <td style="font-size:13px;">jangwooseng97@gmail.com</td>
+          <td style="font-size:13px;color:#444;max-width:200px;">축복 절차는 다음과 같습니다. 1) 사전 면담을 통해...</td>
+          <td style="max-width:240px;">
+            <span class="chip-mini">부정확함</span>
+            <span class="chip-mini">근거 부족</span>
+            <div style="font-size:12px;color:#666;margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">"출처 페이지가 어디인지 안 나와있어서..."</div>
+          </td>
+          <td style="font-size:12px;color:#888;white-space:nowrap;">2026. 5. 19.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-up">👍 긍정</span></td>
+          <td><span class="bot-name">축복앱AI</span><br><span style="font-size:12px;color:#888">축복식 참석 안내</span></td>
+          <td style="font-size:13px;">kim123@gmail.com</td>
+          <td style="font-size:13px;color:#444;max-width:200px;">안녕하세요! 축복식 참석에 대해 안내드릴게요...</td>
+          <td>
+            <span class="chip-mini">정확함</span>
+            <span class="chip-mini">친절함</span>
+          </td>
+          <td style="font-size:12px;color:#888;white-space:nowrap;">2026. 5. 18.</td>
+        </tr>
+        <tr>
+          <td><span class="badge badge-down">👎 부정</span></td>
+          <td><span class="bot-name">축복앱AI</span><br><span style="font-size:12px;color:#888">축복 받기 어려운데</span></td>
+          <td style="font-size:13px;">park99@gmail.com</td>
+          <td style="font-size:13px;color:#444;max-width:200px;">축복을 받기 어려우신 상황이라면 먼저 담당자와...</td>
+          <td><span style="color:#aaa;font-size:12px;font-style:italic">(사유 입력 안 함)</span></td>
+          <td style="font-size:12px;color:#888;white-space:nowrap;">2026. 5. 17.</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="margin-top:18px;padding-top:14px;border-top:1px solid #eee;font-size:13px;color:#666;">
+      <span class="new-marker">NEW</span><strong style="color:#1a1a1a;">필터 추가:</strong>
+      <select class="filter-select" style="margin-left:8px;">
+        <option>모든 사유</option>
+        <option>부정확함</option>
+        <option>도움 안 됨</option>
+        <option>근거 부족</option>
+        <option>너무 김</option>
+        <option>부적절</option>
+        <option>정확함 / 친절함 ...</option>
+      </select>
+    </div>
+  </div>
+
+  <h2>4. 관리자 — 전체 대화 세션 탭 (👁 보기 미니 버튼)</h2>
+  <p class="description">"반응" 컬럼의 카운트 옆에 <strong>"👁 보기"</strong> 버튼 추가. 클릭하면 피드백 포커스 탭에서 해당 세션 필터링된 화면으로 점프.</p>
+  <div class="mockup">
+    <table class="admin-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>봇 (Bot)</th>
+          <th>사용자</th>
+          <th>제목</th>
+          <th>반응</th>
+          <th>일시</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>#21</td>
+          <td><span class="bot-name">축복앱AI</span> <span class="new-badge">NEW</span></td>
+          <td style="font-size:13px;">jangwooseng97@gmail.com</td>
+          <td>축복가기까지의 과정을 알려줄래?</td>
+          <td>–</td>
+          <td style="font-size:12px;color:#888;white-space:nowrap;">2026. 5. 19.</td>
+        </tr>
+        <tr>
+          <td>#12</td>
+          <td><span class="bot-name">축복앱AI</span> <span class="new-badge">NEW</span></td>
+          <td style="font-size:13px;">jangwooseng97@gmail.com</td>
+          <td>축복 절차에 대해서 알려줘</td>
+          <td>
+            <span class="badge badge-down">👎 1</span>
+            <button class="view-btn"><span class="new-marker">NEW</span>👁 보기</button>
+          </td>
+          <td style="font-size:12px;color:#888;white-space:nowrap;">2026. 3. 25.</td>
+        </tr>
+        <tr>
+          <td>#8</td>
+          <td><span class="bot-name">축복앱AI</span></td>
+          <td style="font-size:13px;">kim123@gmail.com</td>
+          <td>축복식 절차에 대해서 궁금해</td>
+          <td>
+            <span class="badge badge-up">👍 2</span>
+            <button class="view-btn"><span class="new-marker">NEW</span>👁 보기</button>
+          </td>
+          <td style="font-size:12px;color:#888;white-space:nowrap;">2026. 3. 20.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:32px;padding:14px 18px;background:#fff7ed;border-left:4px solid #ff6b00;border-radius:6px;font-size:13px;color:#444;">
+    <strong>요약</strong> — 클라이언트 메시지 액션바에 인라인 사유 폼 추가, 관리자 피드백 포커스에 사유 컬럼+필터 추가, 전체 대화 세션 탭에 점프 버튼 추가.
+  </div>
+</div>
+</body>
+</html>
