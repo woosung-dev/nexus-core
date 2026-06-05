@@ -151,6 +151,7 @@ async def get_or_create_kakao_session(
         .order_by(desc(ChatSession.created_at))
         .limit(1)
     )
+    # (user_id, bot_id) DB UNIQUE 제약은 없음 — 동시 첫 요청 시 세션이 둘 생길 수 있으나 "최신 세션" 재사용으로 다음 요청부터 수렴한다.
     result = await session.execute(stmt)
     existing = result.scalar_one_or_none()
     if existing is not None:
