@@ -5,6 +5,7 @@ User 관련 DB 연산(CRUD)을 담당하는 Repository.
 
 from typing import Sequence
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, col
 
@@ -91,5 +92,33 @@ async def get_or_create_by_clerk_id(
         session.add(user)
         await session.flush()
 
+    return user
+
+
+async def get_or_create_kakao_user(
+    session: AsyncSession, kakao_bot_id: str, bot_user_key: str
+) -> User:
+    """
+    카카오 사용자를 JIT 생성. 동일 사용자도 봇이 다르면 다른 키이므로 봇 namespace 포함.
+    email 은 필수·unique 라 synthetic 값을 만든다. 동시 최초 요청 race 는 재조회로 처리.
+    """
+    clerk_user_id = f"kakao:{kakao_bot_id}:{bot_user_key}"
+    result = await session.execute(select(User).where(User.clerk_user_id == clerk_user_id))
+    user = result.scalar_one_or_none()
+    if user is not None:
+        return user
+
+    user = User(
+        clerk_user_id=clerk_user_id,
+        email=f"kakao_{kakao_bot_id}_{bot_user_key}@kakao.local",
+        provider="kakao",
+    )
+    session.add(user)
+    try:
+        await session.flush()
+    except IntegrityError:
+        await session.rollback()
+        result = await session.execute(select(User).where(User.clerk_user_id == clerk_user_id))
+        user = result.scalar_one()
     return user
 
