@@ -36,6 +36,11 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     logger.info(f"🚀 {settings.APP_NAME} v{settings.APP_VERSION} 시작")
     logger.info(f"   DEBUG={settings.DEBUG}")
+    if settings.KAKAO_SKILL_SECRET is None:
+        logger.warning(
+            "KAKAO_SKILL_SECRET 미설정 — 카카오 콜백 엔드포인트 인증이 비활성화 상태입니다. "
+            "프로덕션에서는 반드시 설정하세요."
+        )
     yield
     logger.info(f"👋 {settings.APP_NAME} 종료")
 

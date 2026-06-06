@@ -45,6 +45,7 @@ import {
   PLAN_TYPE_OPTIONS,
   getModelProvider,
 } from "../schemas"
+import { KakaoChannelSection } from "./kakao-channel-section"
 
 interface BotEditFormProps {
   bot: BotResponse
@@ -493,6 +494,8 @@ export function BotEditForm({ bot }: BotEditFormProps) {
                 )}
               />
             </div>
+
+            <KakaoChannelSection botId={bot.id} />
 
             {/* 버튼 */}
             <div className="flex gap-3 pt-4">

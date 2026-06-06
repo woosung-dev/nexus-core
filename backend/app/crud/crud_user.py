@@ -3,8 +3,10 @@ User 관련 DB 연산(CRUD)을 담당하는 Repository.
 라우터(Controller)에서 비즈니스 로직과 DB 접근 코드를 분리하기 위해 사용합니다.
 """
 
+import hashlib
 from typing import Sequence
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, col
 
@@ -91,5 +93,35 @@ async def get_or_create_by_clerk_id(
         session.add(user)
         await session.flush()
 
+    return user
+
+
+async def get_or_create_kakao_user(
+    session: AsyncSession, kakao_bot_id: str, bot_user_key: str
+) -> User:
+    """
+    카카오 사용자를 JIT 생성. 동일 사용자도 봇이 다르면 다른 키이므로 봇 namespace 포함.
+    email 은 필수·unique 라 clerk_user_id 해시로 합성한다(구분자 충돌 방지 → email unique ⟺ clerk_user_id unique).
+    동시 최초 요청 race 는 SAVEPOINT(begin_nested) 안에서 insert 하고 IntegrityError 시 재조회로 처리한다.
+    """
+    clerk_user_id = f"kakao:{kakao_bot_id}:{bot_user_key}"
+    result = await session.execute(select(User).where(User.clerk_user_id == clerk_user_id))
+    user = result.scalar_one_or_none()
+    if user is not None:
+        return user
+
+    email_local = hashlib.sha256(clerk_user_id.encode()).hexdigest()[:32]
+    user = User(
+        clerk_user_id=clerk_user_id,
+        email=f"kakao_{email_local}@kakao.local",
+        provider="kakao",
+    )
+    try:
+        async with session.begin_nested():
+            session.add(user)
+            await session.flush()
+    except IntegrityError:
+        result = await session.execute(select(User).where(User.clerk_user_id == clerk_user_id))
+        user = result.scalar_one()
     return user
 

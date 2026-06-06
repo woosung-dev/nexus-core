@@ -139,3 +139,22 @@ async def get_message_with_session(
         return None
     return row[0], row[1]
 
+
+async def get_or_create_kakao_session(
+    session: AsyncSession, user_id: int, bot_id: int
+) -> ChatSession:
+    """카카오 사용자당 1개 지속 세션. (user_id, bot_id) 의 최근 세션 재사용, 없으면 생성."""
+    stmt = (
+        select(ChatSession)
+        .where(ChatSession.user_id == user_id)
+        .where(ChatSession.bot_id == bot_id)
+        .order_by(desc(ChatSession.created_at))
+        .limit(1)
+    )
+    # (user_id, bot_id) DB UNIQUE 제약은 없음 — 동시 첫 요청 시 세션이 둘 생길 수 있으나 "최신 세션" 재사용으로 다음 요청부터 수렴한다.
+    result = await session.execute(stmt)
+    existing = result.scalar_one_or_none()
+    if existing is not None:
+        return existing
+    return await create_chat_session(session, user_id=user_id, bot_id=bot_id, title="카카오 대화")
+

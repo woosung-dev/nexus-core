@@ -9,9 +9,12 @@ import { useRouter } from "next/navigation"
 import {
   botKeys,
   createBot,
+  createKakaoChannel,
   deleteBot,
+  deleteKakaoChannel,
   fetchBot,
   fetchBots,
+  fetchKakaoChannels,
   updateBot,
   uploadBotImage,
 } from "./api"
@@ -110,5 +113,34 @@ export function useDeleteBot() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: botKeys.lists() })
     },
+  })
+}
+
+/** 카카오 채널 목록 훅 */
+export function useKakaoChannels(botId: number) {
+  return useQuery({
+    queryKey: botKeys.kakao(botId),
+    queryFn: () => fetchKakaoChannels(botId),
+    enabled: !!botId,
+  })
+}
+
+/** 카카오 채널 등록 훅 */
+export function useCreateKakaoChannel(botId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (kakaoBotId: string) => createKakaoChannel(botId, kakaoBotId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: botKeys.kakao(botId) }),
+  })
+}
+
+/** 카카오 채널 삭제 훅 */
+export function useDeleteKakaoChannel(botId: number) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (channelId: number) => deleteKakaoChannel(botId, channelId),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: botKeys.kakao(botId) }),
   })
 }
