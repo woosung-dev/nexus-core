@@ -184,12 +184,17 @@ async def list_bot_documents(
 async def upload_bot_document(
     bot_id: int,
     file: UploadFile,
+    replace: bool = False,
     session: AsyncSession = Depends(get_session),
     storage: FileStorageService = Depends(get_storage_service),
 ) -> DocumentUploadResponse:
     """
     봇 전용 참고 문서 업로드.
     스토리지에 저장 후 RAG Store에 메타데이터(bot_id) 포함 업로드.
+
+    replace=False(기본): append 업로드(기존 동작). 동일 문서를 반복 업로드하면 중복 누적.
+    replace=True: 동일 (display_name, bot_id) 구버전을 안전 교체(신규 업로드 성공 후 구버전 삭제).
+        라이브 RAG 중복 정리 시 명시적으로 켠다(묵시적 파괴 동작 방지).
     """
     # 봇 존재 확인
     bot = await crud_bot.get_bot(session, bot_id)
@@ -213,7 +218,8 @@ async def upload_bot_document(
     rag = get_rag_service(provider=bot.llm_model)
     display_name = file.filename or "unknown"
 
-    await rag.upload_document(
+    upload_fn = rag.replace_document if replace else rag.upload_document
+    await upload_fn(
         bot_id=bot_id,
         file_data=file_data,
         filename=display_name,
@@ -221,7 +227,10 @@ async def upload_bot_document(
         mime_type=file.content_type,
     )
 
-    logger.info(f"봇 문서 업로드 완료: bot_id={bot_id}, file={display_name}, provider={bot.llm_model}")
+    logger.info(
+        f"봇 문서 업로드 완료: bot_id={bot_id}, file={display_name}, "
+        f"provider={bot.llm_model}, replace={replace}"
+    )
 
     return DocumentUploadResponse(
         file_name=file.filename or "unknown",
