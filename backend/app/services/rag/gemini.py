@@ -5,6 +5,7 @@ Gemini File Search API 기반 RAG 서비스.
 벡터 DB 없이 Google 관리형 RAG를 구현.
 """
 
+import hashlib
 import io
 import logging
 import re
@@ -50,7 +51,17 @@ _FOLLOWUPS_INSTRUCTION = """
 
 
 # 본문에서 followups 블록과 RAG citation marker 를 분리하기 위한 정규식.
-_FOLLOWUPS_BLOCK_RE = re.compile(r"<followups>(.*?)</followups>", re.DOTALL | re.IGNORECASE)
+# 견고화: 여는 태그의 공백/구분자 변형(`< followups >`, `<follow_ups>`, `<follow-ups>`)을 허용하고,
+# 닫는 태그가 누락돼도(`</followups>` 없음) 문자열 끝(\Z)까지 흡수해 본문 노출을 막는다.
+_FOLLOWUPS_BLOCK_RE = re.compile(
+    r"<\s*follow[\s_-]?ups\s*>(.*?)(?:<\s*/\s*follow[\s_-]?ups\s*>|\Z)",
+    re.DOTALL | re.IGNORECASE,
+)
+# 파싱이 실패하거나 부분만 매칭돼도 내부 마커/지시문이 사용자에게 노출되지 않도록 제거하는 안전망.
+_FOLLOWUPS_RESIDUE_RE = re.compile(
+    r"<\s*/?\s*follow[\s_-]?ups\s*>|\[FOLLOWUP_INSTRUCTION\]",
+    re.IGNORECASE,
+)
 # Gemini file_search grounding 이 본문에 자동 삽입하는 `[1.2, 1.5]` 같은 인용 마커.
 # 사용자에겐 의미 불명이라 시각 노이즈로 작용 → 본문에서 제거 (citations 배열은 보존).
 _CITATION_MARKER_RE = re.compile(r"\s*\[[\d.,\s]+\]")
@@ -71,7 +82,11 @@ def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
     if match:
         block = match.group(1)
         for line in block.splitlines():
-            cleaned = _LIST_MARKER_RE.sub("", line).strip().strip('"').strip("'")
+            cleaned = line.strip()
+            # 코드펜스(``` 또는 ```lang) 줄은 followup 이 아니므로 건너뛴다.
+            if cleaned.startswith("```"):
+                continue
+            cleaned = _LIST_MARKER_RE.sub("", cleaned).strip().strip('"').strip("'").strip("`").strip()
             if len(cleaned) >= 3:
                 followups.append(cleaned)
             if len(followups) >= 3:
@@ -79,6 +94,8 @@ def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
         # 본문에서 블록 자체와 그 앞 구분자 흔적 제거
         raw = _FOLLOWUPS_BLOCK_RE.sub("", raw)
 
+    # 안전망: 매칭 실패/부분 노출에 대비해 잔여 마커·지시문을 제거(사용자 노출 0건 보장).
+    raw = _FOLLOWUPS_RESIDUE_RE.sub("", raw)
     # citation marker 제거 (citations 배열은 그대로 유지되므로 출처 추적은 가능)
     raw = _CITATION_MARKER_RE.sub("", raw)
     # followup 안내 직전에 넣어둔 `---` 잔여 제거
@@ -166,6 +183,10 @@ class GeminiRAGService(BaseRAGService):
         """
         store_name = await self.ensure_store()
 
+        # 내용 해시 — 동일 문서 식별/dedup 근거. (display_name, bot_id) 만으로는
+        # 같은 이름 다른 버전을 구분 못 하므로 content_sha256 을 메타데이터로 박는다.
+        content_hash = hashlib.sha256(file_data).hexdigest()
+
         try:
             # Gemini SDK는 업로드 시 파일 자체(bytes) 보다는 파일 객체 또는 경로를 권장합니다.
             # 마임타입이 없으면 인덱싱 에러가 발생하므로 config 내에 명시적으로 전달합니다.
@@ -177,6 +198,7 @@ class GeminiRAGService(BaseRAGService):
                     "display_name": display_name,
                     "custom_metadata": [
                         {"key": "bot_id", "numeric_value": bot_id},
+                        {"key": "content_sha256", "string_value": content_hash},
                     ],
                 },
             )

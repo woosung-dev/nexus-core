@@ -4,14 +4,67 @@ RAG 서비스 추상 인터페이스.
 메타데이터 기반 검색(응답)을 동일한 구조로 처리하기 위해 설계.
 """
 
+import logging
 from abc import ABC, abstractmethod
 from collections.abc import AsyncGenerator
 
 from app.schemas.rag import DocumentInfo, RAGResponse
 
+logger = logging.getLogger(__name__)
+
 
 class BaseRAGService(ABC):
     """File Search 기반 RAG(Retrieval-Augmented Generation) 추상 클래스"""
+
+    async def replace_document(
+        self,
+        bot_id: int,
+        file_data: bytes,
+        filename: str,
+        display_name: str,
+        mime_type: str | None = None,
+    ) -> str:
+        """
+        동일 (display_name, bot_id) 문서를 안전하게 교체한다(append-only 중복 누적 방지).
+
+        라이브 문서 소실을 막기 위해 **"신규 업로드 성공 후에만 구버전 삭제"** 순서를
+        강제한다. 업로드가 실패하면 예외가 전파되고 기존 문서는 그대로 보존된다.
+        provider 무관하게 추상 메서드(list/upload/delete)만으로 동작하므로
+        Gemini·OpenAI 구현체가 공통 상속한다.
+        """
+        # ① 교체 대상(동일 display_name) 구버전 file_id 를 업로드 전에 수집한다.
+        existing = await self.list_documents(bot_id=bot_id)
+        old_file_ids = [d.file_id for d in existing if d.display_name == display_name]
+
+        # ② 신규 업로드 먼저. 실패 시 예외 전파 → 아래 삭제로 진입하지 않아 기존 보존.
+        result = await self.upload_document(
+            bot_id=bot_id,
+            file_data=file_data,
+            filename=filename,
+            display_name=display_name,
+            mime_type=mime_type,
+        )
+
+        # ③ 업로드 성공 후에만 구버전 purge. 개별 삭제 실패는 치명 아님(중복만 잔존) → 경고.
+        for file_id in old_file_ids:
+            try:
+                await self.delete_document(bot_id=bot_id, file_id=file_id)
+            except Exception as e:
+                logger.warning(
+                    "replace_document: 구버전 삭제 실패 (bot_id=%s, file_id=%s): %s "
+                    "— 중복이 남을 수 있어 수동 정리 필요",
+                    bot_id,
+                    file_id,
+                    e,
+                )
+
+        logger.info(
+            "replace_document 완료: bot_id=%s display_name=%s 구버전 %d건 정리",
+            bot_id,
+            display_name,
+            len(old_file_ids),
+        )
+        return result
 
     @abstractmethod
     async def ensure_store(self, bot_id: int | None = None) -> str:
