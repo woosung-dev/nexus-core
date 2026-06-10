@@ -48,6 +48,10 @@ class Settings(BaseSettings):
 
     # --- RAG (File Search API) ---
     FILE_SEARCH_STORE_NAME: str = "nexus-core-knowledge-base"
+    # File Search 검색 청크 수(top_k). 미설정 시 서버 기본값 → 명시 상향으로 recall 보강.
+    RAG_TOP_K: int = 12
+    # RAG 사실 답변 경로 생성 temperature. 재현성과 상담가 어조(다양성) 사이의 절충값.
+    RAG_TEMPERATURE: float = 0.3
 
     # --- Auth (Provider-Agnostic) ---
     # JWKS URL로 JWT 서명 검증. 인증 플랫폼 교체 시 이 URL만 바꾸면 됩니다.

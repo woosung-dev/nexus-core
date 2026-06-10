@@ -293,7 +293,7 @@ class GeminiRAGService(BaseRAGService):
         prompt: str,
         system_prompt: str = "",
         model_name: str | None = None,
-        temperature: float = 0.7,
+        temperature: float | None = None,
         max_tokens: int = 2048,
     ) -> RAGResponse:
         """
@@ -310,6 +310,9 @@ class GeminiRAGService(BaseRAGService):
         """
         # 기본 모델 지정
         actual_model_name = model_name or "gemini-2.5-flash"
+        settings = get_settings()
+        if temperature is None:
+            temperature = settings.RAG_TEMPERATURE
 
         store_name = await self.ensure_store()
 
@@ -326,6 +329,7 @@ class GeminiRAGService(BaseRAGService):
                     file_search=types.FileSearch(
                         file_search_store_names=[store_name],
                         metadata_filter=f"bot_id = {bot_id}",
+                        top_k=settings.RAG_TOP_K,
                     )
                 )
             ],
@@ -390,7 +394,7 @@ class GeminiRAGService(BaseRAGService):
         prompt: str,
         system_prompt: str = "",
         model_name: str | None = None,
-        temperature: float = 0.7,
+        temperature: float | None = None,
         max_tokens: int = 2048,
     ):
         """
@@ -399,6 +403,9 @@ class GeminiRAGService(BaseRAGService):
         """
 
         actual_model_name = model_name or "gemini-2.5-flash"
+        settings = get_settings()
+        if temperature is None:
+            temperature = settings.RAG_TEMPERATURE
         store_name = await self.ensure_store()
 
         config = types.GenerateContentConfig(
@@ -410,6 +417,7 @@ class GeminiRAGService(BaseRAGService):
                     file_search=types.FileSearch(
                         file_search_store_names=[store_name],
                         metadata_filter=f"bot_id = {bot_id}",
+                        top_k=settings.RAG_TOP_K,
                     )
                 )
             ],
