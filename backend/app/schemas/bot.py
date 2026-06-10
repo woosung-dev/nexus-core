@@ -23,6 +23,7 @@ class BotResponse(BaseModel):
     is_active: bool = True
     llm_model: str = ""
     system_prompt: str = ""
+    history_window: int = 0
 
 
 class BotListResponse(BaseModel):
@@ -63,3 +64,4 @@ class BotUpdateRequest(BaseModel):
     system_prompt: str | None = None
     llm_model: str | None = None
     is_active: bool | None = None
+    history_window: int | None = None

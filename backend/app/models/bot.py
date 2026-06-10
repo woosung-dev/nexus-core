@@ -41,6 +41,9 @@ class Bot(SQLModel, table=True):
     # RAG(file_search) 활성화 여부 — store에 문서가 없는 봇은 False로 두면 RAG tool 호출 자체를 skip해
     # 매 요청 7-12초의 빈 retrieval 비용을 절약. frontend의 use_rag 요청과 AND로 평가됨.
     use_rag: bool = Field(default=True)
+    # 멀티턴 대화 기억 윈도우 — LLM 호출에 함께 보낼 최근 메시지 수. 0이면 기억 안 함(stateless).
+    # 카카오 연결 봇은 영구 세션 1개에 메시지가 무한 누적되므로 0 유지 권장.
+    history_window: int = Field(default=0, ge=0)
 
     # 활성화 여부
     is_active: bool = Field(default=True)
