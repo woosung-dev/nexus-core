@@ -17,6 +17,7 @@ from google.genai import types
 
 from app.core.config import get_settings
 from app.schemas.rag import DocumentInfo, RAGCitation, RAGResponse
+from app.services.llm.gemini import build_gemini_contents
 from app.services.rag.base import BaseRAGService
 
 logger = logging.getLogger(__name__)
@@ -317,6 +318,7 @@ class GeminiRAGService(BaseRAGService):
         model_name: str | None = None,
         temperature: float | None = None,
         max_tokens: int = 2048,
+        history: list[dict[str, str]] | None = None,
     ) -> RAGResponse:
         """
         RAG 기반 응답 생성.
@@ -329,6 +331,7 @@ class GeminiRAGService(BaseRAGService):
             model_name: 사용할 모델 (기본값 gemini-2.5-flash)
             temperature: 응답 다양성
             max_tokens: 최대 토큰
+            history: 멀티턴 대화 이력 (과거→현재, 현재 질문 미포함)
         """
         # 기본 모델 지정
         actual_model_name = model_name or "gemini-2.5-flash"
@@ -361,7 +364,7 @@ class GeminiRAGService(BaseRAGService):
         t_gen = time.perf_counter()
         response = await self._client.aio.models.generate_content(
             model=actual_model_name,
-            contents=prompt,
+            contents=build_gemini_contents(prompt, history),
             config=config,
         )
         gen_ms = (time.perf_counter() - t_gen) * 1000
@@ -418,6 +421,7 @@ class GeminiRAGService(BaseRAGService):
         model_name: str | None = None,
         temperature: float | None = None,
         max_tokens: int = 2048,
+        history: list[dict[str, str]] | None = None,
     ):
         """
         RAG 기반 스트리밍 응답 생성.
@@ -449,7 +453,7 @@ class GeminiRAGService(BaseRAGService):
         last_grounding = None
         async for chunk in await self._client.aio.models.generate_content_stream(
             model=actual_model_name,
-            contents=prompt,
+            contents=build_gemini_contents(prompt, history),
             config=config,
         ):
             try:

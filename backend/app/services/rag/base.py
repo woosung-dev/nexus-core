@@ -132,6 +132,7 @@ class BaseRAGService(ABC):
         model_name: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        history: list[dict[str, str]] | None = None,
     ) -> RAGResponse:
         """
         RAG 기반 멀티턴 대체(또는 단일) 응답 생성.
@@ -144,6 +145,8 @@ class BaseRAGService(ABC):
             model_name: 오버라이드할 모델명 (지정 안 하면 제공자의 기본 모델 사용)
             temperature: 응답 다양성
             max_tokens: 최대 토큰 수
+            history: 멀티턴 대화 이력. [{"role": "user"|"assistant", "content": str}]
+                형식으로 과거→현재 순이며, 현재 질문(prompt)은 포함하지 않는다.
 
         Returns:
              답변과 인용 정보가 포함된 RAGResponse 객체
@@ -159,6 +162,7 @@ class BaseRAGService(ABC):
         model_name: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        history: list[dict[str, str]] | None = None,
     ) -> AsyncGenerator[str | dict, None]:
         """
         RAG 기반 스트리밍 응답 생성 (SSE용).
@@ -173,6 +177,7 @@ class BaseRAGService(ABC):
             model_name: 사용할 모델
             temperature: 응답 다양성
             max_tokens: 최대 토큰 수
+            history: 멀티턴 대화 이력 (generate_with_rag와 동일 규약)
 
         Yields:
             텍스트 청크 (str)

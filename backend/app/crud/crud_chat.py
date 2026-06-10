@@ -96,6 +96,27 @@ async def get_session_messages(session: AsyncSession, session_id: int) -> Sequen
     return result.scalars().all()
 
 
+async def get_recent_messages(
+    session: AsyncSession, session_id: int, limit: int
+) -> list[Message]:
+    """세션의 최근 메시지 limit개를 시간순(과거→현재)으로 반환.
+
+    LLM 멀티턴 컨텍스트용 — system role 제외, id desc로 최신 limit개를 끊은 뒤 뒤집는다.
+    created_at 대신 id 정렬: 같은 트랜잭션 내 flush로 created_at이 동률일 수 있어 id가 결정적.
+    """
+    statement = (
+        select(Message)
+        .where(Message.session_id == session_id)
+        .where(Message.role.in_([MessageRole.USER, MessageRole.ASSISTANT]))
+        .order_by(desc(Message.id))
+        .limit(limit)
+    )
+    result = await session.execute(statement)
+    rows = list(result.scalars().all())
+    rows.reverse()
+    return rows
+
+
 async def create_message(
     session: AsyncSession,
     session_id: int,

@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.crud import crud_chat
 from app.models.bot import Bot
 from app.models.chat import ChatSession
@@ -28,6 +29,40 @@ class ChatService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def _load_history(
+        self, session_id: int, bot: Bot, current_message: str
+    ) -> list[dict[str, str]]:
+        """멀티턴 대화 기억용 슬라이딩 윈도우 히스토리 로드.
+
+        bot.history_window(0=비활성)만큼 최근 메시지를 [{"role","content"}] 로 직렬화한다.
+        call site(웹 엔드포인트/카카오 워커)가 현재 사용자 메시지를 먼저 flush하므로
+        같은 트랜잭션 조회에 포함됨 → 마지막 row가 현재 메시지와 일치할 때만 드랍.
+        """
+        window = bot.history_window or 0
+        if window <= 0:
+            return []
+
+        rows = await crud_chat.get_recent_messages(
+            self.session, session_id=session_id, limit=window + 1
+        )
+        if rows and rows[-1].role == MessageRole.USER and rows[-1].content == current_message:
+            rows = rows[:-1]
+        rows = rows[-window:]
+
+        cut = get_settings().CHAT_HISTORY_MAX_CHARS_PER_MESSAGE
+        history: list[dict[str, str]] = []
+        for m in rows:
+            content = m.content
+            if cut > 0 and len(content) > cut:
+                content = content[:cut] + " …(이하 생략)"
+            history.append(
+                {
+                    "role": "user" if m.role == MessageRole.USER else "assistant",
+                    "content": content,
+                }
+            )
+        return history
+
     async def process_chat_request(
         self,
         request: ChatCompletionRequest,
@@ -40,12 +75,14 @@ class ChatService:
         """
         # 진단용 분기 식별 로그: 어느 경로(FAQ/RAG/일반 LLM, OpenAI/Gemini)로 빠지는지 운영에서 한 줄로 확인.
         logger.info(
-            "chat req — bot_id=%s model=%s stream=%s req_use_rag=%s bot_use_rag=%s msg_len=%d session_id=%s",
+            "chat req — bot_id=%s model=%s stream=%s req_use_rag=%s bot_use_rag=%s "
+            "history_window=%d msg_len=%d session_id=%s",
             bot.id,
             bot.llm_model,
             request.stream,
             request.use_rag,
             bot.use_rag,
+            bot.history_window or 0,
             len(request.message),
             chat_session.id,
         )
@@ -80,6 +117,16 @@ class ChatService:
                 source="faq_override",
             )
 
+        # 멀티턴 대화 기억 — FAQ 분기 통과 후 1회만 로드 (FAQ hit 시 불필요한 쿼리 방지).
+        # history_window=0(기본)이면 빈 리스트 → 기존 stateless 동작과 완전 동일.
+        history = await self._load_history(chat_session.id, bot, request.message)
+        if history:
+            logger.info(
+                "chat history loaded — session_id=%s history_len=%d",
+                chat_session.id,
+                len(history),
+            )
+
         # 2. (분기) RAG 처리
         # bot.use_rag 로 봇 단위 토글 제공 — file_search store가 비어있는 봇은 admin에서 False로
         # 설정해 매 요청 7-12s의 빈 retrieval 호출을 차단한다. request.use_rag와 AND 평가.
@@ -96,7 +143,7 @@ class ChatService:
 
             if request.stream:
                 return StreamingResponse(
-                    self._generate_rag_stream(rag_service, request, bot, chat_session),
+                    self._generate_rag_stream(rag_service, request, bot, chat_session, history),
                     media_type="text/event-stream",
                     headers={
                         "Cache-Control": "no-cache",
@@ -110,6 +157,7 @@ class ChatService:
                     prompt=request.message,
                     system_prompt=bot.system_prompt,
                     model_name=bot.llm_model,
+                    history=history or None,
                 )
 
                 await crud_chat.create_message(
@@ -139,7 +187,7 @@ class ChatService:
 
         if request.stream:
             return StreamingResponse(
-                self._generate_llm_stream(llm_service, request, bot, chat_session),
+                self._generate_llm_stream(llm_service, request, bot, chat_session, history),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
@@ -151,6 +199,7 @@ class ChatService:
             content = await llm_service.generate(
                 prompt=request.message,
                 system_prompt=bot.system_prompt,
+                history=history or None,
             )
 
             # followups 를 먼저 생성해 메시지에 함께 영속화 (관리자 상세에서 후속질문 표시).
@@ -174,7 +223,7 @@ class ChatService:
                 followups=followups,
             )
 
-    async def _generate_rag_stream(self, rag_service, request, bot, chat_session):
+    async def _generate_rag_stream(self, rag_service, request, bot, chat_session, history=None):
         full_response_content = ""
         try:
             meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
@@ -186,6 +235,7 @@ class ChatService:
                 prompt=request.message,
                 system_prompt=bot.system_prompt,
                 model_name=bot.llm_model,
+                history=history or None,
             ):
                 # 본문은 str, 스트림 종료 시 인용 메타데이터는 dict 로 1회 전달된다.
                 # 인용은 DB 저장만 하고 클라이언트 SSE 와이어 포맷은 기존 그대로 유지한다.
@@ -225,7 +275,7 @@ class ChatService:
             error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
             yield f"data: {error_data}\n\n"
 
-    async def _generate_llm_stream(self, llm_service, request, bot, chat_session):
+    async def _generate_llm_stream(self, llm_service, request, bot, chat_session, history=None):
         full_response_content = ""
         try:
             # 클라이언트에게 활성화된 session_id를 가장 먼저 알려줌 (새로고침/리다이렉트 용도)
@@ -235,6 +285,7 @@ class ChatService:
             async for chunk in llm_service.generate_stream(
                 prompt=request.message,
                 system_prompt=bot.system_prompt,
+                history=history or None,
             ):
                 full_response_content += chunk
                 data = json.dumps({"content": chunk}, ensure_ascii=False)

@@ -17,6 +17,7 @@ class LLMService(ABC):
         system_prompt: str = "",
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        history: list[dict[str, str]] | None = None,
     ) -> str:
         """
         단일 응답 생성 (Non-Streaming).
@@ -26,6 +27,9 @@ class LLMService(ABC):
             system_prompt: 시스템 프롬프트 (봇 페르소나)
             temperature: 생성 다양성 (0.0~1.0)
             max_tokens: 최대 토큰 수
+            history: 멀티턴 대화 이력. [{"role": "user"|"assistant", "content": str}]
+                형식으로 과거→현재 순이며, 현재 질문(prompt)은 포함하지 않는다.
+                None/빈 리스트면 단일턴(stateless)으로 동작.
 
         Returns:
             생성된 텍스트
@@ -39,6 +43,7 @@ class LLMService(ABC):
         system_prompt: str = "",
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        history: list[dict[str, str]] | None = None,
     ) -> AsyncGenerator[str, None]:
         """
         스트리밍 응답 생성 (SSE용).
@@ -48,6 +53,7 @@ class LLMService(ABC):
             system_prompt: 시스템 프롬프트
             temperature: 생성 다양성
             max_tokens: 최대 토큰 수
+            history: 멀티턴 대화 이력 (generate와 동일 규약)
 
         Yields:
             텍스트 청크

@@ -53,6 +53,11 @@ class Settings(BaseSettings):
     # RAG 사실 답변 경로 생성 temperature. 재현성과 상담가 어조(다양성) 사이의 절충값.
     RAG_TEMPERATURE: float = 0.3
 
+    # --- 멀티턴 대화 기억 ---
+    # 히스토리에 포함되는 개별 메시지의 최대 길이(자). 초과분은 잘라 토큰 폭주를 막는다.
+    # 0이면 컷 없음. 현재 질문에는 적용되지 않음 (봇별 윈도우 크기는 bots.history_window).
+    CHAT_HISTORY_MAX_CHARS_PER_MESSAGE: int = 500
+
     # --- Auth (Provider-Agnostic) ---
     # JWKS URL로 JWT 서명 검증. 인증 플랫폼 교체 시 이 URL만 바꾸면 됩니다.
     # Clerk:    https://<frontend-api>.clerk.accounts.dev/.well-known/jwks.json
