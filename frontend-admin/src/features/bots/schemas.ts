@@ -75,6 +75,11 @@ export const botEditFormSchema = z.object({
     .string()
     .min(1, { message: "시스템 프롬프트는 필수입니다." }),
   llm_model: z.string().min(1, { message: "LLM 모델을 선택해 주세요." }),
+  // 대화 기억 윈도우 — number Input의 value는 string이므로 coerce로 변환
+  history_window: z.coerce
+    .number()
+    .int({ message: "정수를 입력해 주세요." })
+    .min(0, { message: "0 이상이어야 합니다." }),
 });
 
 export type BotEditFormValues = z.infer<typeof botEditFormSchema>;

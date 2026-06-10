@@ -19,6 +19,7 @@ export type BotResponse = {
   is_active: boolean
   llm_model: string
   system_prompt: string
+  history_window: number
 }
 
 // GET /api/v1/admin/bots (목록)
@@ -43,6 +44,7 @@ export type BotCreateRequest = {
 // PUT /api/v1/admin/bots/:id — 봇 수정 요청 (부분 업데이트)
 export type BotUpdateRequest = Partial<BotCreateRequest> & {
   is_active?: boolean
+  history_window?: number
 }
 
 // POST /api/v1/admin/bots/:id/image
