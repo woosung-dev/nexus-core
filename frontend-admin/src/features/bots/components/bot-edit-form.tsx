@@ -86,6 +86,7 @@ export function BotEditForm({ bot }: BotEditFormProps) {
       plan_required: bot.plan_required,
       system_prompt: bot.system_prompt,
       llm_model: bot.llm_model,
+      history_window: bot.history_window ?? 0,
     },
   })
 
@@ -488,6 +489,34 @@ export function BotEditForm({ bot }: BotEditFormProps) {
                       <Switch
                         checked={field.value}
                         onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              {/* 대화 기억 윈도우 */}
+              <FormField
+                control={form.control}
+                name="history_window"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">대화 기억 윈도우</FormLabel>
+                      <FormDescription>
+                        LLM에 함께 보낼 최근 메시지 수입니다. 0이면 기억하지
+                        않습니다(기존 동작). 권장값 8. 카카오 연결 봇은 0을
+                        유지하세요.
+                      </FormDescription>
+                      <FormMessage />
+                    </div>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        min={0}
+                        step={1}
+                        className="w-24 shrink-0"
+                        {...field}
                       />
                     </FormControl>
                   </FormItem>

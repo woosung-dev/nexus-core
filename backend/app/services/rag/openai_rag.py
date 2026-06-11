@@ -241,6 +241,7 @@ class OpenAIRAGService(BaseRAGService):
         model_name: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        history: list[dict[str, str]] | None = None,
     ) -> RAGResponse:
         """
         RAG 기반 응답 생성.
@@ -250,16 +251,14 @@ class OpenAIRAGService(BaseRAGService):
         actual_model_name = model_name or "gpt-4o"
 
         try:
-            # 1. 새 Thread 생성 시 사용자 메시지 추가
+            # 1. 새 Thread 생성 시 멀티턴 이력 + 사용자 메시지 추가
             # Assistants V2에서 Threads API는 아직 beta에 남아있습니다.
-            thread = await self._client.beta.threads.create(
-                messages=[
-                    {
-                        "role": "user",
-                        "content": prompt,
-                    }
-                ]
-            )
+            # Threads API는 user/assistant role 메시지를 모두 허용하므로 이력을 그대로 주입.
+            thread_messages = [
+                {"role": m["role"], "content": m["content"]} for m in (history or [])
+            ]
+            thread_messages.append({"role": "user", "content": prompt})
+            thread = await self._client.beta.threads.create(messages=thread_messages)
 
             # 2. Assistant를 즉석에서 생성 (혹은 기존 것 재사용 가능하나 유연성을 위해 매번 생성)
             # 시스템 프롬프트 지원 및 File Search 도구 활성화
@@ -354,6 +353,7 @@ class OpenAIRAGService(BaseRAGService):
         model_name: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        history: list[dict[str, str]] | None = None,
     ):
         """
         RAG 기반 스트리밍 응답 생성 (OpenAI Assistants API 폴백).
@@ -369,6 +369,7 @@ class OpenAIRAGService(BaseRAGService):
             model_name=model_name,
             temperature=temperature,
             max_tokens=max_tokens,
+            history=history,
         )
         # 단어 단위로 yield (스트리밍 체감 효과)
         import asyncio

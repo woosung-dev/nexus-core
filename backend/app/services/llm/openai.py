@@ -30,11 +30,14 @@ class OpenAIService(LLMService):
         system_prompt: str = "",
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        history: list[dict[str, str]] | None = None,
     ) -> str:
         """GPT-4o 단일 응답 생성"""
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
+        if history:
+            messages.extend(history)
         messages.append({"role": "user", "content": prompt})
 
         try:
@@ -61,11 +64,14 @@ class OpenAIService(LLMService):
         system_prompt: str = "",
         temperature: float = 0.7,
         max_tokens: int = 2048,
+        history: list[dict[str, str]] | None = None,
     ) -> AsyncGenerator[str, None]:
         """GPT-4o 스트리밍 응답 생성"""
         messages = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
+        if history:
+            messages.extend(history)
         messages.append({"role": "user", "content": prompt})
 
         try:
