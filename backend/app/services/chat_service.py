@@ -12,17 +12,29 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.exceptions import ResponseBlockedError
 from app.crud import crud_chat
 from app.models.bot import Bot
 from app.models.chat import ChatSession
 from app.models.enums import MessageRole
 from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse
+from app.services.crisis_service import (
+    BLOCKED_FALLBACK_MESSAGE,
+    CRISIS_DIRECTIVE,
+    detect_crisis_signal,
+    strip_phone_sentences,
+)
 from app.services.faq_service import search_faq_override
 from app.services.followup_service import generate_followups
 from app.services.llm.factory import get_llm_service
 from app.services.rag.factory import get_rag_service
 
 logger = logging.getLogger(__name__)
+
+# 스트리밍 중 예기치 못한 예외를 사용자에게 노출하지 않기 위한 고정 안내 (raw str(e) 대체).
+_GENERIC_STREAM_ERROR_MESSAGE = (
+    "죄송합니다. 일시적인 오류로 답변을 생성하지 못했어요. 잠시 후 다시 시도해 주세요."
+)
 
 
 class ChatService:
@@ -87,11 +99,26 @@ class ChatService:
             chat_session.id,
         )
 
+        # 위기 후보 신호 감지 — 자동 차단이 아니라 per-turn 지시문 주입/번호 필터의 트리거.
+        crisis_keyword = detect_crisis_signal(request.message)
+        if crisis_keyword:
+            logger.warning(
+                "crisis signal detected — session_id=%s bot_id=%s keyword=%s",
+                chat_session.id,
+                bot.id,
+                crisis_keyword,
+            )
+
         # 1. FAQ Override 검색 (시맨틱 라우팅)
-        faq_match = await search_faq_override(
-            session=self.session,
-            bot_id=bot.id,
-            query_text=request.message,
+        # 위기 신호 턴은 FAQ 캔드 답변으로 빠지지 않게 스킵 (생성형 위기 대응 보장).
+        faq_match = (
+            None
+            if crisis_keyword
+            else await search_faq_override(
+                session=self.session,
+                bot_id=bot.id,
+                query_text=request.message,
+            )
         )
 
         if faq_match:
@@ -127,6 +154,12 @@ class ChatService:
                 len(history),
             )
 
+        # 위기 신호 턴에만 대응 지시문을 코드로 덧붙인다. DB의 bot.system_prompt 는 불변
+        # (ORM 객체를 재할당하면 commit 시 DB 가 오염되므로 반드시 별도 변수).
+        effective_system_prompt = (
+            bot.system_prompt + CRISIS_DIRECTIVE if crisis_keyword else bot.system_prompt
+        )
+
         # 2. (분기) RAG 처리
         # bot.use_rag 로 봇 단위 토글 제공 — file_search store가 비어있는 봇은 admin에서 False로
         # 설정해 매 요청 7-12s의 빈 retrieval 호출을 차단한다. request.use_rag와 AND 평가.
@@ -143,7 +176,15 @@ class ChatService:
 
             if request.stream:
                 return StreamingResponse(
-                    self._generate_rag_stream(rag_service, request, bot, chat_session, history),
+                    self._generate_rag_stream(
+                        rag_service,
+                        request,
+                        bot,
+                        chat_session,
+                        history,
+                        system_prompt=effective_system_prompt,
+                        crisis_keyword=crisis_keyword,
+                    ),
                     media_type="text/event-stream",
                     headers={
                         "Cache-Control": "no-cache",
@@ -152,19 +193,32 @@ class ChatService:
                     },
                 )
             else:
-                rag_response = await rag_service.generate_with_rag(
-                    bot_id=bot.id,
-                    prompt=request.message,
-                    system_prompt=bot.system_prompt,
-                    model_name=bot.llm_model,
-                    history=history or None,
+                try:
+                    rag_response = await rag_service.generate_with_rag(
+                        bot_id=bot.id,
+                        prompt=request.message,
+                        system_prompt=effective_system_prompt,
+                        model_name=bot.llm_model,
+                        history=history or None,
+                    )
+                except ResponseBlockedError as e:
+                    logger.warning(
+                        "RAG 응답 차단 — session_id=%s reason=%s", chat_session.id, e.reason
+                    )
+                    return await self._blocked_fallback_response(bot, chat_session)
+
+                # 위기 턴은 환각 번호 방어를 위해 본문에서 전화번호 문장을 제거 후 저장/응답.
+                answer = (
+                    strip_phone_sentences(rag_response.answer)[0]
+                    if crisis_keyword
+                    else rag_response.answer
                 )
 
                 await crud_chat.create_message(
                     session=self.session,
                     session_id=chat_session.id,
                     role=MessageRole.ASSISTANT,
-                    content=rag_response.answer,
+                    content=answer,
                     citations=[c.model_dump() for c in rag_response.citations],
                     followups=rag_response.followups,
                 )
@@ -175,7 +229,7 @@ class ChatService:
                 # 별도 LLM call(followup_service) 을 제거해 wall-time/비용 절반 + timeout 사고 차단.
                 return ChatCompletionResponse(
                     session_id=chat_session.id,
-                    content=rag_response.answer,
+                    content=answer,
                     bot_id=bot.id,
                     citations=rag_response.citations,
                     source="rag",
@@ -187,7 +241,15 @@ class ChatService:
 
         if request.stream:
             return StreamingResponse(
-                self._generate_llm_stream(llm_service, request, bot, chat_session, history),
+                self._generate_llm_stream(
+                    llm_service,
+                    request,
+                    bot,
+                    chat_session,
+                    history,
+                    system_prompt=effective_system_prompt,
+                    crisis_keyword=crisis_keyword,
+                ),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
@@ -196,11 +258,19 @@ class ChatService:
                 },
             )
         else:
-            content = await llm_service.generate(
-                prompt=request.message,
-                system_prompt=bot.system_prompt,
-                history=history or None,
-            )
+            try:
+                content = await llm_service.generate(
+                    prompt=request.message,
+                    system_prompt=effective_system_prompt,
+                    history=history or None,
+                )
+            except ResponseBlockedError as e:
+                logger.warning("LLM 응답 차단 — session_id=%s reason=%s", chat_session.id, e.reason)
+                return await self._blocked_fallback_response(bot, chat_session)
+
+            # 위기 턴은 환각 번호 방어를 위해 본문에서 전화번호 문장을 제거 후 저장/응답.
+            if crisis_keyword:
+                content = strip_phone_sentences(content)[0]
 
             # followups 를 먼저 생성해 메시지에 함께 영속화 (관리자 상세에서 후속질문 표시).
             followups = await generate_followups(request.message, content)
@@ -223,8 +293,20 @@ class ChatService:
                 followups=followups,
             )
 
-    async def _generate_rag_stream(self, rag_service, request, bot, chat_session, history=None):
+    async def _generate_rag_stream(
+        self,
+        rag_service,
+        request,
+        bot,
+        chat_session,
+        history=None,
+        system_prompt: str | None = None,
+        crisis_keyword: str | None = None,
+    ):
+        # system_prompt 미지정(레거시 호출) 시 봇 기본값 — 기존 테스트 호환.
+        effective_system_prompt = system_prompt if system_prompt is not None else bot.system_prompt
         full_response_content = ""
+        sent_content = ""  # 와이어로 이미 내보낸 텍스트 (차단 시 DB 이어붙임 기준)
         try:
             meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
             yield f"data: {meta_data}\n\n"
@@ -233,17 +315,26 @@ class ChatService:
             async for chunk in rag_service.generate_stream_with_rag(
                 bot_id=bot.id,
                 prompt=request.message,
-                system_prompt=bot.system_prompt,
+                system_prompt=effective_system_prompt,
                 model_name=bot.llm_model,
                 history=history or None,
             ):
                 # 본문은 str, 스트림 종료 시 인용 메타데이터는 dict 로 1회 전달된다.
-                # 인용은 DB 저장만 하고 클라이언트 SSE 와이어 포맷은 기존 그대로 유지한다.
                 if isinstance(chunk, dict):
                     captured_citations = chunk.get("citations")
                     continue
                 full_response_content += chunk
-                data = json.dumps({"content": chunk}, ensure_ascii=False)
+                # 위기 턴은 번호 필터를 위해 버퍼링만 하고, 일반 턴은 청크 즉시 방출.
+                if not crisis_keyword:
+                    sent_content += chunk
+                    data = json.dumps({"content": chunk}, ensure_ascii=False)
+                    yield f"data: {data}\n\n"
+
+            # 위기 턴: 누적 본문에서 전화번호 문장 제거 후 content 이벤트 1회로 방출.
+            if crisis_keyword:
+                full_response_content = strip_phone_sentences(full_response_content)[0]
+                sent_content = full_response_content
+                data = json.dumps({"content": full_response_content}, ensure_ascii=False)
                 yield f"data: {data}\n\n"
 
             # 후속 질문 생성 (silent on failure) — 메시지에 함께 영속화하기 위해 commit 전에 생성
@@ -261,6 +352,14 @@ class ChatService:
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
 
+            # 인용(citations)을 SSE 와이어에도 실어 보낸다 — 비스트리밍 응답과 동일한 출처 노출.
+            if captured_citations:
+                payload = json.dumps(
+                    {"type": "citations", "message_id": assistant_msg.id, "items": captured_citations},
+                    ensure_ascii=False,
+                )
+                yield f"data: {payload}\n\n"
+
             if followups:
                 payload = json.dumps(
                     {"type": "followups", "message_id": assistant_msg.id, "items": followups},
@@ -270,13 +369,28 @@ class ChatService:
 
             yield "data: [DONE]\n\n"
 
+        except ResponseBlockedError as e:
+            logger.warning("RAG 응답 차단 — session_id=%s reason=%s", chat_session.id, e.reason)
+            async for sse in self._yield_blocked_fallback(chat_session, sent_content):
+                yield sse
         except Exception as e:
-            logger.error(f"RAG 스트리밍 오류: {e}")
-            error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
+            logger.error("RAG 스트리밍 오류: %s", e, exc_info=True)
+            error_data = json.dumps({"error": _GENERIC_STREAM_ERROR_MESSAGE}, ensure_ascii=False)
             yield f"data: {error_data}\n\n"
 
-    async def _generate_llm_stream(self, llm_service, request, bot, chat_session, history=None):
+    async def _generate_llm_stream(
+        self,
+        llm_service,
+        request,
+        bot,
+        chat_session,
+        history=None,
+        system_prompt: str | None = None,
+        crisis_keyword: str | None = None,
+    ):
+        effective_system_prompt = system_prompt if system_prompt is not None else bot.system_prompt
         full_response_content = ""
+        sent_content = ""
         try:
             # 클라이언트에게 활성화된 session_id를 가장 먼저 알려줌 (새로고침/리다이렉트 용도)
             meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
@@ -284,11 +398,20 @@ class ChatService:
 
             async for chunk in llm_service.generate_stream(
                 prompt=request.message,
-                system_prompt=bot.system_prompt,
+                system_prompt=effective_system_prompt,
                 history=history or None,
             ):
                 full_response_content += chunk
-                data = json.dumps({"content": chunk}, ensure_ascii=False)
+                if not crisis_keyword:
+                    sent_content += chunk
+                    data = json.dumps({"content": chunk}, ensure_ascii=False)
+                    yield f"data: {data}\n\n"
+
+            # 위기 턴: 누적 본문에서 전화번호 문장 제거 후 content 이벤트 1회로 방출.
+            if crisis_keyword:
+                full_response_content = strip_phone_sentences(full_response_content)[0]
+                sent_content = full_response_content
+                data = json.dumps({"content": full_response_content}, ensure_ascii=False)
                 yield f"data: {data}\n\n"
 
             # 스트리밍 정상 종료 후 1회 DB 기록 & updated_at 갱신 → message_id 확보
@@ -312,10 +435,54 @@ class ChatService:
 
             yield "data: [DONE]\n\n"
 
+        except ResponseBlockedError as e:
+            logger.warning("LLM 응답 차단 — session_id=%s reason=%s", chat_session.id, e.reason)
+            async for sse in self._yield_blocked_fallback(chat_session, sent_content):
+                yield sse
         except Exception as e:
-            logger.error(f"스트리밍 오류: {e}")
-            error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
+            logger.error("스트리밍 오류: %s", e, exc_info=True)
+            error_data = json.dumps({"error": _GENERIC_STREAM_ERROR_MESSAGE}, ensure_ascii=False)
             yield f"data: {error_data}\n\n"
             # 주의: 오류 발생 시 불완전한 메시지는 저장하지 않음 (롤백 처리됨)
+
+    async def _blocked_fallback_response(
+        self, bot: Bot, chat_session: ChatSession
+    ) -> ChatCompletionResponse:
+        """세이프티 차단 시 검수 고정문을 assistant 메시지로 저장·commit 후 반환 (비스트리밍)."""
+        await crud_chat.create_message(
+            session=self.session,
+            session_id=chat_session.id,
+            role=MessageRole.ASSISTANT,
+            content=BLOCKED_FALLBACK_MESSAGE,
+        )
+        chat_session.updated_at = datetime.now(timezone.utc)
+        await self.session.commit()
+        return ChatCompletionResponse(
+            session_id=chat_session.id,
+            content=BLOCKED_FALLBACK_MESSAGE,
+            bot_id=bot.id,
+            source="blocked_fallback",
+        )
+
+    async def _yield_blocked_fallback(self, chat_session: ChatSession, already_sent: str):
+        """세이프티 차단 시 고정문을 저장·commit 후 content 이벤트 + [DONE] 방출 (스트리밍).
+
+        already_sent: 차단 전 이미 와이어로 내보낸 본문 — DB 에는 이어붙여 저장하되
+        와이어로는 고정문만 추가 전송한다(중복 방지).
+        """
+        db_content = (
+            already_sent + "\n\n" + BLOCKED_FALLBACK_MESSAGE if already_sent else BLOCKED_FALLBACK_MESSAGE
+        )
+        await crud_chat.create_message(
+            session=self.session,
+            session_id=chat_session.id,
+            role=MessageRole.ASSISTANT,
+            content=db_content,
+        )
+        chat_session.updated_at = datetime.now(timezone.utc)
+        await self.session.commit()
+        data = json.dumps({"content": BLOCKED_FALLBACK_MESSAGE}, ensure_ascii=False)
+        yield f"data: {data}\n\n"
+        yield "data: [DONE]\n\n"
 
 
