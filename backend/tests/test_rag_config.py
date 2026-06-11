@@ -29,6 +29,7 @@ async def test_generate_with_rag_injects_topk_and_temperature(monkeypatch):
         resp = MagicMock()
         resp.text = "본문"
         resp.candidates = []  # grounding 추출은 try/except 로 안전 처리됨
+        resp.prompt_feedback = None  # MagicMock truthy 가 차단 감지에 오탐되지 않도록
         return resp
 
     svc._client = MagicMock()
@@ -64,6 +65,7 @@ async def test_generate_with_rag_explicit_temperature_overrides(monkeypatch):
         resp = MagicMock()
         resp.text = "본문"
         resp.candidates = []
+        resp.prompt_feedback = None  # MagicMock truthy 가 차단 감지에 오탐되지 않도록
         return resp
 
     svc._client = MagicMock()

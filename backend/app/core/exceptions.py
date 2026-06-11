@@ -73,6 +73,26 @@ class ConfigurationError(NexusException):
             details=details,
         )
 
+class ResponseBlockedError(NexusException):
+    """LLM 세이프티 필터가 입력/출력을 차단했을 때 발생.
+
+    설계상 chat_service 가 항상 catch 해 검수 고정문(BLOCKED_FALLBACK_MESSAGE)으로 변환한다.
+    새 call site 에서 누출돼도 NexusException 핸들러가 한국어 메시지로 새니타이즈(안전망).
+    reason 형식: "prompt:<BLOCK_REASON>" | "finish:<FINISH_REASON>"
+                | "empty:no_candidates" | "empty:stream"
+    """
+
+    def __init__(self, reason: str, source: str = "gemini"):
+        self.reason = reason
+        self.source = source
+        super().__init__(
+            error_code="RESPONSE_BLOCKED",
+            message="안전상의 이유로 답변이 제한되었습니다.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            details={"reason": reason, "source": source},
+        )
+
+
 # ==========================================
 # 향후 새로운 도메인(Chat, RAG 등)에 대한 에러 클래스들도
 # 이 파일에 계속 추가하시면 됩니다.

@@ -16,8 +16,9 @@ from google import genai
 from google.genai import types
 
 from app.core.config import get_settings
+from app.core.exceptions import ResponseBlockedError
 from app.schemas.rag import DocumentInfo, RAGCitation, RAGResponse
-from app.services.llm.gemini import build_gemini_contents
+from app.services.llm.gemini import build_gemini_contents, raise_if_blocked
 from app.services.rag.base import BaseRAGService
 
 logger = logging.getLogger(__name__)
@@ -369,11 +370,16 @@ class GeminiRAGService(BaseRAGService):
         )
         gen_ms = (time.perf_counter() - t_gen) * 1000
 
+        # 세이프티 차단 감지 — candidates=None 인 차단 응답이 아래 인용 추출에서
+        # TypeError 로 터지며 raw 에러가 노출되던 H25 케이스의 직접 수정.
+        raise_if_blocked(response, source="gemini-rag", check_empty=True)
+
         # 인용 정보 추출
         citations: list[RAGCitation] = []
         chunk_count = 0
         try:
-            grounding = response.candidates[0].grounding_metadata
+            # 차단이 아니어도 candidates 가 None 인 엣지를 가드 (TypeError 원천 차단)
+            grounding = response.candidates[0].grounding_metadata if response.candidates else None
             if grounding and grounding.grounding_chunks:
                 chunk_count = len(grounding.grounding_chunks)
                 for chunk in grounding.grounding_chunks:
@@ -451,11 +457,13 @@ class GeminiRAGService(BaseRAGService):
 
         # grounding(인용)은 보통 마지막 청크에 실린다 — 가장 최근 값을 보관했다가 스트림 종료 후 1회 방출.
         last_grounding = None
+        yielded_any = False
         async for chunk in await self._client.aio.models.generate_content_stream(
             model=actual_model_name,
             contents=build_gemini_contents(prompt, history),
             config=config,
         ):
+            raise_if_blocked(chunk, source="gemini-rag")
             try:
                 cand = chunk.candidates[0] if chunk.candidates else None
                 gm = cand.grounding_metadata if cand else None
@@ -464,7 +472,12 @@ class GeminiRAGService(BaseRAGService):
             except (AttributeError, IndexError):
                 pass
             if chunk.text:
+                yielded_any = True
                 yield chunk.text
+
+        # 한 글자도 내보내지 못한 빈 스트림 = 무음 차단으로 간주 (citations dict 를 내보내기 전에 중단).
+        if not yielded_any:
+            raise ResponseBlockedError(reason="empty:stream", source="gemini-rag")
 
         # 스트림 종료 후 인용 메타데이터를 dict 로 1회 yield (본문 str 청크와 구분).
         # generate_with_rag(비스트리밍)과 동일한 추출 로직.
