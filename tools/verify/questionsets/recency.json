@@ -1,0 +1,52 @@
+{
+  "name": "recency",
+  "description": "파일명 연도 우선(신문서 우선) 규칙 검증 — 충돌 10 + 일반 5",
+  "grader": {
+    "instruction_ab": [
+      "너는 가정연합 축복 안내 챗봇의 프롬프트 변경을 검증하는 엄격한 평가자다.",
+      "<stdin> JSON 배열의 각 항목에는 같은 질문에 대한 A(변경 전)와 B(변경 후: '문서 제목의 연도가 최신인 문서 우선' 규칙 추가) 응답이 있다.",
+      "설명·서론 없이 입력과 같은 개수·순서로 JSON 배열만 출력하라. 각 원소 필드:",
+      "qid(그대로), verdict(B_better|same|B_worse), ",
+      "latest_priority(true/false/null: B가 제목 연도가 최신인 문서 기준으로 답했는가 — 충돌 문항만, 판단 불가면 null), ",
+      "source_cited(true/false: B가 근거 문서명 또는 연도를 표기했는가), ",
+      "regression(true/false: B가 A보다 사실 정확성·공감 톤·자연스러움에서 나빠졌는가), ",
+      "reason(한 줄 한국어).",
+      "판정 원칙: 충돌 문항은 최신 문서 기준 채택·변경 명시·출처 표기가 됐으면 B_better, 그대로면 same, 사실이 틀어지거나 어색해졌으면 B_worse. ",
+      "일반 문항은 B가 A와 동등하면 same이고, 규칙 추가로 공감 톤이 죽거나 불필요한 연도 나열로 어색해졌으면 B_worse다. ",
+      "retrieved_titles_B는 모델이 본 문서 목록 참고용이다."
+    ],
+    "instruction_single": [
+      "너는 가정연합 축복 안내 챗봇의 현행 응답 품질을 검증하는 엄격한 평가자다.",
+      "<stdin> JSON 배열의 각 항목에는 질문과 현행 응답(현행응답)이 있다.",
+      "설명 없이 입력과 같은 개수·순서로 JSON 배열만 출력하라. 각 원소 필드:",
+      "qid(그대로), verdict(pass|fail), source_cited(true/false), regression(false 고정: 비교 대상 없음), reason(한 줄 한국어).",
+      "판정 원칙: 사실 정확하고 자연스러우면 pass, 명백히 틀리거나 어색하면 fail."
+    ],
+    "flag_fields": [],
+    "gates": {
+      "max_worse_total": null,
+      "max_worse_by_qtype": {"일반": 1},
+      "require_better_gte_worse_qtypes": ["충돌"],
+      "expect_b_gte_a": false,
+      "zero_flags_any_sample": [],
+      "max_unstable": 3
+    }
+  },
+  "questions": [
+    {"qid": "C01", "qtype": "충돌", "question": "미혼 1세가 축복 후보자가 되기 위한 연령 기준이 어떻게 되나요?", "expect": "현행(최신 문서) 연령 기준을 정확히 안내."},
+    {"qid": "C02", "qtype": "충돌", "question": "미혼 1세 후보자의 예배 출석 기준은 몇 개월인가요?", "expect": "최신 문서 기준 출석 개월 수를 안내."},
+    {"qid": "C03", "qtype": "충돌", "question": "축복자녀(2세)의 예배 출석 기준을 알려주세요.", "expect": "최신 문서 기준 2세 출석 기준 안내."},
+    {"qid": "C04", "qtype": "충돌", "question": "축복 후보자가 되기 위해 이수해야 하는 교육 기준이 궁금해요.", "expect": "최신 문서 기준 교육 이수 요건 안내."},
+    {"qid": "C05", "qtype": "충돌", "question": "매칭 확정자의 자격 기준을 알려주세요.", "expect": "최신 문서 기준 매칭 확정 자격 안내."},
+    {"qid": "C06", "qtype": "충돌", "question": "장애가 있는 축복자녀의 축복헌금은 얼마인가요?", "expect": "최신 문서 기준 헌금액 안내."},
+    {"qid": "C07", "qtype": "충돌", "question": "12일 가정출발의식은 어떤 경우에 하는 건가요?", "expect": "최신 문서 기준 가정출발의식 적용 경우 안내."},
+    {"qid": "C08", "qtype": "충돌", "question": "다음 축복식 일정은 언제인가요?", "expect": "최신 문서 기준 일정 안내(불확실하면 확인 권유)."},
+    {"qid": "C09", "qtype": "충돌", "question": "미혼 1세가 제출해야 하는 서류는 뭐가 있나요?", "expect": "최신 문서 기준 제출 서류 안내."},
+    {"qid": "C10", "qtype": "충돌", "question": "축복 후보자의 금식 조건을 알려주세요.", "expect": "최신 문서 기준 금식 조건 안내."},
+    {"qid": "G01", "qtype": "일반", "question": "남편과 자꾸 다투게 돼요. 어떻게 하면 좋을까요?", "expect": "공감 톤 유지(회귀 확인)."},
+    {"qid": "G02", "qtype": "일반", "question": "축복의 의미가 뭐예요?", "expect": "기존 톤·품질 유지(회귀 확인)."},
+    {"qid": "G03", "qtype": "일반", "question": "축복반지는 어디서 사요?", "expect": "기존 안내 품질 유지(회귀 확인)."},
+    {"qid": "G04", "qtype": "일반", "question": "부모매칭은 어떻게 진행돼요?", "expect": "기존 안내 품질 유지(회귀 확인)."},
+    {"qid": "G05", "qtype": "일반", "question": "천보 40일 수련 대신 받을 수 있는 교육이 있나요?", "expect": "기존 안내 품질 유지(회귀 확인)."}
+  ]
+}
