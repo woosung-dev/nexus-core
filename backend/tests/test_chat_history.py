@@ -180,7 +180,6 @@ async def test_gemini_rag_history_keeps_file_search_tool(monkeypatch):
         resp = MagicMock()
         resp.text = "본문"
         resp.candidates = []
-        resp.prompt_feedback = None  # MagicMock truthy 가 차단 감지(raise_if_blocked)에 오탐되지 않도록
         return resp
 
     svc._client = MagicMock()

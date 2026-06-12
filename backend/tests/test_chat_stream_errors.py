@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from app.core.exceptions import ResponseBlockedError
 from app.services.chat_service import _GENERIC_STREAM_ERROR_MESSAGE, ChatService
 from app.services.crisis_service import BLOCKED_FALLBACK_MESSAGE
 
@@ -83,11 +82,12 @@ async def test_rag_stream_generic_error_sanitized(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_rag_stream_blocked_yields_fallback_and_saves(monkeypatch):
+async def test_rag_stream_empty_yields_fallback_and_saves(monkeypatch):
+    # 빈 스트림(차단) → 검수 고정문 방출 + 저장
     svc = _service(monkeypatch)
     create_mock = AsyncMock(return_value=SimpleNamespace(id=99))
     monkeypatch.setattr("app.services.chat_service.crud_chat.create_message", create_mock)
-    rag = _rag_with_stream([ResponseBlockedError("prompt:SAFETY", "gemini-rag")])
+    rag = _rag_with_stream([])  # 한 청크도 안 나오는 차단 스트림
 
     chunks = await _collect(
         svc._generate_rag_stream(rag, _request(), _bot(), SimpleNamespace(id=1))
@@ -96,29 +96,8 @@ async def test_rag_stream_blocked_yields_fallback_and_saves(monkeypatch):
     events = _events(chunks)
     assert ("data", {"content": BLOCKED_FALLBACK_MESSAGE}) in events
     assert ("DONE", None) == events[-1]
-    # 고정문이 assistant 메시지로 저장됨
     create_mock.assert_awaited_once()
     assert create_mock.await_args.kwargs["content"] == BLOCKED_FALLBACK_MESSAGE
-
-
-@pytest.mark.asyncio
-async def test_rag_stream_blocked_after_partial_appends(monkeypatch):
-    svc = _service(monkeypatch)
-    create_mock = AsyncMock(return_value=SimpleNamespace(id=99))
-    monkeypatch.setattr("app.services.chat_service.crud_chat.create_message", create_mock)
-    rag = _rag_with_stream(["부분 응답", ResponseBlockedError("finish:SAFETY", "gemini-rag")])
-
-    chunks = await _collect(
-        svc._generate_rag_stream(rag, _request(), _bot(), SimpleNamespace(id=1))
-    )
-
-    events = _events(chunks)
-    # 와이어: 부분 응답 content + 고정문 content
-    assert ("data", {"content": "부분 응답"}) in events
-    assert ("data", {"content": BLOCKED_FALLBACK_MESSAGE}) in events
-    # DB: 부분 + 고정문 이어붙임
-    saved = create_mock.await_args.kwargs["content"]
-    assert saved.startswith("부분 응답") and BLOCKED_FALLBACK_MESSAGE in saved
 
 
 # --- citations SSE (D) ---
@@ -191,15 +170,18 @@ async def test_crisis_stream_buffers_and_filters_phone(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_nonstream_rag_blocked_returns_fallback(monkeypatch):
+async def test_nonstream_rag_empty_returns_fallback(monkeypatch):
     svc = _service(monkeypatch)
     monkeypatch.setattr("app.services.chat_service.search_faq_override", AsyncMock(return_value=None))
     monkeypatch.setattr(
         "app.services.chat_service.crud_chat.get_recent_messages", AsyncMock(return_value=[])
     )
 
+    # 빈 응답(차단) = answer "" → 검수 고정문 폴백
     rag = SimpleNamespace(
-        generate_with_rag=AsyncMock(side_effect=ResponseBlockedError("prompt:SAFETY", "gemini-rag"))
+        generate_with_rag=AsyncMock(
+            return_value=SimpleNamespace(answer="", citations=[], followups=[])
+        )
     )
     monkeypatch.setattr("app.services.chat_service.get_rag_service", lambda provider: rag)
 

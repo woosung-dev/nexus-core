@@ -12,7 +12,6 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.exceptions import ResponseBlockedError
 from app.crud import crud_chat
 from app.models.bot import Bot
 from app.models.chat import ChatSession
@@ -190,18 +189,17 @@ class ChatService:
                     },
                 )
             else:
-                try:
-                    rag_response = await rag_service.generate_with_rag(
-                        bot_id=bot.id,
-                        prompt=request.message,
-                        system_prompt=effective_system_prompt,
-                        model_name=bot.llm_model,
-                        history=history or None,
-                    )
-                except ResponseBlockedError as e:
-                    logger.warning(
-                        "RAG 응답 차단 — session_id=%s reason=%s", chat_session.id, e.reason
-                    )
+                rag_response = await rag_service.generate_with_rag(
+                    bot_id=bot.id,
+                    prompt=request.message,
+                    system_prompt=effective_system_prompt,
+                    model_name=bot.llm_model,
+                    history=history or None,
+                )
+
+                # 빈 응답 = 세이프티 차단(H25) → 검수 고정문으로 폴백.
+                if not rag_response.answer.strip():
+                    logger.warning("RAG 빈 응답(차단 추정) — session_id=%s", chat_session.id)
                     return await self._blocked_fallback_response(bot, chat_session)
 
                 # 위기 턴은 환각 번호 방어를 위해 본문에서 전화번호 문장을 제거 후 저장/응답.
@@ -255,14 +253,15 @@ class ChatService:
                 },
             )
         else:
-            try:
-                content = await llm_service.generate(
-                    prompt=request.message,
-                    system_prompt=effective_system_prompt,
-                    history=history or None,
-                )
-            except ResponseBlockedError as e:
-                logger.warning("LLM 응답 차단 — session_id=%s reason=%s", chat_session.id, e.reason)
+            content = await llm_service.generate(
+                prompt=request.message,
+                system_prompt=effective_system_prompt,
+                history=history or None,
+            )
+
+            # 빈 응답 = 세이프티 차단 → 검수 고정문으로 폴백.
+            if not content.strip():
+                logger.warning("LLM 빈 응답(차단 추정) — session_id=%s", chat_session.id)
                 return await self._blocked_fallback_response(bot, chat_session)
 
             # 위기 턴은 환각 번호 방어를 위해 본문에서 전화번호 문장을 제거 후 저장/응답.
@@ -327,6 +326,13 @@ class ChatService:
                     data = json.dumps({"content": chunk}, ensure_ascii=False)
                     yield f"data: {data}\n\n"
 
+            # 빈 스트림 = 세이프티 차단 → 검수 고정문으로 폴백.
+            if not full_response_content.strip():
+                logger.warning("RAG 스트림 빈 응답(차단 추정) — session_id=%s", chat_session.id)
+                async for sse in self._yield_blocked_fallback(chat_session, sent_content):
+                    yield sse
+                return
+
             # 위기 턴: 누적 본문에서 전화번호 문장 제거 후 content 이벤트 1회로 방출.
             if crisis_keyword:
                 full_response_content = strip_phone_sentences(full_response_content)[0]
@@ -366,10 +372,6 @@ class ChatService:
 
             yield "data: [DONE]\n\n"
 
-        except ResponseBlockedError as e:
-            logger.warning("RAG 응답 차단 — session_id=%s reason=%s", chat_session.id, e.reason)
-            async for sse in self._yield_blocked_fallback(chat_session, sent_content):
-                yield sse
         except Exception as e:
             logger.error("RAG 스트리밍 오류: %s", e, exc_info=True)
             error_data = json.dumps({"error": _GENERIC_STREAM_ERROR_MESSAGE}, ensure_ascii=False)
@@ -404,6 +406,13 @@ class ChatService:
                     data = json.dumps({"content": chunk}, ensure_ascii=False)
                     yield f"data: {data}\n\n"
 
+            # 빈 스트림 = 세이프티 차단 → 검수 고정문으로 폴백.
+            if not full_response_content.strip():
+                logger.warning("LLM 스트림 빈 응답(차단 추정) — session_id=%s", chat_session.id)
+                async for sse in self._yield_blocked_fallback(chat_session, sent_content):
+                    yield sse
+                return
+
             # 위기 턴: 누적 본문에서 전화번호 문장 제거 후 content 이벤트 1회로 방출.
             if crisis_keyword:
                 full_response_content = strip_phone_sentences(full_response_content)[0]
@@ -432,10 +441,6 @@ class ChatService:
 
             yield "data: [DONE]\n\n"
 
-        except ResponseBlockedError as e:
-            logger.warning("LLM 응답 차단 — session_id=%s reason=%s", chat_session.id, e.reason)
-            async for sse in self._yield_blocked_fallback(chat_session, sent_content):
-                yield sse
         except Exception as e:
             logger.error("스트리밍 오류: %s", e, exc_info=True)
             error_data = json.dumps({"error": _GENERIC_STREAM_ERROR_MESSAGE}, ensure_ascii=False)
