@@ -20,7 +20,6 @@ from app.models.enums import MessageRole
 from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse
 from app.services.crisis_service import (
     BLOCKED_FALLBACK_MESSAGE,
-    CRISIS_DIRECTIVE,
     detect_crisis_signal,
     strip_phone_sentences,
 )
@@ -154,11 +153,9 @@ class ChatService:
                 len(history),
             )
 
-        # 위기 신호 턴에만 대응 지시문을 코드로 덧붙인다. DB의 bot.system_prompt 는 불변
-        # (ORM 객체를 재할당하면 commit 시 DB 가 오염되므로 반드시 별도 변수).
-        effective_system_prompt = (
-            bot.system_prompt + CRISIS_DIRECTIVE if crisis_keyword else bot.system_prompt
-        )
+        # 위기 대응 지시는 봇 시스템 프롬프트 본문(위기 섹션)으로 이관됨 — 코드 주입 없음.
+        # crisis_keyword 는 FAQ 스킵·번호 필터(strip)·로깅 트리거로만 쓴다.
+        effective_system_prompt = bot.system_prompt
 
         # 2. (분기) RAG 처리
         # bot.use_rag 로 봇 단위 토글 제공 — file_search store가 비어있는 봇은 admin에서 False로
