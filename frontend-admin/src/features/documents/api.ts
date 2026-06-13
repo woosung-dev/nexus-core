@@ -19,7 +19,9 @@ export const documentKeys = {
 /** 특정 봇의 문서 목록 조회 */
 export async function fetchDocuments(botId: number): Promise<DocumentListResponse> {
   const { data } = await apiClient.get<DocumentListResponse>(
-    `/api/v1/admin/bots/${botId}/documents`
+    `/api/v1/admin/bots/${botId}/documents`,
+    // 공유 스토어 전체를 페이지네이션으로 순회하므로 문서가 많으면 수 초 걸린다 (기본 10초 오버라이드)
+    { timeout: 30_000 }
   )
   return data
 }

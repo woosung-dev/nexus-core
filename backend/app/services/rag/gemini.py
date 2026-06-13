@@ -226,6 +226,7 @@ class GeminiRAGService(BaseRAGService):
             # Store 내 문서 목록 조회
             doc_list = await self._client.aio.file_search_stores.documents.list(
                 parent=store_name,
+                config={"page_size": 20},  # 최대 페이지 크기로 전체 순회 왕복 횟수 최소화
             )
 
             async for doc in doc_list:
@@ -279,6 +280,7 @@ class GeminiRAGService(BaseRAGService):
             # 문서 소유권 확인 (bot_id 검증)
             doc_list = await self._client.aio.file_search_stores.documents.list(
                 parent=store_name,
+                config={"page_size": 20},  # 최대 페이지 크기로 전체 순회 왕복 횟수 최소화
             )
 
             found = False
