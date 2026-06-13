@@ -15,6 +15,24 @@ from app.services.llm.base import LLMService
 
 logger = logging.getLogger(__name__)
 
+# Gemini 세이프티 차단 시 사용자에게 보여줄 간단한 안내 (raw 에러/빈 응답 방지).
+SAFETY_BLOCKED_MESSAGE = (
+    "죄송해요. 이 내용은 안전상의 이유로 답변을 드리기 어려워요. 표현을 조금 바꿔 다시 물어봐 주세요."
+)
+
+
+def safe_response_text(response) -> str:
+    """본문을 방어적으로 추출 — 차단 응답은 .text 접근이 예외일 수 있어 빈 문자열 반환."""
+    try:
+        return response.text or ""
+    except Exception:
+        return ""
+
+
+def is_blocked(response) -> bool:
+    """세이프티 차단 여부 — 입력 차단(candidates 없음) 또는 출력 차단(본문 없음)."""
+    return not response.candidates or not safe_response_text(response).strip()
+
 
 @lru_cache(maxsize=1)
 def _get_genai_client() -> genai.Client:
@@ -72,7 +90,10 @@ class GeminiService(LLMService):
             config=config,
         )
 
-        return response.text or ""
+        # 세이프티 차단 시 raw 에러 대신 간단한 안내 문구.
+        if is_blocked(response):
+            return SAFETY_BLOCKED_MESSAGE
+        return safe_response_text(response)
 
     async def generate_stream(
         self,

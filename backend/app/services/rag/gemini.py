@@ -17,7 +17,12 @@ from google.genai import types
 
 from app.core.config import get_settings
 from app.schemas.rag import DocumentInfo, RAGCitation, RAGResponse
-from app.services.llm.gemini import build_gemini_contents
+from app.services.llm.gemini import (
+    SAFETY_BLOCKED_MESSAGE,
+    build_gemini_contents,
+    is_blocked,
+    safe_response_text,
+)
 from app.services.rag.base import BaseRAGService
 
 logger = logging.getLogger(__name__)
@@ -371,6 +376,12 @@ class GeminiRAGService(BaseRAGService):
         )
         gen_ms = (time.perf_counter() - t_gen) * 1000
 
+        # 세이프티 차단 시 raw 에러 대신 간단한 안내 문구로 처리.
+        # (candidates=None 차단 응답이 아래 인용 추출에서 TypeError 로 터지던 H25 직접 수정)
+        if is_blocked(response):
+            logger.warning("RAG 응답 차단 — bot_id=%s, gen=%.1fms", bot_id, gen_ms)
+            return RAGResponse(answer=SAFETY_BLOCKED_MESSAGE, citations=[], followups=[])
+
         # 인용 정보 추출
         citations: list[RAGCitation] = []
         chunk_count = 0
@@ -394,7 +405,7 @@ class GeminiRAGService(BaseRAGService):
             logger.debug(f"인용 정보 추출 실패 (정상 케이스일 수 있음): {e}")
 
         # 본문/followups 분리 + citation marker 제거.
-        clean_answer, followups = _split_answer_and_followups(response.text or "")
+        clean_answer, followups = _split_answer_and_followups(safe_response_text(response))
 
         # 핵심 측정 지점: generate_content 자체 wall-time + retrieval 양 + followup 추출 결과.
         logger.info(
