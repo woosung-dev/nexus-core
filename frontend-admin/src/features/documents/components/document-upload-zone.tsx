@@ -23,6 +23,7 @@ import {
   uploadFormSchema,
   type UploadFormValues,
   ALLOWED_EXTENSIONS_LABEL,
+  ACCEPT_ATTR,
 } from "@/features/documents/schemas"
 
 interface DocumentUploadZoneProps {
@@ -102,7 +103,7 @@ export function DocumentUploadZone({ botId }: DocumentUploadZoneProps) {
                     ref={inputRef}
                     type="file"
                     className="hidden"
-                    accept=".pdf,.txt,.csv"
+                    accept={ACCEPT_ATTR}
                     onChange={(e) => handleFileSelect(e.target.files?.[0])}
                   />
 
