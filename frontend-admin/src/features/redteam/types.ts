@@ -25,6 +25,7 @@ export type ResponseItem = {
   risk: string | null
   bot_responses: Record<string, string | null> | null
   feedback_text: string | null
+  raw: Record<string, string | null> | null
   match_score: number | null
   match_status: string
 }

@@ -4,7 +4,7 @@
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { COMPARE_BOT_LABEL, RISK_STYLE } from "../constants"
+import { COMPARE_BOT_LABEL, meaningfulEtc, RISK_STYLE } from "../constants"
 import { useGroupCompare } from "../hooks"
 import type { CompareWeekResponse } from "../types"
 
@@ -63,6 +63,15 @@ function CompareCard({ r }: { r: CompareWeekResponse }) {
           <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
             {r.feedback_text}
           </p>
+        </div>
+      )}
+
+      {meaningfulEtc(r.etc) && (
+        <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/40 dark:bg-amber-950/30">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+            기타 의견·건의
+          </p>
+          <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">{r.etc}</p>
         </div>
       )}
     </div>
