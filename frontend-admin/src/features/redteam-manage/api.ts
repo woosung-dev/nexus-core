@@ -7,9 +7,11 @@ import { linkCandidate } from "../redteam/api"
 import type {
   GroupCompare,
   GroupManageUpdate,
+  ManageFeedbackItem,
   ManageGroupDetail,
   ManageGroupListParams,
   ManageGroupListResponse,
+  ManageReportResponse,
   ManageStatsResponse,
   UnmatchedItem,
 } from "./types"
@@ -28,6 +30,7 @@ export const manageKeys = {
   compare: (id: number) => [...manageKeys.all, "compare", id] as const,
   unmatched: (params: UnmatchedParams) => [...manageKeys.all, "unmatched", params] as const,
   tags: () => [...manageKeys.all, "tags"] as const,
+  report: () => [...manageKeys.all, "report"] as const,
 }
 
 // ─── API 함수 ──────────────────────────────────────────────────
@@ -97,6 +100,27 @@ export async function fetchUnmatched(params: UnmatchedParams): Promise<Unmatched
 export async function fetchManageTags(): Promise<string[]> {
   const { data } = await apiClient.get<string[]>(`${BASE}/manage/tags`)
   return data
+}
+
+export async function fetchManageReport(): Promise<ManageReportResponse> {
+  const { data } = await apiClient.get<ManageReportResponse>(`${BASE}/manage/report`)
+  return data
+}
+
+export async function addManageFeedback(
+  groupId: number,
+  author: string,
+  content: string
+): Promise<ManageFeedbackItem> {
+  const { data } = await apiClient.post<ManageFeedbackItem>(
+    `${BASE}/groups/${groupId}/feedback`,
+    { author, content }
+  )
+  return data
+}
+
+export async function deleteManageFeedback(feedbackId: number): Promise<void> {
+  await apiClient.delete(`${BASE}/feedback/${feedbackId}`)
 }
 
 // 미분류 큐 → 그룹 연결은 기존 redteam links 엔드포인트 재사용

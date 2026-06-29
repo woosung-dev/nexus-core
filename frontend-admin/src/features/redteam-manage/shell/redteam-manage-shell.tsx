@@ -13,6 +13,7 @@ const TABS = [
   { href: "/redteam-manage", label: "입력관리" },
   { href: "/redteam-manage/compare", label: "비교" },
   { href: "/redteam-manage/summary", label: "중간보고 요약" },
+  { href: "/redteam-manage/report", label: "보고서" },
 ]
 
 export function RedteamManageShell({ children }: { children: React.ReactNode }) {

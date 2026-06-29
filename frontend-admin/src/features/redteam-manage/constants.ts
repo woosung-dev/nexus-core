@@ -88,6 +88,12 @@ export const DISPOSITION_COLOR: Record<string, string> = {
   미정: "#94a3b8", // slate
 }
 
+// 담당자 피드백 작성자 프리셋 (자유 입력도 허용)
+export const FEEDBACK_AUTHORS = ["장우성", "신은비", "조화연"] as const
+
+// 작성자 아바타 색 (이름 해시 → 팔레트)
+export const AVATAR_COLORS = ["#2563eb", "#0d9488", "#7c3aed", "#d97706", "#db2777", "#059669"]
+
 // 이전 주차 봇 → 3주차 C/D 라인업 정규화 (BE crud_redteam.PRIOR_BOT_TO_CD와 동일 기준, 범례용)
 export const PRIOR_BOT_TO_CD: Record<string, "C" | "D" | null> = {
   A_통합: "D",

@@ -161,3 +161,27 @@ class RedteamReview(SQLModel, table=True):
         ),
         default_factory=get_utc_now,
     )
+
+
+class RedteamManageFeedback(SQLModel, table=True):
+    """입력관리 — 질문(그룹)별 복수 담당자 피드백 (코멘트 스레드, 작성자·내용·시각)"""
+
+    __tablename__ = "redteam_manage_feedback"
+
+    id: int | None = Field(default=None, primary_key=True)
+
+    group_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("redteam_question_groups.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    author: str = Field()  # 작성자 이름 (프리셋 또는 자유 입력)
+    content: str = Field()  # 피드백 내용
+
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+        default_factory=get_utc_now,
+    )

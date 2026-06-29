@@ -27,6 +27,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.core.database import async_session  # noqa: E402
 from app.models.redteam import (  # noqa: E402
+    RedteamManageFeedback,
     RedteamQuestionGroup,
     RedteamResponse,
     RedteamReview,
@@ -304,6 +305,20 @@ async def import_all(files: dict[int, Path], reset_reviews: bool) -> None:
             if saved_manage:
                 print(f"보존할 관리필드 그룹: {len(saved_manage)}건")
 
+        # 기존 담당자 피드백 보존 (question_norm 기준)
+        saved_feedback: list[dict] = []
+        if not reset_reviews:
+            res3 = await session.execute(
+                text(
+                    "SELECT g.question_norm, f.author, f.content, f.created_at "
+                    "FROM redteam_manage_feedback f "
+                    "JOIN redteam_question_groups g ON f.group_id = g.id"
+                )
+            )
+            saved_feedback = [dict(row._mapping) for row in res3]
+            if saved_feedback:
+                print(f"보존할 피드백: {len(saved_feedback)}건")
+
         # 초기화 (CASCADE로 응답/리뷰 함께 제거)
         await session.execute(
             text("TRUNCATE redteam_responses, redteam_reviews, redteam_question_groups "
@@ -362,6 +377,24 @@ async def import_all(files: dict[int, Path], reset_reviews: bool) -> None:
             restored += 1
         if restored:
             print(f"리뷰 복원: {restored}건")
+
+        # 피드백 복원 (question_norm 기준)
+        restored_fb = 0
+        for fb in saved_feedback:
+            gid = norm_to_gid.get(fb["question_norm"])
+            if gid is None:
+                continue
+            session.add(
+                RedteamManageFeedback(
+                    group_id=gid,
+                    author=fb["author"],
+                    content=fb["content"],
+                    created_at=fb["created_at"],
+                )
+            )
+            restored_fb += 1
+        if restored_fb:
+            print(f"피드백 복원: {restored_fb}건")
 
         await session.commit()
 

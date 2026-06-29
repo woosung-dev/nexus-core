@@ -21,6 +21,9 @@ from app.schemas.redteam import (
     GroupSummary,
     GroupUpdateRequest,
     LinkActionRequest,
+    ManageFeedbackCreate,
+    ManageFeedbackItem,
+    ManageReportResponse,
     ManageStatsResponse,
     ReportResponse,
     ResponseItem,
@@ -143,6 +146,7 @@ async def get_group_detail(
 
     responses = await crud_redteam.get_group_responses(session, group_id)
     reviews = await crud_redteam.get_reviews(session, group_id)
+    feedback = await crud_redteam.get_feedback(session, group_id)
 
     base = [ResponseItem.model_validate(r) for r in responses if r.week == 3]
     week2 = [ResponseItem.model_validate(r) for r in responses if r.week == 2]
@@ -165,6 +169,7 @@ async def get_group_detail(
         week2_responses=week2,
         week1_responses=week1,
         reviews=[ReviewItem.model_validate(rv) for rv in reviews],
+        feedback=[ManageFeedbackItem.model_validate(f) for f in feedback],
     )
 
 
@@ -312,6 +317,13 @@ async def get_manage_stats(session: AsyncSession = Depends(get_session)) -> Mana
     return ManageStatsResponse(**stats)
 
 
+@router.get("/manage/report", response_model=ManageReportResponse)
+async def get_manage_report(session: AsyncSession = Depends(get_session)) -> ManageReportResponse:
+    """보고서 탭 — 1~3주차 발전·위험·분류 분석 (만족도 분포 중심)"""
+    report = await crud_redteam.get_manage_report(session)
+    return ManageReportResponse(**report)
+
+
 @router.get("/manage/unmatched", response_model=list[UnmatchedItem])
 async def list_unmatched(
     week: int | None = Query(default=None, ge=1, le=2),
@@ -331,3 +343,29 @@ async def list_unmatched(
 async def list_tags(session: AsyncSession = Depends(get_session)) -> list[str]:
     """피드백 유형 태그 — 프리셋 ∪ 실제 사용된 distinct 태그"""
     return await crud_redteam.list_used_tags(session)
+
+
+@router.post("/groups/{group_id}/feedback", response_model=ManageFeedbackItem)
+async def create_feedback(
+    group_id: int,
+    request: ManageFeedbackCreate,
+    session: AsyncSession = Depends(get_session),
+) -> ManageFeedbackItem:
+    """입력관리 담당자 피드백 추가 (코멘트 스레드)"""
+    group = await crud_redteam.get_group(session, group_id)
+    if not group:
+        raise NotFoundError("질문 그룹을 찾을 수 없습니다.")
+    fb = await crud_redteam.add_feedback(session, group_id, request.author, request.content)
+    return ManageFeedbackItem.model_validate(fb)
+
+
+@router.delete("/feedback/{feedback_id}")
+async def remove_feedback(
+    feedback_id: int, session: AsyncSession = Depends(get_session)
+) -> dict:
+    """담당자 피드백 삭제"""
+    fb = await crud_redteam.get_feedback_obj(session, feedback_id)
+    if not fb:
+        raise NotFoundError("피드백을 찾을 수 없습니다.")
+    await crud_redteam.delete_feedback(session, fb)
+    return {"ok": True}

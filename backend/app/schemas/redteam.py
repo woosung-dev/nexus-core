@@ -40,6 +40,17 @@ class ReviewItem(BaseModel):
     updated_at: datetime | None = None
 
 
+class ManageFeedbackItem(BaseModel):
+    """입력관리 담당자 피드백 단건 (코멘트 스레드)"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    author: str
+    content: str
+    created_at: datetime | None = None
+
+
 class ResponseItem(BaseModel):
     """레드팀 원본 응답 단건"""
 
@@ -116,6 +127,7 @@ class GroupDetail(BaseModel):
     week2_responses: list[ResponseItem]
     week1_responses: list[ResponseItem]
     reviews: list[ReviewItem]
+    feedback: list[ManageFeedbackItem]  # 입력관리 담당자 피드백(코멘트 스레드)
 
 
 class CandidateItem(BaseModel):
@@ -184,6 +196,23 @@ class ManageStatsResponse(BaseModel):
     prior_only_groups: int  # 1·2주차 전용 질문 수
     multiweek_groups: int  # 2개 주차 이상 출현(다주차 중복)
     assignee_load: dict[str, int]  # assignee -> 그룹 수
+
+
+class ManageReportResponse(BaseModel):
+    """보고서 탭 — 1~3주차 발전·위험·분류 분석 (만족도 분포 중심)"""
+
+    total_groups: int
+    week3_groups: int
+    prior_only_groups: int
+    multiweek_groups: int
+    rating: list[dict]  # [{week, rated, high_pct, low_pct, net, avg}]
+    appropriate: dict  # {total, appropriate, inappropriate, rate}
+    bot_pref: dict  # {C, D, none}
+    risk_dist: list[dict]  # [{level, count, pct}]
+    high_risk: int
+    category_dist: list[dict]
+    risk_by_category: list[dict]  # [{category, 상, 중}]
+    top_risk_questions: list[dict]
 
 
 class UnmatchedItem(BaseModel):
@@ -283,3 +312,10 @@ class GroupManageUpdateRequest(BaseModel):
     tags: list[str] | None = Field(default=None)
     assignee: str | None = Field(default=None, max_length=50)
     model_answer: str | None = Field(default=None)
+
+
+class ManageFeedbackCreate(BaseModel):
+    """입력관리 담당자 피드백 추가"""
+
+    author: str = Field(..., min_length=1, max_length=50)
+    content: str = Field(..., min_length=1)

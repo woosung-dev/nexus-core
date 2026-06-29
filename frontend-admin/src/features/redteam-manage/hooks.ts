@@ -5,9 +5,12 @@
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
+  addManageFeedback,
+  deleteManageFeedback,
   fetchGroupCompare,
   fetchManageGroupDetail,
   fetchManageGroups,
+  fetchManageReport,
   fetchManageStats,
   fetchManageTags,
   fetchUnmatched,
@@ -60,6 +63,10 @@ export function useManageTags() {
   return useQuery({ queryKey: manageKeys.tags(), queryFn: fetchManageTags })
 }
 
+export function useManageReport() {
+  return useQuery({ queryKey: manageKeys.report(), queryFn: fetchManageReport })
+}
+
 // ─── Mutation 훅 ──────────────────────────────────────────────
 
 export function useUpdateGroupManage(groupId: number | null) {
@@ -72,6 +79,28 @@ export function useUpdateGroupManage(groupId: number | null) {
       qc.invalidateQueries({ queryKey: manageKeys.lists() })
       qc.invalidateQueries({ queryKey: manageKeys.stats() })
       qc.invalidateQueries({ queryKey: manageKeys.tags() })
+    },
+  })
+}
+
+// 담당자 피드백 추가/삭제 — 상세 캐시 무효화
+export function useAddFeedback(groupId: number | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (vars: { author: string; content: string }) =>
+      addManageFeedback(groupId as number, vars.author, vars.content),
+    onSuccess: () => {
+      if (groupId !== null) qc.invalidateQueries({ queryKey: manageKeys.detail(groupId) })
+    },
+  })
+}
+
+export function useDeleteFeedback(groupId: number | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (feedbackId: number) => deleteManageFeedback(feedbackId),
+    onSuccess: () => {
+      if (groupId !== null) qc.invalidateQueries({ queryKey: manageKeys.detail(groupId) })
     },
   })
 }

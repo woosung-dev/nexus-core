@@ -52,6 +52,7 @@ export type ManageGroupDetail = {
   week2_responses: ResponseItem[]
   week1_responses: ResponseItem[]
   reviews: ReviewItem[]
+  feedback: ManageFeedbackItem[]
 }
 
 /**
@@ -66,6 +67,13 @@ export type GroupManageUpdate = {
   tags?: string[]
   assignee?: string | null
   model_answer?: string
+}
+
+export type ManageFeedbackItem = {
+  id: number
+  author: string
+  content: string
+  created_at: string | null
 }
 
 export type CompareWeekResponse = {
@@ -109,6 +117,34 @@ export type UnmatchedItem = {
   submitter: string | null
   category: string | null
   match_status: string
+}
+
+export type ManageReportResponse = {
+  total_groups: number
+  week3_groups: number
+  prior_only_groups: number
+  multiweek_groups: number
+  rating: {
+    week: number
+    rated: number
+    high_pct: number | null
+    low_pct: number | null
+    net: number | null
+    avg: number | null
+  }[]
+  appropriate: { total: number; appropriate: number; inappropriate: number; rate: number | null }
+  bot_pref: { C: number; D: number; none: number }
+  risk_dist: { level: string; count: number; pct: number }[]
+  high_risk: number
+  category_dist: { category: string; count: number }[]
+  risk_by_category: { category: string; 상: number; 중: number }[]
+  top_risk_questions: {
+    group_id: number
+    question: string
+    category: string | null
+    risk: string | null
+    rating_avg: number | null
+  }[]
 }
 
 export type ManageGroupListParams = {

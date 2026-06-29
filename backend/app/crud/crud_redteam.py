@@ -9,7 +9,12 @@ from sqlalchemy import String, cast, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.models.redteam import RedteamQuestionGroup, RedteamResponse, RedteamReview
+from app.models.redteam import (
+    RedteamManageFeedback,
+    RedteamQuestionGroup,
+    RedteamResponse,
+    RedteamReview,
+)
 from app.schemas.redteam import TAG_PRESETS
 from app.services.redteam_matching import similarity
 
@@ -355,6 +360,43 @@ async def upsert_review(
     return review
 
 
+# ─── 입력관리 담당자 피드백 (코멘트 스레드) ─────────────────────
+
+
+async def get_feedback(session: AsyncSession, group_id: int) -> Sequence[RedteamManageFeedback]:
+    """그룹의 담당자 피드백 목록 (작성 순)"""
+    result = await session.execute(
+        select(RedteamManageFeedback)
+        .where(RedteamManageFeedback.group_id == group_id)
+        .order_by(RedteamManageFeedback.created_at, RedteamManageFeedback.id)
+    )
+    return result.scalars().all()
+
+
+async def add_feedback(
+    session: AsyncSession, group_id: int, author: str, content: str
+) -> RedteamManageFeedback:
+    fb = RedteamManageFeedback(group_id=group_id, author=author.strip(), content=content.strip())
+    session.add(fb)
+    await session.flush()
+    await session.refresh(fb)
+    return fb
+
+
+async def get_feedback_obj(
+    session: AsyncSession, feedback_id: int
+) -> RedteamManageFeedback | None:
+    result = await session.execute(
+        select(RedteamManageFeedback).where(RedteamManageFeedback.id == feedback_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def delete_feedback(session: AsyncSession, fb: RedteamManageFeedback) -> None:
+    await session.delete(fb)
+    await session.flush()
+
+
 # ─── 통계 ─────────────────────────────────────────────
 
 
@@ -446,6 +488,118 @@ async def get_manage_stats(session: AsyncSession) -> dict:
         "prior_only_groups": prior_only_groups,
         "multiweek_groups": multiweek_groups,
         "assignee_load": dict(assignee_load.most_common()),
+    }
+
+
+async def get_manage_report(session: AsyncSession) -> dict:
+    """보고서 탭 — 1~3주차 발전·위험·분류 분석 (만족도 분포 중심)."""
+    from collections import Counter
+
+    groups = (await session.execute(select(RedteamQuestionGroup))).scalars().all()
+    responses = (await session.execute(select(RedteamResponse))).scalars().all()
+
+    # 주차 출처
+    weeks_by_gid: dict[int, set[int]] = {}
+    for r in responses:
+        if r.group_id:
+            weeks_by_gid.setdefault(r.group_id, set()).add(r.week)
+    week3_groups = sum(1 for ws in weeks_by_gid.values() if 3 in ws)
+    prior_only = sum(1 for ws in weeks_by_gid.values() if 3 not in ws)
+    multiweek = sum(1 for ws in weeks_by_gid.values() if len(ws) >= 2)
+
+    # 평점 분포 — 평균이 아니라 고/저 비율·순긍정으로 (1·2·3주차)
+    def _rating_block(week: int) -> dict:
+        xs = [r.rating for r in responses if r.week == week and r.rating is not None]
+        n = len(xs)
+        if n == 0:
+            return {"week": week, "rated": 0, "high_pct": None, "low_pct": None, "net": None, "avg": None}
+        high = sum(1 for v in xs if v >= 4)
+        low = sum(1 for v in xs if v <= 2)
+        hp, lp = round(100 * high / n, 1), round(100 * low / n, 1)
+        return {
+            "week": week,
+            "rated": n,
+            "high_pct": hp,
+            "low_pct": lp,
+            "net": round(hp - lp, 1),
+            "avg": round(sum(xs) / n, 2),
+        }
+
+    rating = [_rating_block(w) for w in (1, 2, 3)]
+
+    # 적절 응답률 (3주차 적절챗봇)
+    prefs = [
+        r.bot_responses.get("적절챗봇")
+        for r in responses
+        if r.week == 3 and r.bot_responses and r.bot_responses.get("적절챗봇")
+    ]
+    pref_c = sum(1 for p in prefs if p.startswith("챗봇C") or "실무" in p)
+    pref_d = sum(1 for p in prefs if p.startswith("챗봇D") or "여정" in p)
+    pref_none = len(prefs) - pref_c - pref_d
+    appr_total = len(prefs)
+    appr_rate = round(100 * (pref_c + pref_d) / appr_total, 1) if appr_total else None
+
+    # 위험 분포 (3주차 응답)
+    risk_counter: Counter = Counter((r.risk or "없음") for r in responses if r.week == 3)
+    w3n = sum(risk_counter.values()) or 1
+    risk_dist = [
+        {"level": lv, "count": risk_counter.get(lv, 0), "pct": round(100 * risk_counter.get(lv, 0) / w3n, 1)}
+        for lv in ("없음", "하", "중", "상")
+    ]
+
+    # 카테고리 분포 / 카테고리×위험 (그룹)
+    cat_counter: Counter = Counter(g.category or "미분류" for g in groups)
+    category_dist = [{"category": k, "count": v} for k, v in cat_counter.most_common()]
+    rbc: dict[str, Counter] = {}
+    for g in groups:
+        rbc.setdefault(g.category or "미분류", Counter())[g.risk or "없음"] += 1
+    risk_by_category = sorted(
+        [{"category": c, "상": cnt.get("상", 0), "중": cnt.get("중", 0)} for c, cnt in rbc.items()],
+        key=lambda x: (-x["상"], -x["중"]),
+    )
+
+    # 우선 조치: 고위험(상) 그룹 + 3주차 평점 평균 (낮은 순)
+    g_ratings: dict[int, list[float]] = {}
+    for r in responses:
+        if r.week == 3 and r.rating is not None and r.group_id:
+            g_ratings.setdefault(r.group_id, []).append(r.rating)
+
+    def _avg(xs: list[float]) -> float | None:
+        return round(sum(xs) / len(xs), 1) if xs else None
+
+    top_risk_questions = sorted(
+        [
+            {
+                "group_id": g.id,
+                "question": g.question,
+                "category": g.category,
+                "risk": g.risk,
+                "rating_avg": _avg(g_ratings.get(g.id, [])),
+            }
+            for g in groups
+            if g.risk == "상"
+        ],
+        key=lambda x: x["rating_avg"] if x["rating_avg"] is not None else 5.0,
+    )[:15]
+
+    return {
+        "total_groups": len(groups),
+        "week3_groups": week3_groups,
+        "prior_only_groups": prior_only,
+        "multiweek_groups": multiweek,
+        "rating": rating,
+        "appropriate": {
+            "total": appr_total,
+            "appropriate": pref_c + pref_d,
+            "inappropriate": pref_none,
+            "rate": appr_rate,
+        },
+        "bot_pref": {"C": pref_c, "D": pref_d, "none": pref_none},
+        "risk_dist": risk_dist,
+        "high_risk": risk_counter.get("상", 0) + risk_counter.get("중", 0),
+        "category_dist": category_dist,
+        "risk_by_category": risk_by_category,
+        "top_risk_questions": top_risk_questions,
     }
 
 
