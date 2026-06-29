@@ -66,14 +66,16 @@ async def list_groups(
     disposition: str | None = None,
     assignee: str | None = None,
     tag: str | None = None,
-    week_present: int | None = Query(default=None, ge=1, le=2),
+    origin: str | None = Query(default=None, pattern="^(week3|prior)$"),
+    multiweek: bool = False,
+    week_present: int | None = Query(default=None, ge=1, le=3),
     matched_only: bool = False,
     q: str | None = None,
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
 ) -> GroupListResponse:
-    """기준 질문(3주차) 목록 — 필터/검색/페이지네이션"""
+    """질문 목록(전 주차 고유질문) — 필터/검색/페이지네이션"""
     groups, total = await crud_redteam.list_groups(
         session,
         category=category,
@@ -83,6 +85,8 @@ async def list_groups(
         disposition=disposition,
         assignee=assignee,
         tag=tag,
+        origin=origin,
+        multiweek=multiweek,
         week_present=week_present,
         matched_only=matched_only,
         q=q,
@@ -118,6 +122,7 @@ async def list_groups(
                 tags=g.tags or [],
                 assignee=g.assignee,
                 model_answer=g.model_answer,
+                week3_present=3 in weeks,
                 week2_matched=2 in weeks,
                 week1_matched=1 in weeks,
                 review_status=review_status,
@@ -280,7 +285,7 @@ async def get_group_compare(
         return CompareWeekResponse(
             week=r.week,
             submitter=r.submitter,
-            same_question=r.match_status in ("base", "auto", "confirmed"),
+            same_question=r.match_status in ("base", "member", "auto", "confirmed"),
             match_score=r.match_score,
             rating=r.rating,
             risk=r.risk,

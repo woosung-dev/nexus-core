@@ -133,6 +133,15 @@ export function ManageDetail({ groupId }: { groupId: number | null }) {
           <Badge variant="secondary" className="text-[11px]">
             {detail.category ?? "미분류"}
           </Badge>
+          {detail.base_responses.length === 0 && (
+            <Badge
+              variant="outline"
+              className="text-[11px] text-amber-700 dark:text-amber-300"
+              title="3주차에는 출제되지 않은 1·2주차 전용 질문"
+            >
+              1·2주차 전용
+            </Badge>
+          )}
           {detail.risk && detail.risk !== "없음" && (
             <span className={cn("rounded px-2 py-0.5 text-xs font-semibold", RISK_STYLE[detail.risk])}>
               최고 위험도 {detail.risk}
@@ -152,7 +161,12 @@ export function ManageDetail({ groupId }: { groupId: number | null }) {
       <ManageFields key={detail.id} detail={detail} />
 
       {/* 주차별 응답 (읽기) */}
-      <WeekSection title="3주차 (기준)" accent="bg-violet-500" responses={detail.base_responses} />
+      <WeekSection
+        title="3주차 (기준)"
+        accent="bg-violet-500"
+        responses={detail.base_responses}
+        emptyHint="이 질문은 3주차에 출제되지 않았습니다 (1·2주차 전용)."
+      />
       <WeekSection
         title="2주차"
         accent="bg-blue-500"

@@ -189,20 +189,35 @@ def parse_week1(rows: list[tuple]) -> list[RedteamResponse]:
     return out
 
 
-def build_groups(week3: list[RedteamResponse]) -> dict[str, RedteamQuestionGroup]:
-    """3주차 고유 질문마다 그룹 생성. risk는 그룹 내 최대값."""
+def build_groups_all(
+    week3: list[RedteamResponse],
+    week2: list[RedteamResponse],
+    week1: list[RedteamResponse],
+) -> dict[str, RedteamQuestionGroup]:
+    """전 주차 고유 질문(question_norm)마다 그룹 생성 — 전건 분류용.
+
+    3주차를 기준으로 우선 처리해 대표 질문 텍스트·위험도를 3주차 값으로 잡고,
+    1·2주차에만 있는 질문은 별도 그룹으로 승격한다.
+    """
     groups: dict[str, RedteamQuestionGroup] = {}
+    # 3주차 먼저 → 대표 질문/위험도 기준
     for resp in week3:
         norm = resp.question_norm
         g = groups.get(norm)
         if g is None:
+            g = groups[norm] = RedteamQuestionGroup(
+                question=resp.question, question_norm=norm, category=None, category_source="auto"
+            )
+        # 위험도 최대값 갱신 (위험도는 3주차에만 존재)
+        if resp.risk and RISK_RANK.get(resp.risk, 0) > RISK_RANK.get(g.risk or "없음", 0):
+            g.risk = resp.risk
+    # 2·1주차 → 3주차에 없던 질문이면 그룹 승격 (대표 텍스트는 해당 주차 원문)
+    for resp in (*week2, *week1):
+        norm = resp.question_norm
+        if norm not in groups:
             groups[norm] = RedteamQuestionGroup(
                 question=resp.question, question_norm=norm, category=None, category_source="auto"
             )
-            g = groups[norm]
-        # 위험도 최대값 갱신
-        if resp.risk and RISK_RANK.get(resp.risk, 0) > RISK_RANK.get(g.risk or "없음", 0):
-            g.risk = resp.risk
     return groups
 
 
@@ -245,23 +260,19 @@ async def import_all(files: dict[int, Path], reset_reviews: bool) -> None:
     week1 = parse_week1(_load_rows(files[1]))
     print(f"파싱: 3주차 {len(week3)}건 / 2주차 {len(week2)}건 / 1주차 {len(week1)}건")
 
-    groups = build_groups(week3)
-    group_norms = [(norm, norm) for norm in groups]
-    print(f"그룹(3주차 고유질문): {len(groups)}개")
+    groups = build_groups_all(week3, week2, week1)
+    w3_norms = {r.question_norm for r in week3}
+    prior_only = sum(1 for n in groups if n not in w3_norms)
+    print(
+        f"그룹(전 주차 고유질문): {len(groups)}개 — "
+        f"3주차 기준 {len(w3_norms)} / 1·2주차 전용 {prior_only}"
+    )
 
-    # 1·2주차 매칭
-    match_prior(week2, group_norms)
-    match_prior(week1, group_norms)
-    matched_by_group: dict[str, list[RedteamResponse]] = {}
+    # 카테고리: 같은 norm의 1·2주차 유형 다수결 → 없으면 키워드 휴리스틱
+    cat_src: dict[str, list[RedteamResponse]] = {}
     for resp in (*week2, *week1):
-        norm = getattr(resp, "_match_norm", None)
-        if norm:
-            matched_by_group.setdefault(norm, []).append(resp)
-    n2 = sum(1 for r in week2 if r.match_status == "auto")
-    n1 = sum(1 for r in week1 if r.match_status == "auto")
-    print(f"자동 매칭: 2주차 {n2}건 / 1주차 {n1}건 (임계값 {MATCH_THRESHOLD})")
-
-    assign_group_categories(groups, matched_by_group)
+        cat_src.setdefault(resp.question_norm, []).append(resp)
+    assign_group_categories(groups, cat_src)
     cat_dist = Counter(g.category or "미분류" for g in groups.values())
     print(f"카테고리 분포: {dict(cat_dist)}")
 
@@ -321,13 +332,13 @@ async def import_all(files: dict[int, Path], reset_reviews: bool) -> None:
             if restored_manage:
                 print(f"관리필드 복원: {restored_manage}건")
 
-        # 응답 group_id 연결
+        # 응답 group_id 연결 — 모든 응답이 자기 norm 그룹에 속함(미연결 없음)
         for resp in week3:
             resp.group_id = norm_to_gid[resp.question_norm]
+            resp.match_status = "base"
         for resp in (*week2, *week1):
-            norm = getattr(resp, "_match_norm", None)
-            if norm:
-                resp.group_id = norm_to_gid.get(norm)
+            resp.group_id = norm_to_gid[resp.question_norm]
+            resp.match_status = "member"
 
         session.add_all([*week3, *week2, *week1])
         await session.flush()

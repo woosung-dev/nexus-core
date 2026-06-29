@@ -81,8 +81,9 @@ class GroupSummary(BaseModel):
     tags: list[str]
     assignee: str | None
     model_answer: str
-    week2_matched: bool
-    week1_matched: bool
+    week3_present: bool  # 3주차에 출현(=3주차 기준 질문)
+    week2_matched: bool  # 2주차에 동일 질문 출현
+    week1_matched: bool  # 1주차에 동일 질문 출현
     review_status: list[ReviewerStatus]
 
 
@@ -179,8 +180,9 @@ class ManageStatsResponse(BaseModel):
     by_level: dict[str, int]  # "0".."3" + "미분류"
     by_disposition: dict[str, int]
     by_tag: dict[str, int]
-    unmatched_week2: int
-    unmatched_week1: int
+    week3_groups: int  # 3주차 기준 질문 수
+    prior_only_groups: int  # 1·2주차 전용 질문 수
+    multiweek_groups: int  # 2개 주차 이상 출현(다주차 중복)
     assignee_load: dict[str, int]  # assignee -> 그룹 수
 
 

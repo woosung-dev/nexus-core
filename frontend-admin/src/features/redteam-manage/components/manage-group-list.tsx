@@ -135,7 +135,8 @@ export function ManageGroupList({
                       #{t}
                     </Badge>
                   ))}
-                  <div className="ml-auto flex items-center gap-1.5">
+                  <div className="ml-auto flex items-center gap-1" title="출현 주차">
+                    <WeekDot active={g.week3_present} label="3주" />
                     <WeekDot active={g.week2_matched} label="2주" />
                     <WeekDot active={g.week1_matched} label="1주" />
                   </div>

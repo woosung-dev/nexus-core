@@ -31,7 +31,7 @@ export function CompareClient() {
   }, [rawQ])
 
   const { data, isLoading } = useManageGroups({
-    matched_only: true, // 1·2주차 매칭이 있는 그룹만 (비교 의미 있음)
+    multiweek: true, // 2개 주차 이상에 나온 동일 질문만 (비교 의미 있음)
     q: q || undefined,
     page,
     page_size: PAGE_SIZE,
@@ -45,7 +45,7 @@ export function CompareClient() {
       <div className="mb-4">
         <h1 className="rtm-display text-xl tracking-tight">주차별 피드백 비교</h1>
         <p className="text-sm text-muted-foreground">
-          3주차 질문과 동일한 1·2주차 질문을 찾아, 발전된 봇에 대한 평가가 어떻게 달라졌는지 비교합니다.
+          2개 주차 이상에 나온 동일 질문만 모아, 발전된 봇에 대한 평가가 주차별로 어떻게 달라졌는지 비교합니다.
         </p>
       </div>
 
@@ -53,7 +53,7 @@ export function CompareClient() {
         <Input
           value={rawQ}
           onChange={(e) => setRawQ(e.target.value)}
-          placeholder="질문 검색... (1·2주차 매칭된 질문만 표시)"
+          placeholder="질문 검색... (2개 이상 주차 질문만)"
           className="h-8 w-72 text-xs"
         />
       </div>

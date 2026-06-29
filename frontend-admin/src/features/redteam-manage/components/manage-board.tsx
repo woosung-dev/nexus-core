@@ -50,8 +50,9 @@ function FlowMeter({ stats }: { stats: ManageStatsResponse }) {
           </span>
         ))}
         <span className="ml-auto text-muted-foreground">
-          레벨 미분류 <b className="rtm-mono text-foreground">{stats.by_level["미분류"] ?? 0}</b> · 미매칭{" "}
-          <b className="rtm-mono text-foreground">{stats.unmatched_week2 + stats.unmatched_week1}</b>
+          3주차 기준 <b className="rtm-mono text-foreground">{stats.week3_groups}</b> · 1·2주차 전용{" "}
+          <b className="rtm-mono text-foreground">{stats.prior_only_groups}</b> · 레벨 미분류{" "}
+          <b className="rtm-mono text-foreground">{stats.by_level["미분류"] ?? 0}</b>
         </span>
       </div>
       <div className="flex h-2 overflow-hidden rounded-full bg-muted">
@@ -114,6 +115,7 @@ export function ManageBoard() {
   const [disposition, setDisposition] = React.useState("")
   const [category, setCategory] = React.useState("")
   const [risk, setRisk] = React.useState("")
+  const [origin, setOrigin] = React.useState("") // "week3" | "prior" | "multiweek" | ""
   const [page, setPage] = React.useState(1)
 
   // 검색 디바운스
@@ -138,6 +140,11 @@ export function ManageBoard() {
     disposition: disposition || undefined,
     category: category || undefined,
     risk: risk || undefined,
+    ...(origin === "multiweek"
+      ? { multiweek: true }
+      : origin === "week3" || origin === "prior"
+        ? { origin: origin as "week3" | "prior" }
+        : {}),
     page,
     page_size: PAGE_SIZE,
   }
@@ -148,7 +155,7 @@ export function ManageBoard() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const hasFilter = q || status || level || disposition || category || risk
+  const hasFilter = q || status || level || disposition || category || risk || origin
   const clearFilters = () => {
     setRawQ("")
     setQ("")
@@ -157,6 +164,7 @@ export function ManageBoard() {
     setDisposition("")
     setCategory("")
     setRisk("")
+    setOrigin("")
     resetPage()
   }
 
@@ -168,7 +176,8 @@ export function ManageBoard() {
           <div>
             <h1 className="rtm-display text-xl tracking-tight">피드백 입력관리</h1>
             <p className="text-sm text-muted-foreground">
-              3주차 기준 질문을 한 건씩 분류·검증하고 상태·레벨·모범답변을 기록합니다.
+              전 주차 고유질문을 한 건씩 분류·검증합니다. 3주차 기준 + 1·2주차 전용 질문 전건. 주차
+              배지로 어느 주차에 나온 질문인지 표시됩니다.
             </p>
           </div>
         </div>
@@ -212,6 +221,16 @@ export function ManageBoard() {
           onChange={onFilter(setRisk)}
           placeholder="위험도"
           options={RISK_LEVELS.map((r) => ({ value: r, label: r }))}
+        />
+        <FilterSelect
+          value={origin}
+          onChange={onFilter(setOrigin)}
+          placeholder="출처"
+          options={[
+            { value: "week3", label: "3주차 기준" },
+            { value: "prior", label: "1·2주차 전용" },
+            { value: "multiweek", label: "다주차 중복" },
+          ]}
         />
         {hasFilter && (
           <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={clearFilters}>

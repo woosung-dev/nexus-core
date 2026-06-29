@@ -104,13 +104,13 @@ export function SummaryClient() {
 
       {/* KPI */}
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="기준 질문" value={String(stats.total_groups)} sub="3주차 고유질문" />
+        <Kpi label="전체 질문" value={String(stats.total_groups)} sub="전 주차 고유질문(전건)" />
         <Kpi label="검증완료" value={`${donePct}%`} sub={`${done} / ${stats.total_groups}`} />
         <Kpi label="레벨 분류율" value={`${levelPct}%`} sub={`미분류 ${stats.by_level["미분류"] ?? 0}건`} />
         <Kpi
-          label="미매칭 응답"
-          value={String(stats.unmatched_week2 + stats.unmatched_week1)}
-          sub={`2주 ${stats.unmatched_week2} · 1주 ${stats.unmatched_week1}`}
+          label="1·2주차 전용"
+          value={String(stats.prior_only_groups)}
+          sub={`3주차 기준 ${stats.week3_groups} · 다주차 ${stats.multiweek_groups}`}
         />
       </div>
 
@@ -147,6 +147,24 @@ export function SummaryClient() {
             <Bars
               data={ordered(stats.by_disposition, ["학습", "FAQ", "미정"])}
               colorOf={(l) => DISPOSITION_COLOR[l] ?? "#9aa39a"}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">주차 출처</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Bars
+              data={[
+                { label: "3주차 기준", value: stats.week3_groups },
+                { label: "1·2주차 전용", value: stats.prior_only_groups },
+                { label: "다주차 중복", value: stats.multiweek_groups },
+              ]}
+              colorOf={(l) =>
+                l === "3주차 기준" ? "#2563eb" : l === "다주차 중복" ? "#d97706" : "#64748b"
+              }
             />
           </CardContent>
         </Card>

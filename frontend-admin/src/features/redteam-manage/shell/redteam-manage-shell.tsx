@@ -12,7 +12,6 @@ const THEME_KEY = "redteam-manage.colorScheme"
 const TABS = [
   { href: "/redteam-manage", label: "입력관리" },
   { href: "/redteam-manage/compare", label: "비교" },
-  { href: "/redteam-manage/unmatched", label: "미분류 큐" },
   { href: "/redteam-manage/summary", label: "중간보고 요약" },
 ]
 

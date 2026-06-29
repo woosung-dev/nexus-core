@@ -44,6 +44,8 @@ export async function fetchManageGroups(
       ...(params.disposition ? { disposition: params.disposition } : {}),
       ...(params.assignee ? { assignee: params.assignee } : {}),
       ...(params.tag ? { tag: params.tag } : {}),
+      ...(params.origin ? { origin: params.origin } : {}),
+      ...(params.multiweek ? { multiweek: true } : {}),
       ...(params.week_present ? { week_present: params.week_present } : {}),
       ...(params.matched_only ? { matched_only: true } : {}),
       ...(params.q ? { q: params.q } : {}),

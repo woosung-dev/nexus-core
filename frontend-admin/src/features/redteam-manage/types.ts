@@ -22,8 +22,9 @@ export type ManageGroupSummary = {
   tags: string[]
   assignee: string | null
   model_answer: string
-  week2_matched: boolean
-  week1_matched: boolean
+  week3_present: boolean // 3주차에 출현(=3주차 기준)
+  week2_matched: boolean // 2주차에 동일 질문 출현
+  week1_matched: boolean // 1주차에 동일 질문 출현
   review_status: ReviewerStatus[]
 }
 
@@ -95,8 +96,9 @@ export type ManageStatsResponse = {
   by_level: Record<string, number>
   by_disposition: Record<string, number>
   by_tag: Record<string, number>
-  unmatched_week2: number
-  unmatched_week1: number
+  week3_groups: number // 3주차 기준 질문 수
+  prior_only_groups: number // 1·2주차 전용 질문 수
+  multiweek_groups: number // 2개 주차 이상 출현
   assignee_load: Record<string, number>
 }
 
@@ -117,7 +119,9 @@ export type ManageGroupListParams = {
   disposition?: string
   assignee?: string
   tag?: string
-  week_present?: 1 | 2
+  origin?: "week3" | "prior" // 3주차 기준 | 1·2주차 전용
+  multiweek?: boolean // 2개 주차 이상 출현
+  week_present?: 1 | 2 | 3
   matched_only?: boolean
   q?: string
   page?: number

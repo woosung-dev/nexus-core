@@ -66,6 +66,8 @@ async def list_groups(
     disposition: str | None = None,
     assignee: str | None = None,
     tag: str | None = None,
+    origin: str | None = None,  # 'week3'(3주차 기준) | 'prior'(1·2주차 전용)
+    multiweek: bool = False,  # 2개 주차 이상에 출현한 질문만
     week_present: int | None = None,
     matched_only: bool = False,
     q: str | None = None,
@@ -95,15 +97,38 @@ async def list_groups(
     if q:
         conditions.append(RedteamQuestionGroup.question.ilike(f"%{q}%"))
 
-    # 특정 주차 매칭이 있는 그룹만 / 또는 임의 매칭 존재 그룹만
+    # 특정 주차에 출현한 그룹만 / 또는 1·2주차에 출현한 그룹만 (전건 그룹 기준 '출현 주차')
     if week_present in (1, 2) or matched_only:
-        sub = select(RedteamResponse.group_id).where(
-            RedteamResponse.match_status.in_(MATCHED_STATUSES)
-        )
+        sub = select(RedteamResponse.group_id)
         if week_present in (1, 2):
             sub = sub.where(RedteamResponse.week == week_present)
-        matched_ids_subq = sub.distinct().scalar_subquery()
-        conditions.append(RedteamQuestionGroup.id.in_(matched_ids_subq))
+        elif matched_only:
+            sub = sub.where(RedteamResponse.week.in_((1, 2)))
+        conditions.append(RedteamQuestionGroup.id.in_(sub.distinct().scalar_subquery()))
+
+    # 주차 출처: 3주차 기준(week3 응답 있음) vs 1·2주차 전용(week3 응답 없음)
+    if origin in ("week3", "prior"):
+        w3_ids = (
+            select(RedteamResponse.group_id)
+            .where(RedteamResponse.week == 3)
+            .distinct()
+            .scalar_subquery()
+        )
+        conditions.append(
+            RedteamQuestionGroup.id.in_(w3_ids)
+            if origin == "week3"
+            else RedteamQuestionGroup.id.notin_(w3_ids)
+        )
+
+    # 다주차 중복: 2개 이상 주차에 출현한 질문만
+    if multiweek:
+        mw_ids = (
+            select(RedteamResponse.group_id)
+            .group_by(RedteamResponse.group_id)
+            .having(func.count(func.distinct(RedteamResponse.week)) >= 2)
+            .scalar_subquery()
+        )
+        conditions.append(RedteamQuestionGroup.id.in_(mw_ids))
 
     for c in conditions:
         stmt = stmt.where(c)
@@ -119,15 +144,15 @@ async def list_groups(
 async def get_matched_weeks_map(
     session: AsyncSession, group_ids: list[int]
 ) -> dict[int, set[int]]:
-    """그룹별 매칭된 주차 집합 {group_id: {1,2}}"""
+    """그룹별로 응답이 출현한 주차 집합 {group_id: {1,2,3}}.
+
+    전건 그룹(전 주차 고유질문) 체계에서 각 질문이 '어느 주차에 나왔나'를 나타낸다.
+    """
     if not group_ids:
         return {}
     result = await session.execute(
         select(RedteamResponse.group_id, RedteamResponse.week)
-        .where(
-            RedteamResponse.group_id.in_(group_ids),
-            RedteamResponse.match_status.in_(MATCHED_STATUSES),
-        )
+        .where(RedteamResponse.group_id.in_(group_ids))
         .distinct()
     )
     out: dict[int, set[int]] = {}
@@ -359,7 +384,6 @@ async def get_stats(session: AsyncSession) -> dict:
 
     matched_rows = await session.execute(
         select(RedteamResponse.week, func.count(func.distinct(RedteamResponse.group_id)))
-        .where(RedteamResponse.match_status.in_(MATCHED_STATUSES))
         .group_by(RedteamResponse.week)
     )
     matched_map = {week: cnt for week, cnt in matched_rows.all()}
@@ -401,16 +425,16 @@ async def get_manage_stats(session: AsyncSession) -> dict:
         if g.assignee:
             assignee_load[g.assignee] += 1
 
-    unmatched_rows = await session.execute(
-        select(RedteamResponse.week, func.count())
-        .where(
-            RedteamResponse.group_id.is_(None),
-            RedteamResponse.match_status.in_(UNMATCHED_STATUSES),
-            RedteamResponse.week.in_((1, 2)),
-        )
-        .group_by(RedteamResponse.week)
+    # 주차 출처 분포 — 전건 그룹 기준
+    week_rows = await session.execute(
+        select(RedteamResponse.group_id, RedteamResponse.week).distinct()
     )
-    um = {week: cnt for week, cnt in unmatched_rows.all()}
+    weeks_by_gid: dict[int, set[int]] = {}
+    for gid, wk in week_rows.all():
+        weeks_by_gid.setdefault(gid, set()).add(wk)
+    week3_groups = sum(1 for ws in weeks_by_gid.values() if 3 in ws)
+    prior_only_groups = sum(1 for ws in weeks_by_gid.values() if 3 not in ws)
+    multiweek_groups = sum(1 for ws in weeks_by_gid.values() if len(ws) >= 2)
 
     return {
         "total_groups": len(groups),
@@ -418,8 +442,9 @@ async def get_manage_stats(session: AsyncSession) -> dict:
         "by_level": dict(by_level),
         "by_disposition": dict(by_disposition),
         "by_tag": dict(by_tag.most_common()),
-        "unmatched_week2": um.get(2, 0),
-        "unmatched_week1": um.get(1, 0),
+        "week3_groups": week3_groups,
+        "prior_only_groups": prior_only_groups,
+        "multiweek_groups": multiweek_groups,
         "assignee_load": dict(assignee_load.most_common()),
     }
 
