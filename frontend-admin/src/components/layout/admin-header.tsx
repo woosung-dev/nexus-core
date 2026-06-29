@@ -1,7 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { CircleUser, Menu } from "lucide-react"
+import { CircleUser, ClipboardList, ExternalLink, Menu, ShieldCheck } from "lucide-react"
 
 import {
   Breadcrumb,
@@ -64,20 +65,40 @@ export function AdminHeader() {
           </BreadcrumbList>
         </Breadcrumb>
       </div>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <CircleUser className="h-5 w-5" />
-            <span className="sr-only">Toggle user menu</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Admin Account</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Settings</DropdownMenuItem>
-          <DropdownMenuItem>Logout</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <div className="flex items-center gap-2">
+        {/* TEMP: 레드팀 심의 진입 (검토 기간 한정 · 종료 후 이 블록 제거) */}
+        <Button asChild variant="outline" size="sm" className="h-9 gap-1.5">
+          <Link href="/redteam/overview" target="_blank" rel="noopener noreferrer">
+            <ShieldCheck className="size-4" />
+            <span className="hidden sm:inline">레드팀 심의</span>
+            <ExternalLink className="size-3 opacity-60" />
+          </Link>
+        </Button>
+
+        {/* TEMP: 중간보고 입력관리 진입 (검토 기간 한정 · 종료 후 이 블록 제거) */}
+        <Button asChild variant="outline" size="sm" className="h-9 gap-1.5">
+          <Link href="/redteam-manage" target="_blank" rel="noopener noreferrer">
+            <ClipboardList className="size-4" />
+            <span className="hidden sm:inline">입력관리</span>
+            <ExternalLink className="size-3 opacity-60" />
+          </Link>
+        </Button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="rounded-full">
+              <CircleUser className="h-5 w-5" />
+              <span className="sr-only">Toggle user menu</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Admin Account</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem>Settings</DropdownMenuItem>
+            <DropdownMenuItem>Logout</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   )
 }

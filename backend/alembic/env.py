@@ -19,6 +19,12 @@ from app.models.bot import Bot  # noqa: F401
 from app.models.chat import ChatSession, Message  # noqa: F401
 from app.models.faq import Faq  # noqa: F401
 from app.models.bot_kakao_channel import BotKakaoChannel  # noqa: F401
+from app.models.redteam import (  # noqa: F401
+    RedteamManageFeedback,
+    RedteamQuestionGroup,
+    RedteamResponse,
+    RedteamReview,
+)
 from sqlmodel import SQLModel
 
 from app.core.config import get_settings
