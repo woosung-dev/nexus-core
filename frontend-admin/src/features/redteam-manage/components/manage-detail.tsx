@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { BOT_LABELS } from "../../redteam/constants"
-import { RISK_STYLE } from "../constants"
+import { meaningfulEtc, RISK_STYLE } from "../constants"
 import { useManageGroupDetail } from "../hooks"
 import type { ResponseItem } from "../types"
 import { FeedbackThread } from "./feedback-thread"
@@ -62,6 +62,17 @@ function ResponseCard({ resp }: { resp: ResponseItem }) {
           </p>
           <p className="whitespace-pre-wrap text-xs leading-relaxed text-muted-foreground">
             {resp.feedback_text}
+          </p>
+        </div>
+      )}
+
+      {meaningfulEtc(resp.raw?.["기타"]) && (
+        <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/40 dark:bg-amber-950/30">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300">
+            기타 의견·건의
+          </p>
+          <p className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90">
+            {resp.raw?.["기타"]}
           </p>
         </div>
       )}
