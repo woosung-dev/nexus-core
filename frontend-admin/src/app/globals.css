@@ -124,3 +124,212 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   레드팀 전용 디자인 시스템 — "심의 데스크 / 봉인"
+   주제(축복·가정 + 안전 심의) 기반. 본 종이 / 파인 / 잉크 / 브라스 /
+   가넷 봉인. 말(세리프) vs 판정(모노) 대비. admin과 분리된 .rt-theme 스코프.
+   ───────────────────────────────────────────────────────────── */
+.rt-theme {
+  --radius: 0.375rem;
+
+  /* E 고유 토큰 */
+  --rt-bone: #f1ede2;
+  --rt-pine: #1e3a34;
+  --rt-pine-dark: #16302b;
+  --rt-ink: #17150f;
+  --rt-brass: #b08524;
+  --rt-garnet: #b5321e;
+  --rt-hair: #d8d0c0;
+  --rt-sage: #9aa39a;
+  --rt-amber: #c2611f;
+  --rt-taupe: #6c6655;
+
+  /* shadcn 토큰 매핑 */
+  --background: #f1ede2; /* bone paper */
+  --foreground: #17150f; /* ink */
+  --card: #faf6eb;
+  --card-foreground: #17150f;
+  --popover: #faf6eb;
+  --popover-foreground: #17150f;
+  --primary: #1e3a34; /* pine */
+  --primary-foreground: #f1ede2;
+  --secondary: #e7e0ce;
+  --secondary-foreground: #2a271c;
+  --muted: #e7e0ce;
+  --muted-foreground: #6c6655; /* warm taupe, AA on bone */
+  --accent: #ece6d7;
+  --accent-foreground: #1e3a34;
+  --destructive: #b5321e; /* garnet */
+  --border: #d8d0c0; /* hairline */
+  --input: #d8d0c0;
+  --ring: #1e3a34;
+
+  /* 위험 단계: 없음 sage / 하 brass / 중 amber / 상 garnet */
+  --rt-risk-none: #9aa39a;
+  --rt-risk-low: #b08524;
+  --rt-risk-mid: #c2611f;
+  --rt-risk-high: #b5321e;
+
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: var(--font-noto-sans), system-ui, sans-serif;
+}
+
+.rt-theme.dark {
+  --rt-bone: #ece6d7;
+  --rt-pine: #6fa08f;
+  --rt-pine-dark: #14241f;
+  --rt-ink: #ece6d7;
+  --rt-brass: #cf9f33;
+  --rt-garnet: #e06a52;
+  --rt-hair: rgba(255, 255, 255, 0.12);
+  --rt-sage: #7e857a;
+  --rt-amber: #e0793a;
+  --rt-taupe: #a89d84;
+
+  --background: #16150f; /* warm near-black */
+  --foreground: #ece6d7;
+  --card: #1f1d15;
+  --card-foreground: #ece6d7;
+  --popover: #1f1d15;
+  --popover-foreground: #ece6d7;
+  --primary: #6fa08f; /* lifted pine */
+  --primary-foreground: #14150f;
+  --secondary: #262318;
+  --secondary-foreground: #ece6d7;
+  --muted: #262318;
+  --muted-foreground: #a89d84;
+  --accent: #233029; /* pine tint dark */
+  --accent-foreground: #cfe3da;
+  --destructive: #e06a52;
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: #6fa08f;
+
+  --rt-risk-none: #7e857a;
+  --rt-risk-low: #cf9f33;
+  --rt-risk-mid: #e0793a;
+  --rt-risk-high: #e06a52;
+}
+
+/* 디스플레이(세리프) 헤딩 — Noto Serif KR */
+.rt-display {
+  font-family: var(--font-noto-serif), Georgia, serif;
+  letter-spacing: -0.01em;
+}
+
+/* 판정/데이터 모노 — IBM Plex Mono, tabular */
+.rt-mono {
+  font-family: var(--font-plex-mono), ui-monospace, "SFMono-Regular", monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 가넷 봉인(엠보스 왁스 스탬프) — 헤드라인 위험 판정 */
+.rt-seal {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fcefe6;
+  background: radial-gradient(circle at 38% 32%, #c8492f 0%, #b5321e 46%, #8e2615 100%);
+  box-shadow:
+    0 10px 22px -8px rgba(141, 38, 21, 0.7),
+    0 2px 4px rgba(23, 21, 15, 0.3),
+    inset 0 3px 6px rgba(255, 255, 255, 0.32),
+    inset 0 -10px 18px rgba(90, 20, 10, 0.6),
+    inset 0 0 0 2px rgba(255, 255, 255, 0.08);
+}
+.rt-seal::before {
+  content: "";
+  position: absolute;
+  inset: 13px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 238, 225, 0.5);
+  box-shadow: inset 0 0 0 3px rgba(90, 20, 10, 0.35);
+}
+.rt-seal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 64% 78%, rgba(0, 0, 0, 0.22), transparent 45%);
+  mix-blend-mode: multiply;
+}
+
+/* 위험 스탬프 칩(눌린 디스크) — 등급별 색 */
+.rt-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  color: #fff;
+  font-weight: 600;
+  box-shadow:
+    inset 0 2px 3px rgba(255, 255, 255, 0.3),
+    inset 0 -3px 5px rgba(0, 0, 0, 0.3),
+    0 2px 4px -1px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+.rt-chip-none { background: var(--rt-risk-none); color: #33392f; }
+.rt-chip-low { background: var(--rt-risk-low); }
+.rt-chip-mid { background: var(--rt-risk-mid); }
+.rt-chip-high { background: var(--rt-risk-high); }
+
+/* 파인 강조 패널 */
+.rt-pine {
+  background: var(--rt-pine);
+  color: var(--rt-bone);
+}
+.rt-theme.dark .rt-pine {
+  background: var(--rt-pine-dark);
+}
+
+/* 섹션 번호(가넷 외곽 모노) */
+.rt-secno {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--rt-garnet);
+  letter-spacing: 0.1em;
+  border: 1px solid var(--rt-garnet);
+  padding: 2px 7px;
+}
+
+/* 보고 대시보드 인쇄: 차트·배지 색상 강제 출력 + 다크 모드여도 라이트로 출력 */
+@media print {
+  html,
+  body {
+    background: #ffffff;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .rt-theme.dark {
+    --background: #f1ede2;
+    --foreground: #17150f;
+    --card: #faf6eb;
+    --card-foreground: #17150f;
+    --popover: #faf6eb;
+    --popover-foreground: #17150f;
+    --primary: #1e3a34;
+    --primary-foreground: #f1ede2;
+    --secondary: #e7e0ce;
+    --secondary-foreground: #2a271c;
+    --muted: #e7e0ce;
+    --muted-foreground: #6c6655;
+    --accent: #ece6d7;
+    --accent-foreground: #1e3a34;
+    --border: #d8d0c0;
+    --rt-bone: #f1ede2;
+    --rt-pine: #1e3a34;
+    --rt-pine-dark: #16302b;
+    --rt-ink: #17150f;
+    --rt-hair: #d8d0c0;
+    --rt-taupe: #6c6655;
+    --rt-risk-none: #9aa39a;
+    --rt-risk-low: #b08524;
+    --rt-risk-mid: #c2611f;
+    --rt-risk-high: #b5321e;
+  }
+}

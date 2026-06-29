@@ -1,0 +1,88 @@
+"use client"
+
+// 레드팀 전용 셸 — 캄 에디토리얼 디자인 시스템 적용. 상단 탭(검토·보고) + 라이트/다크 토글.
+import * as React from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { Moon, ShieldCheck, Sun } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+const THEME_KEY = "redteam.colorScheme"
+
+const TABS = [
+  { href: "/redteam/overview", label: "현황" },
+  { href: "/redteam", label: "검토" },
+  { href: "/redteam/report", label: "보고" },
+]
+
+export function RedteamShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const [dark, setDark] = React.useState(false)
+  const [mounted, setMounted] = React.useState(false)
+
+  React.useEffect(() => {
+    const saved = localStorage.getItem(THEME_KEY)
+    setDark(saved === "dark")
+    setMounted(true)
+  }, [])
+
+  const toggle = () => {
+    setDark((d) => {
+      const next = !d
+      localStorage.setItem(THEME_KEY, next ? "dark" : "light")
+      return next
+    })
+  }
+
+  return (
+    <div className={cn("rt-theme min-h-dvh", dark && "dark")}>
+      <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur print:hidden">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-6">
+          <Link href="/redteam" className="flex items-center gap-2.5">
+            <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+              <ShieldCheck className="size-5" />
+            </span>
+            <span className="flex flex-col leading-none">
+              <span className="rt-display text-[15px] font-bold tracking-tight">레드팀 피드백</span>
+              <span className="text-[11px] text-muted-foreground">축복·가정관리 AI 챗봇</span>
+            </span>
+          </Link>
+
+          <nav className="ml-4 flex items-center gap-1">
+            {TABS.map((tab) => {
+              const active =
+                tab.href === "/redteam"
+                  ? pathname === "/redteam"
+                  : pathname.startsWith(tab.href)
+              return (
+                <Link
+                  key={tab.href}
+                  href={tab.href}
+                  className={cn(
+                    "rounded-lg px-3.5 py-1.5 text-sm font-medium transition-colors",
+                    active
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                  )}
+                >
+                  {tab.label}
+                </Link>
+              )
+            })}
+          </nav>
+
+          <button
+            onClick={toggle}
+            className="ml-auto flex size-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            title={dark ? "라이트 모드" : "다크 모드"}
+            aria-label="테마 전환"
+          >
+            {mounted && dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          </button>
+        </div>
+      </header>
+
+      <main>{children}</main>
+    </div>
+  )
+}
