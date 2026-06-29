@@ -295,6 +295,7 @@ async def get_group_compare(
             rating=r.rating,
             risk=r.risk,
             feedback_text=r.feedback_text,
+            etc=(r.raw or {}).get("기타"),
             bots=bots,
             bot_note=note,
         )

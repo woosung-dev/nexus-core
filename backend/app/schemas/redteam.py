@@ -66,6 +66,7 @@ class ResponseItem(BaseModel):
     risk: str | None
     bot_responses: dict | None
     feedback_text: str | None
+    raw: dict | None  # 잔여 칼럼 (기타 의견·건의, 개선영역 등)
     match_score: float | None
     match_status: str
 
@@ -168,6 +169,7 @@ class CompareWeekResponse(BaseModel):
     rating: float | None
     risk: str | None
     feedback_text: str | None
+    etc: str | None  # 9. 기타 의견 또는 건의 사항
     bots: dict[str, str | None]  # C/D 정규화된 봇 응답
     bot_note: str | None  # 예: "원리B 단종", "1주차 단일봇(원문)"
 

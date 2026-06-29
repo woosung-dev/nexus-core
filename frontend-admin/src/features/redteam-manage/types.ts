@@ -84,6 +84,7 @@ export type CompareWeekResponse = {
   rating: number | null
   risk: string | null
   feedback_text: string | null
+  etc: string | null
   bots: Record<string, string | null>
   bot_note: string | null
 }
