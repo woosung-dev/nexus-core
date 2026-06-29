@@ -5,14 +5,14 @@ import * as React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { DISPOSITION_STYLE, LEVEL_STYLE, RISK_STYLE, STATUS_STYLE } from "../constants"
+import { DISPOSITION_STYLE, LEVEL_STYLE, RISK_STYLE, STATUS_SPINE, STATUS_STYLE } from "../constants"
 import type { ManageGroupSummary } from "../types"
 
 function WeekDot({ active, label }: { active: boolean; label: string }) {
   return (
     <span
       className={cn(
-        "inline-flex h-5 items-center rounded px-1.5 text-[10px] font-semibold",
+        "rtm-mono inline-flex h-5 items-center rounded px-1.5 text-[10px] font-semibold",
         active
           ? "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
           : "bg-muted text-muted-foreground/50"
@@ -67,8 +67,9 @@ export function ManageGroupList({
             <li key={g.id}>
               <button
                 onClick={() => onSelect(g.id)}
+                style={{ ["--rtm-spine-color" as string]: STATUS_SPINE[g.status] ?? "transparent" }}
                 className={cn(
-                  "flex w-full flex-col gap-2 px-3 py-3 text-left transition-colors",
+                  "rtm-spine flex w-full flex-col gap-2 py-2.5 pl-4 pr-3 text-left transition-colors",
                   selected ? "bg-accent" : "hover:bg-accent/50"
                 )}
               >
@@ -85,7 +86,7 @@ export function ManageGroupList({
                   {g.level != null && (
                     <span
                       className={cn(
-                        "rounded px-1.5 py-0.5 text-[10px] font-semibold",
+                        "rtm-mono rounded px-1.5 py-0.5 text-[10px] font-semibold",
                         LEVEL_STYLE[g.level]
                       )}
                       title="보완 레벨"

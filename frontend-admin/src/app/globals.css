@@ -333,3 +333,101 @@
     --rt-risk-high: #b5321e;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   입력관리 전용 디자인 시스템 — "운영 콘솔 (Ops Console)"
+   차가운 슬레이트 캔버스 + 블루(주)/앰버(액션). 상태 스파인·플로우 미터·
+   모노 수치. /redteam 의 .rt-theme 와 분리된 .rtm-theme 스코프.
+   ───────────────────────────────────────────────────────────── */
+.rtm-theme {
+  --radius: 0.5rem;
+
+  /* 콘솔 고유 토큰 */
+  --rtm-canvas: #f4f6fb;
+  --rtm-blue: #2563eb;
+  --rtm-amber: #d97706;
+  /* 상태: 대기 slate / 진행중 amber / 검증완료 emerald */
+  --rtm-st-wait: #64748b;
+  --rtm-st-prog: #d97706;
+  --rtm-st-done: #059669;
+
+  /* shadcn 토큰 매핑 */
+  --background: #f4f6fb;
+  --foreground: #0f1b2d;
+  --card: #ffffff;
+  --card-foreground: #0f1b2d;
+  --popover: #ffffff;
+  --popover-foreground: #0f1b2d;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #e8eef7;
+  --secondary-foreground: #1e293b;
+  --muted: #eaf0f8;
+  --muted-foreground: #57647b;
+  --accent: #e4ecf8;
+  --accent-foreground: #1d4ed8;
+  --destructive: #dc2626;
+  --border: #dfe5ee;
+  --input: #dfe5ee;
+  --ring: #2563eb;
+
+  color: var(--foreground);
+  background-color: var(--background);
+  font-family: var(--font-plex-sans-kr), system-ui, sans-serif;
+}
+
+.rtm-theme.dark {
+  --rtm-canvas: #0f141c;
+  --rtm-blue: #3b82f6;
+  --rtm-amber: #fbbf24;
+  --rtm-st-wait: #94a3b8;
+  --rtm-st-prog: #fbbf24;
+  --rtm-st-done: #34d399;
+
+  --background: #0f141c;
+  --foreground: #e6edf5;
+  --card: #161d27;
+  --card-foreground: #e6edf5;
+  --popover: #161d27;
+  --popover-foreground: #e6edf5;
+  --primary: #3b82f6;
+  --primary-foreground: #0b1220;
+  --secondary: #1e2733;
+  --secondary-foreground: #e6edf5;
+  --muted: #1e2733;
+  --muted-foreground: #93a2b7;
+  --accent: #1b2a40;
+  --accent-foreground: #bfd3f6;
+  --destructive: #f87171;
+  --border: rgba(255, 255, 255, 0.09);
+  --input: rgba(255, 255, 255, 0.12);
+  --ring: #3b82f6;
+}
+
+/* 디스플레이 헤딩 — IBM Plex Sans KR 700, 타이트 트래킹 */
+.rtm-display {
+  font-family: var(--font-plex-sans-kr), system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+/* 수치·코드 모노 — JetBrains Mono, tabular */
+.rtm-mono {
+  font-family: var(--font-jetbrains), ui-monospace, "SFMono-Regular", monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* 상태 스파인(행 좌측 색 막대) */
+.rtm-spine {
+  position: relative;
+}
+.rtm-spine::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--rtm-spine-color, transparent);
+}

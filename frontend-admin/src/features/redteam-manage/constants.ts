@@ -27,9 +27,16 @@ export const STATUS_STYLE: Record<string, string> = {
 }
 
 export const STATUS_COLOR: Record<string, string> = {
-  대기: "#9aa39a", // sage
-  진행중: "#b08524", // brass
-  검증완료: "#1e3a34", // pine
+  대기: "#64748b", // slate
+  진행중: "#d97706", // amber
+  검증완료: "#059669", // emerald
+}
+
+// 행 좌측 상태 스파인 색 (운영 콘솔 시그니처)
+export const STATUS_SPINE: Record<string, string> = {
+  대기: "#94a3b8", // 옅은 slate
+  진행중: "#d97706", // amber
+  검증완료: "#059669", // emerald
 }
 
 // 보완 레벨 0~3
@@ -71,14 +78,14 @@ export const DISPOSITION_OPTIONS = [
 
 export const DISPOSITION_STYLE: Record<string, string> = {
   학습: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
-  FAQ: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
+  FAQ: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
   미정: "bg-muted text-muted-foreground",
 }
 
 export const DISPOSITION_COLOR: Record<string, string> = {
-  학습: "#1e3a34", // pine
-  FAQ: "#b08524", // brass
-  미정: "#9aa39a", // sage
+  학습: "#0284c7", // sky
+  FAQ: "#4f46e5", // indigo
+  미정: "#94a3b8", // slate
 }
 
 // 이전 주차 봇 → 3주차 C/D 라인업 정규화 (BE crud_redteam.PRIOR_BOT_TO_CD와 동일 기준, 범례용)

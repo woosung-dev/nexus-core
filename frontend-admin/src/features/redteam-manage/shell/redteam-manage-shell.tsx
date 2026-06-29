@@ -36,15 +36,15 @@ export function RedteamManageShell({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className={cn("rt-theme min-h-dvh", dark && "dark")}>
+    <div className={cn("rtm-theme min-h-dvh", dark && "dark")}>
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur print:hidden">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-6">
           <Link href="/redteam-manage" className="flex items-center gap-2.5">
-            <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
               <ClipboardList className="size-5" />
             </span>
             <span className="flex flex-col leading-none">
-              <span className="rt-display text-[15px] font-bold tracking-tight">중간보고 입력관리</span>
+              <span className="rtm-display text-[15px] tracking-tight">중간보고 입력관리</span>
               <span className="text-[11px] text-muted-foreground">축복·가정관리 AI 챗봇 · 레드팀 피드백</span>
             </span>
           </Link>

@@ -18,10 +18,54 @@ import {
   DISPOSITION_OPTIONS,
   LEVEL_OPTIONS,
   RISK_LEVELS,
+  STATUS_COLOR,
   STATUS_OPTIONS,
 } from "../constants"
 import { useManageGroups, useManageStats } from "../hooks"
-import type { ManageGroupListParams } from "../types"
+import type { ManageGroupListParams, ManageStatsResponse } from "../types"
+
+function FlowMeter({ stats }: { stats: ManageStatsResponse }) {
+  const wait = stats.by_status["대기"] ?? 0
+  const prog = stats.by_status["진행중"] ?? 0
+  const done = stats.by_status["검증완료"] ?? 0
+  const total = Math.max(1, wait + prog + done)
+  const seg = [
+    { label: "대기", n: wait, c: STATUS_COLOR["대기"] },
+    { label: "진행중", n: prog, c: STATUS_COLOR["진행중"] },
+    { label: "검증완료", n: done, c: STATUS_COLOR["검증완료"] },
+  ]
+  return (
+    <div className="rounded-lg border bg-card px-4 py-3">
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+        <span className="text-muted-foreground">
+          기준 질문 <b className="rtm-mono text-sm text-foreground">{stats.total_groups}</b>
+        </span>
+        <span className="h-3.5 w-px bg-border" />
+        {seg.map((s, i) => (
+          <span key={s.label} className="flex items-center gap-1.5">
+            <span className="size-2 rounded-full" style={{ background: s.c }} />
+            <span className="text-muted-foreground">{s.label}</span>
+            <b className="rtm-mono text-foreground">{s.n}</b>
+            {i < 2 && <span className="text-muted-foreground/40">▸</span>}
+          </span>
+        ))}
+        <span className="ml-auto text-muted-foreground">
+          레벨 미분류 <b className="rtm-mono text-foreground">{stats.by_level["미분류"] ?? 0}</b> · 미매칭{" "}
+          <b className="rtm-mono text-foreground">{stats.unmatched_week2 + stats.unmatched_week1}</b>
+        </span>
+      </div>
+      <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+        {seg.map((s) => (
+          <div
+            key={s.label}
+            style={{ width: `${(s.n / total) * 100}%`, background: s.c }}
+            title={`${s.label} ${s.n}`}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
 import { ManageDetail } from "./manage-detail"
 import { ManageGroupList } from "./manage-group-list"
 
@@ -122,34 +166,13 @@ export function ManageBoard() {
       <div className="mb-4 flex flex-col gap-2">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <h1 className="rt-display text-xl font-bold tracking-tight">피드백 입력관리</h1>
+            <h1 className="rtm-display text-xl tracking-tight">피드백 입력관리</h1>
             <p className="text-sm text-muted-foreground">
               3주차 기준 질문을 한 건씩 분류·검증하고 상태·레벨·모범답변을 기록합니다.
             </p>
           </div>
         </div>
-        {stats && (
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground">
-            <span>
-              기준 질문 <b className="text-foreground">{stats.total_groups}</b>
-            </span>
-            <span className="text-border">·</span>
-            <span>
-              대기 <b className="text-foreground">{stats.by_status["대기"] ?? 0}</b> / 진행중{" "}
-              <b className="text-foreground">{stats.by_status["진행중"] ?? 0}</b> / 검증완료{" "}
-              <b className="text-emerald-600">{stats.by_status["검증완료"] ?? 0}</b>
-            </span>
-            <span className="text-border">·</span>
-            <span>
-              레벨 미분류 <b className="text-foreground">{stats.by_level["미분류"] ?? 0}</b>
-            </span>
-            <span className="text-border">·</span>
-            <span>
-              미매칭 2주 <b className="text-foreground">{stats.unmatched_week2}</b> · 1주{" "}
-              <b className="text-foreground">{stats.unmatched_week1}</b>
-            </span>
-          </div>
-        )}
+        {stats && <FlowMeter stats={stats} />}
       </div>
 
       {/* 필터 바 */}

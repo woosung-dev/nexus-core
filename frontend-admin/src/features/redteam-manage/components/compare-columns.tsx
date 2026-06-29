@@ -28,7 +28,7 @@ function CompareCard({ r }: { r: CompareWeekResponse }) {
           </Badge>
         )}
         {r.rating != null && (
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="rtm-mono text-xs text-muted-foreground">
             평점 <span className="font-semibold text-foreground">{r.rating.toFixed(0)}</span>/5
           </span>
         )}

@@ -24,7 +24,7 @@ function ResponseCard({ resp }: { resp: ResponseItem }) {
           {resp.submitter ?? "익명"}
         </Badge>
         {resp.rating != null && (
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="rtm-mono text-xs text-muted-foreground">
             평점 <span className="font-semibold text-foreground">{resp.rating.toFixed(0)}</span>/5
           </span>
         )}
@@ -34,7 +34,7 @@ function ResponseCard({ resp }: { resp: ResponseItem }) {
           </span>
         )}
         {resp.match_score != null && resp.match_status !== "base" && (
-          <Badge variant="secondary" className="text-[10px]" title="3주차 질문과의 유사도">
+          <Badge variant="secondary" className="rtm-mono text-[10px]" title="3주차 질문과의 유사도">
             유사도 {(resp.match_score * 100).toFixed(0)}%
             {resp.match_status === "confirmed" && " · 확정"}
           </Badge>

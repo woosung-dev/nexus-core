@@ -63,7 +63,7 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub?: string
   return (
     <div className="rounded-lg border bg-card px-4 py-3">
       <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="rt-mono text-2xl font-bold tabular-nums">{value}</p>
+      <p className="rtm-mono text-2xl font-bold tabular-nums">{value}</p>
       {sub && <p className="text-[11px] text-muted-foreground">{sub}</p>}
     </div>
   )
@@ -96,7 +96,7 @@ export function SummaryClient() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-6">
       <div className="mb-4">
-        <h1 className="rt-display text-xl font-bold tracking-tight">중간보고 요약</h1>
+        <h1 className="rtm-display text-xl tracking-tight">중간보고 요약</h1>
         <p className="text-sm text-muted-foreground">
           입력관리 진행 현황 — 검증 상태·보완 레벨·학습/FAQ 분류·담당자 분포.
         </p>

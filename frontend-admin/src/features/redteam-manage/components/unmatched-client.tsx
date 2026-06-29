@@ -151,7 +151,7 @@ export function UnmatchedClient() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-6">
       <div className="mb-4">
-        <h1 className="rt-display text-xl font-bold tracking-tight">미분류 큐</h1>
+        <h1 className="rtm-display text-xl tracking-tight">미분류 큐</h1>
         <p className="text-sm text-muted-foreground">
           3주차 기준 질문에 매칭되지 않은 1·2주차 응답입니다. 동일 질문이면 기준 질문에 연결합니다.
         </p>

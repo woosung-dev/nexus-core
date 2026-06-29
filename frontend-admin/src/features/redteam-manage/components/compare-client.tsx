@@ -43,7 +43,7 @@ export function CompareClient() {
   return (
     <div className="mx-auto max-w-7xl px-6 py-6">
       <div className="mb-4">
-        <h1 className="rt-display text-xl font-bold tracking-tight">주차별 피드백 비교</h1>
+        <h1 className="rtm-display text-xl tracking-tight">주차별 피드백 비교</h1>
         <p className="text-sm text-muted-foreground">
           3주차 질문과 동일한 1·2주차 질문을 찾아, 발전된 봇에 대한 평가가 어떻게 달라졌는지 비교합니다.
         </p>
