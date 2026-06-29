@@ -89,7 +89,7 @@ export const DISPOSITION_COLOR: Record<string, string> = {
 }
 
 // 담당자 피드백 작성자 프리셋 (자유 입력도 허용)
-export const FEEDBACK_AUTHORS = ["장우성", "신은비", "조화연"] as const
+export const FEEDBACK_AUTHORS = ["장우성", "이동규", "윤종범"] as const
 
 // 작성자 아바타 색 (이름 해시 → 팔레트)
 export const AVATAR_COLORS = ["#2563eb", "#0d9488", "#7c3aed", "#d97706", "#db2777", "#059669"]
