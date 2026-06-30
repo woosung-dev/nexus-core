@@ -12,17 +12,9 @@ import re
 import time
 from datetime import datetime
 
-from google import genai
-from google.genai import types
-
 from app.core.config import get_settings
 from app.schemas.rag import DocumentInfo, RAGCitation, RAGResponse
-from app.services.llm.gemini import (
-    SAFETY_BLOCKED_MESSAGE,
-    build_gemini_contents,
-    is_blocked,
-    safe_response_text,
-)
+from app.services.llm.gemini import SAFETY_BLOCKED_MESSAGE
 from app.services.rag.base import BaseRAGService
 
 logger = logging.getLogger(__name__)
@@ -115,6 +107,53 @@ def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
     raw = _TRAILING_SEPARATOR_RE.sub("", raw)
 
     return raw.strip(), followups
+
+
+def _citations_from_steps(steps: list[dict]) -> list[RAGCitation]:
+    """interactions 응답의 steps[].content[].annotations[] 에서 file_citation 을 RAGCitation 으로 변환.
+
+    같은 호출에서 답변과 함께 보고된 '그 답변의 실제 출처'이므로 approximate=False (근사 아님).
+    답변/스트림 경로와 search_citations 가 공유해 파싱이 갈라지지 않게 한다.
+    """
+    out: list[RAGCitation] = []
+    for step in steps or []:
+        for content in step.get("content") or []:
+            for ann in content.get("annotations") or []:
+                if ann.get("type") != "file_citation":
+                    continue
+                source = ann.get("source")
+                out.append(
+                    RAGCitation(
+                        title=ann.get("file_name"),
+                        content=source[:800] if source else None,
+                        uri=ann.get("document_uri"),
+                        page_number=ann.get("page_number"),
+                        approximate=False,
+                    )
+                )
+    return out
+
+
+def _build_interaction_input(prompt: str, history: list[dict[str, str]] | None):
+    """interactions input 생성 — history 없으면 str(단일턴), 있으면 step 리스트(과거→현재).
+
+    build_gemini_contents 의 멀티턴 의미를 interactions step 형식으로 대응한다.
+    history 규약: [{"role":"user"|"assistant","content":str}], 과거→현재, 현재 질문 미포함.
+    """
+    if not history:
+        return prompt
+    steps: list[dict] = []
+    for m in history:
+        step_type = "user_input" if m["role"] == "user" else "model_output"
+        steps.append({"type": step_type, "content": [{"type": "text", "text": m["content"]}]})
+    steps.append({"type": "user_input", "content": [{"type": "text", "text": prompt}]})
+    return steps
+
+
+def _chunk_text(text: str, size: int = 40):
+    """의사-스트림용: 완성된 답변을 ~size자 조각으로 나눠 순차 yield(클라이언트는 그대로 이어붙임)."""
+    for i in range(0, len(text), size):
+        yield text[i:i + size]
 
 
 class GeminiRAGService(BaseRAGService):
@@ -324,6 +363,72 @@ class GeminiRAGService(BaseRAGService):
             logger.error(f"Gemini 문서 삭제 실패: {e}")
             raise
 
+    async def _interactions_answer(
+        self,
+        bot_id: int,
+        prompt: str,
+        system_prompt: str,
+        model_name: str | None,
+        temperature: float | None,
+        max_tokens: int,
+        history: list[dict[str, str]] | None,
+    ) -> tuple[str, list[RAGCitation], list[str], bool]:
+        """interactions.create 1회로 답변+정확인용+followups 를 함께 받는다(단일 호출).
+
+        레거시 generate_content 는 persona 가 grounding 보고를 억제해 인용이 거의 0이지만,
+        interactions 채널은 persona 가 있어도 '그 답변 자신의' 정확 인용(annotations)을 보고한다.
+        따라서 답변과 인용이 같은 생성에서 나와 무결성이 보장된다(approximate=False).
+        반환: (clean_answer, citations, followups, blocked).
+        """
+        actual_model_name = model_name or "gemini-2.5-flash"
+        settings = get_settings()
+        if temperature is None:
+            temperature = settings.RAG_TEMPERATURE
+        store_name = await self.ensure_store()
+
+        # persona + 인용지침 + followups지침을 한 호출에 합친다(본문에 <followups> 블록 동반 — 실측 확인).
+        system_instruction = (system_prompt or "") + _CITATION_INSTRUCTION + _FOLLOWUPS_INSTRUCTION
+        tool = {
+            "type": "file_search",
+            "file_search_store_names": [store_name],
+            "metadata_filter": f"bot_id = {bot_id}",
+            "top_k": settings.RAG_TOP_K,
+        }
+
+        t_gen = time.perf_counter()
+        try:
+            interaction = await self._client.aio.interactions.create(
+                model=actual_model_name,
+                input=_build_interaction_input(prompt, history),
+                system_instruction=system_instruction,
+                tools=[tool],
+                # temperature 0 은 인용 보고를 억제하므로 RAG_TEMPERATURE(0.3) 유지.
+                generation_config={"temperature": temperature, "max_output_tokens": max_tokens + 256},
+            )
+        except Exception as e:
+            logger.warning("interactions RAG 호출 실패 — bot_id=%s: %s", bot_id, e)
+            return SAFETY_BLOCKED_MESSAGE, [], [], True
+        gen_ms = (time.perf_counter() - t_gen) * 1000
+
+        # 세이프티/실패 차단 — interactions 는 finish_reason 대신 status 로 표현한다.
+        status = getattr(interaction, "status", None)
+        raw = interaction.output_text or ""
+        if status in ("failed", "cancelled") or not raw.strip():
+            logger.warning("RAG 응답 차단/빈응답 — bot_id=%s status=%s gen=%.1fms", bot_id, status, gen_ms)
+            return SAFETY_BLOCKED_MESSAGE, [], [], True
+
+        dump = interaction.model_dump(mode="json", exclude_none=True)
+        citations = _citations_from_steps(dump.get("steps") or [])
+        clean_answer, followups = _split_answer_and_followups(raw)
+
+        logger.info(
+            "interactions RAG elapsed=%.1fms model=%s bot_id=%s status=%s "
+            "answer_len=%d citations=%d followups=%d",
+            gen_ms, actual_model_name, bot_id, status,
+            len(clean_answer), len(citations), len(followups),
+        )
+        return clean_answer, citations, followups, False
+
     async def generate_with_rag(
         self,
         bot_id: int,
@@ -334,104 +439,17 @@ class GeminiRAGService(BaseRAGService):
         max_tokens: int = 2048,
         history: list[dict[str, str]] | None = None,
     ) -> RAGResponse:
-        """
-        RAG 기반 응답 생성.
-        bot_id에 해당하는 문서만 검색하여 컨텍스트로 사용.
+        """RAG 기반 응답 생성(비스트림). 단일 interactions 호출로 답변+정확인용+followups 동시 수신.
 
         Args:
-            bot_id: 검색 대상 봇 ID
-            prompt: 사용자 질문
-            system_prompt: 시스템 프롬프트
-            model_name: 사용할 모델 (기본값 gemini-2.5-flash)
-            temperature: 응답 다양성
-            max_tokens: 최대 토큰
-            history: 멀티턴 대화 이력 (과거→현재, 현재 질문 미포함)
+            bot_id: 검색 대상 봇 ID / prompt: 사용자 질문 / system_prompt: 페르소나
+            model_name: 모델(기본 gemini-2.5-flash) / temperature / max_tokens
+            history: 멀티턴 이력(과거→현재, 현재 질문 미포함)
         """
-        # 기본 모델 지정
-        actual_model_name = model_name or "gemini-2.5-flash"
-        settings = get_settings()
-        if temperature is None:
-            temperature = settings.RAG_TEMPERATURE
-
-        store_name = await self.ensure_store()
-
-        # 본문 + followups 를 1회 호출에 같이 받기 위해 system_instruction 끝에 지시 첨부.
-        # max_output_tokens 도 followup 3줄 분량을 흡수할 정도로 약간 늘린다 (~120 tokens).
-        merged_system_instruction = (system_prompt or "") + _FOLLOWUPS_INSTRUCTION
-
-        config = types.GenerateContentConfig(
-            system_instruction=merged_system_instruction or None,
-            temperature=temperature,
-            max_output_tokens=max_tokens + 256,
-            tools=[
-                types.Tool(
-                    file_search=types.FileSearch(
-                        file_search_store_names=[store_name],
-                        metadata_filter=f"bot_id = {bot_id}",
-                        top_k=settings.RAG_TOP_K,
-                    )
-                )
-            ],
+        answer, citations, followups, _blocked = await self._interactions_answer(
+            bot_id, prompt, system_prompt, model_name, temperature, max_tokens, history
         )
-
-        # generate_content는 이미 async 지원 (aio). 외부 API wall-time을 단독 측정한다.
-        t_gen = time.perf_counter()
-        response = await self._client.aio.models.generate_content(
-            model=actual_model_name,
-            contents=build_gemini_contents(prompt, history),
-            config=config,
-        )
-        gen_ms = (time.perf_counter() - t_gen) * 1000
-
-        # 세이프티 차단 시 raw 에러 대신 간단한 안내 문구로 처리.
-        # (candidates=None 차단 응답이 아래 인용 추출에서 TypeError 로 터지던 H25 직접 수정)
-        if is_blocked(response):
-            logger.warning("RAG 응답 차단 — bot_id=%s, gen=%.1fms", bot_id, gen_ms)
-            return RAGResponse(answer=SAFETY_BLOCKED_MESSAGE, citations=[], followups=[])
-
-        # 인용 정보 추출
-        citations: list[RAGCitation] = []
-        chunk_count = 0
-        try:
-            grounding = response.candidates[0].grounding_metadata
-            if grounding and grounding.grounding_chunks:
-                chunk_count = len(grounding.grounding_chunks)
-                for chunk in grounding.grounding_chunks:
-                    if chunk.retrieved_context:
-                        citations.append(
-                            RAGCitation(
-                                title=chunk.retrieved_context.title,
-                                content=(
-                                    chunk.retrieved_context.text[:800]
-                                    if chunk.retrieved_context.text
-                                    else None
-                                ),
-                            )
-                        )
-        except (AttributeError, IndexError) as e:
-            logger.debug(f"인용 정보 추출 실패 (정상 케이스일 수 있음): {e}")
-
-        # 본문/followups 분리 + citation marker 제거.
-        clean_answer, followups = _split_answer_and_followups(safe_response_text(response))
-
-        # 핵심 측정 지점: generate_content 자체 wall-time + retrieval 양 + followup 추출 결과.
-        logger.info(
-            "gemini RAG generate_content elapsed=%.1fms model=%s bot_id=%s "
-            "answer_len=%d grounding_chunks=%d citations=%d followups=%d",
-            gen_ms,
-            actual_model_name,
-            bot_id,
-            len(clean_answer),
-            chunk_count,
-            len(citations),
-            len(followups),
-        )
-
-        return RAGResponse(
-            answer=clean_answer,
-            citations=citations,
-            followups=followups,
-        )
+        return RAGResponse(answer=answer, citations=citations, followups=followups)
 
     async def generate_stream_with_rag(
         self,
@@ -443,66 +461,22 @@ class GeminiRAGService(BaseRAGService):
         max_tokens: int = 2048,
         history: list[dict[str, str]] | None = None,
     ):
-        """
-        RAG 기반 스트리밍 응답 생성.
-        Gemini generate_content_stream을 사용하여 청크를 즉시 yield한다.
-        """
+        """RAG 기반 의사-스트림 응답 생성.
 
-        actual_model_name = model_name or "gemini-2.5-flash"
-        settings = get_settings()
-        if temperature is None:
-            temperature = settings.RAG_TEMPERATURE
-        store_name = await self.ensure_store()
-
-        config = types.GenerateContentConfig(
-            system_instruction=system_prompt or None,
-            temperature=temperature,
-            max_output_tokens=max_tokens,
-            tools=[
-                types.Tool(
-                    file_search=types.FileSearch(
-                        file_search_store_names=[store_name],
-                        metadata_filter=f"bot_id = {bot_id}",
-                        top_k=settings.RAG_TOP_K,
-                    )
-                )
-            ],
+        interactions 는 스트리밍 시 인용(annotations)을 보고하지 않는다(실측: 0건). 따라서
+        단일 interactions 비스트림 호출로 답변+정확인용+followups 를 한 번에 받고(무결성 보장),
+        본문을 청크로 나눠 순차 yield 해 기존 SSE 계약(str 청크 → 최종 dict)을 유지한다.
+        최종 dict 는 citations 와 followups 를 함께 싣는다(별도 followup 호출 불필요).
+        """
+        answer, citations, followups, _blocked = await self._interactions_answer(
+            bot_id, prompt, system_prompt, model_name, temperature, max_tokens, history
         )
-
-        # grounding(인용)은 보통 마지막 청크에 실린다 — 가장 최근 값을 보관했다가 스트림 종료 후 1회 방출.
-        last_grounding = None
-        async for chunk in await self._client.aio.models.generate_content_stream(
-            model=actual_model_name,
-            contents=build_gemini_contents(prompt, history),
-            config=config,
-        ):
-            try:
-                cand = chunk.candidates[0] if chunk.candidates else None
-                gm = cand.grounding_metadata if cand else None
-                if gm and gm.grounding_chunks:
-                    last_grounding = gm
-            except (AttributeError, IndexError):
-                pass
-            if chunk.text:
-                yield chunk.text
-
-        # 스트림 종료 후 인용 메타데이터를 dict 로 1회 yield (본문 str 청크와 구분).
-        # generate_with_rag(비스트리밍)과 동일한 추출 로직.
-        citations: list[RAGCitation] = []
-        if last_grounding and last_grounding.grounding_chunks:
-            for gc in last_grounding.grounding_chunks:
-                if gc.retrieved_context:
-                    citations.append(
-                        RAGCitation(
-                            title=gc.retrieved_context.title,
-                            content=(
-                                gc.retrieved_context.text[:800]
-                                if gc.retrieved_context.text
-                                else None
-                            ),
-                        )
-                    )
-        yield {"citations": [c.model_dump() for c in citations]}
+        for piece in _chunk_text(answer):
+            yield piece
+        yield {
+            "citations": [c.model_dump() for c in citations],
+            "followups": followups,
+        }
 
     async def search_citations(
         self,
@@ -512,12 +486,11 @@ class GeminiRAGService(BaseRAGService):
         model_name: str | None = None,
         history: list[dict[str, str]] | None = None,
     ) -> list[RAGCitation]:
-        """interactions.create 로 정확 인용(file_citation)만 별도 캡처한다.
+        """interactions.create 로 정확 인용(file_citation)만 별도 캡처한다(관리/수동 재인용용).
 
-        메인 답변 경로(generate_content)는 persona가 grounding 보고를 억제해 인용을 거의 못 남긴다.
-        interactions 채널은 persona가 있어도 정확 인용(annotations)을 보고하므로, 응답 후
-        비동기 백필에서 호출해 messages.citations 를 채운다(approximate=False, 근사 아님).
-        호출/파싱 실패는 [] 반환(logger.warning) — 답변 경로를 절대 막지 않는다.
+        답변 경로(generate_with_rag/generate_stream_with_rag)가 interactions 로 이전돼 인용이
+        같은 호출에서 인라인으로 오므로, 이 메서드는 더 이상 답변 경로에서 자동 호출되지 않는다.
+        관리자 화면의 수동 재인용 등 보조 용도로 유지한다. 실패는 [] 반환(답변 경로 무영향).
         """
         actual_model_name = model_name or "gemini-2.5-flash"
         settings = get_settings()
@@ -544,26 +517,7 @@ class GeminiRAGService(BaseRAGService):
             logger.warning("search_citations 호출 실패 bot_id=%s: %s", bot_id, e)
             return []
 
-        citations: list[RAGCitation] = []
-        try:
-            for step in dump.get("steps") or []:
-                for content in step.get("content") or []:
-                    for ann in content.get("annotations") or []:
-                        if ann.get("type") != "file_citation":
-                            continue
-                        source = ann.get("source")
-                        citations.append(
-                            RAGCitation(
-                                title=ann.get("file_name"),
-                                content=source[:800] if source else None,
-                                uri=ann.get("document_uri"),
-                                page_number=ann.get("page_number"),
-                                approximate=False,
-                            )
-                        )
-        except Exception as e:
-            logger.warning("search_citations 파싱 실패 bot_id=%s: %s", bot_id, e)
-            return []
+        citations = _citations_from_steps(dump.get("steps") or [])
 
         logger.info(
             "search_citations bot_id=%s model=%s citations=%d",
