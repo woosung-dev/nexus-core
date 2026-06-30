@@ -33,8 +33,8 @@ def test_safe_response_text():
 
 
 @pytest.mark.asyncio
-async def test_rag_blocked_returns_message_no_typeerror(monkeypatch):
-    # H25: candidates=None 차단 응답이 TypeError 없이 안내 문구로 처리됨
+async def test_rag_blocked_returns_message(monkeypatch):
+    # interactions: status=failed/cancelled 또는 빈 output_text → 안내 문구(차단), 인용 없음
     import app.services.llm.gemini as g
 
     monkeypatch.setattr(g, "_get_genai_client", lambda: MagicMock())
@@ -43,14 +43,24 @@ async def test_rag_blocked_returns_message_no_typeerror(monkeypatch):
     svc = GeminiRAGService()
     monkeypatch.setattr(svc, "ensure_store", AsyncMock(return_value="fileSearchStores/test"))
     svc._client = MagicMock()
-    svc._client.aio.models.generate_content = AsyncMock(
-        return_value=SimpleNamespace(candidates=None, text=None)
-    )
 
+    def _interaction(status, text):
+        resp = MagicMock()
+        resp.status = status
+        resp.output_text = text
+        resp.model_dump = MagicMock(return_value={"steps": []})
+        return resp
+
+    # status=failed → 차단
+    svc._client.aio.interactions.create = AsyncMock(return_value=_interaction("failed", "무언가"))
     r = await svc.generate_with_rag(bot_id=3, prompt="질문", system_prompt="sp")
-
     assert r.answer == SAFETY_BLOCKED_MESSAGE
     assert r.citations == []
+
+    # status=completed 이나 빈 output_text → 차단
+    svc._client.aio.interactions.create = AsyncMock(return_value=_interaction("completed", "  "))
+    r2 = await svc.generate_with_rag(bot_id=3, prompt="질문", system_prompt="sp")
+    assert r2.answer == SAFETY_BLOCKED_MESSAGE
 
 
 @pytest.mark.asyncio

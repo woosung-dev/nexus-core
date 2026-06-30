@@ -159,11 +159,11 @@ async def test_openai_generate_prepends_history():
     ]
 
 
-# --- Gemini RAG: 히스토리 전달 시에도 FileSearch tool 유지 ---
+# --- Gemini RAG: 히스토리 전달 시 interactions input(멀티턴 step) + FileSearch tool 유지 ---
 
 
 @pytest.mark.asyncio
-async def test_gemini_rag_history_keeps_file_search_tool(monkeypatch):
+async def test_gemini_rag_history_builds_multiturn_input_and_keeps_tool(monkeypatch):
     import app.services.llm.gemini as llm_gemini
 
     monkeypatch.setattr(llm_gemini, "_get_genai_client", lambda: MagicMock())
@@ -174,16 +174,16 @@ async def test_gemini_rag_history_keeps_file_search_tool(monkeypatch):
 
     captured = {}
 
-    async def fake_generate_content(model, contents, config):
-        captured["contents"] = contents
-        captured["config"] = config
+    async def fake_create(**kwargs):
+        captured.update(kwargs)
         resp = MagicMock()
-        resp.text = "본문"
-        resp.candidates = []
+        resp.output_text = "본문"
+        resp.status = "completed"
+        resp.model_dump = MagicMock(return_value={"steps": []})
         return resp
 
     svc._client = MagicMock()
-    svc._client.aio.models.generate_content = AsyncMock(side_effect=fake_generate_content)
+    svc._client.aio.interactions.create = AsyncMock(side_effect=fake_create)
 
     history = [
         {"role": "user", "content": "q1"},
@@ -191,7 +191,11 @@ async def test_gemini_rag_history_keeps_file_search_tool(monkeypatch):
     ]
     await svc.generate_with_rag(bot_id=3, prompt="q2", system_prompt="sp", history=history)
 
-    # 멀티턴 contents 리스트로 전달되면서도 FileSearch tool 설정은 그대로 유지
-    assert isinstance(captured["contents"], list)
-    assert len(captured["contents"]) == 3
-    assert captured["config"].tools[0].file_search.metadata_filter == "bot_id = 3"
+    # 멀티턴 input: user_input/model_output step 리스트 + 마지막 user_input(현재 질문)
+    inp = captured["input"]
+    assert isinstance(inp, list) and len(inp) == 3
+    assert inp[0]["type"] == "user_input" and inp[0]["content"][0]["text"] == "q1"
+    assert inp[1]["type"] == "model_output" and inp[1]["content"][0]["text"] == "a1"
+    assert inp[2]["type"] == "user_input" and inp[2]["content"][0]["text"] == "q2"
+    # FileSearch tool 설정(dict)은 그대로 유지
+    assert captured["tools"][0]["metadata_filter"] == "bot_id = 3"
