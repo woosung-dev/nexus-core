@@ -9,6 +9,11 @@ class RAGCitation(BaseModel):
     """RAG 응답 인용 정보"""
     title: str | None = None
     content: str | None = None
+    # interactions file_citation 기반 정확 인용 여부 (False=정확, True=별도 검색 근사).
+    approximate: bool = False
+    # 원문 문서 URI / 인용된 페이지 번호 (있을 때만). 기존 {title,content} UI 에는 무영향.
+    uri: str | None = None
+    page_number: int | None = None
 
 
 class RAGResponse(BaseModel):
