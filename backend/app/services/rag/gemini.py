@@ -77,6 +77,13 @@ _TRAILING_SEPARATOR_RE = re.compile(r"\n\s*-{3,}\s*$", re.MULTILINE)
 # "3." / "3)" / "- " / "* " / "• " 는 매칭, "3일 행사" 는 비매칭.
 _LIST_MARKER_RE = re.compile(r"^\s*(?:\d+[.)]\s+|[-*•]\s+)")
 
+# search_citations 의 system_instruction 끝에 붙이는 인용 지침.
+# 통제실험에서 이 지침을 추가하면 interactions 인용 보고율이 33%→75% 로 상승함을 확인.
+_CITATION_INSTRUCTION = (
+    "\n\n[인용 지침] 답변에 사용한 모든 사실은 file_search로 검색한 문서에 근거해야 한다. "
+    "각 핵심 주장이 어떤 문서에 근거하는지 반드시 file_citation 인용으로 표기하라."
+)
+
 
 def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
     """모델 응답에서 <followups> 블록을 떼어 본문/추천 질문으로 분리한다."""
@@ -496,3 +503,72 @@ class GeminiRAGService(BaseRAGService):
                         )
                     )
         yield {"citations": [c.model_dump() for c in citations]}
+
+    async def search_citations(
+        self,
+        bot_id: int,
+        prompt: str,
+        system_prompt: str = "",
+        model_name: str | None = None,
+        history: list[dict[str, str]] | None = None,
+    ) -> list[RAGCitation]:
+        """interactions.create 로 정확 인용(file_citation)만 별도 캡처한다.
+
+        메인 답변 경로(generate_content)는 persona가 grounding 보고를 억제해 인용을 거의 못 남긴다.
+        interactions 채널은 persona가 있어도 정확 인용(annotations)을 보고하므로, 응답 후
+        비동기 백필에서 호출해 messages.citations 를 채운다(approximate=False, 근사 아님).
+        호출/파싱 실패는 [] 반환(logger.warning) — 답변 경로를 절대 막지 않는다.
+        """
+        actual_model_name = model_name or "gemini-2.5-flash"
+        settings = get_settings()
+        store_name = await self.ensure_store()
+
+        # persona + 인용 지침. temperature 는 지정하지 않음(0 은 인용을 억제하므로 기본 유지).
+        instruction = (system_prompt or "") + _CITATION_INSTRUCTION
+        tool = {
+            "type": "file_search",
+            "file_search_store_names": [store_name],
+            "metadata_filter": f"bot_id = {bot_id}",
+            "top_k": settings.RAG_TOP_K,
+        }
+
+        try:
+            interaction = await self._client.aio.interactions.create(
+                model=actual_model_name,
+                input=prompt,
+                system_instruction=instruction,
+                tools=[tool],
+            )
+            dump = interaction.model_dump(mode="json", exclude_none=True)
+        except Exception as e:
+            logger.warning("search_citations 호출 실패 bot_id=%s: %s", bot_id, e)
+            return []
+
+        citations: list[RAGCitation] = []
+        try:
+            for step in dump.get("steps") or []:
+                for content in step.get("content") or []:
+                    for ann in content.get("annotations") or []:
+                        if ann.get("type") != "file_citation":
+                            continue
+                        source = ann.get("source")
+                        citations.append(
+                            RAGCitation(
+                                title=ann.get("file_name"),
+                                content=source[:800] if source else None,
+                                uri=ann.get("document_uri"),
+                                page_number=ann.get("page_number"),
+                                approximate=False,
+                            )
+                        )
+        except Exception as e:
+            logger.warning("search_citations 파싱 실패 bot_id=%s: %s", bot_id, e)
+            return []
+
+        logger.info(
+            "search_citations bot_id=%s model=%s citations=%d",
+            bot_id,
+            actual_model_name,
+            len(citations),
+        )
+        return citations
