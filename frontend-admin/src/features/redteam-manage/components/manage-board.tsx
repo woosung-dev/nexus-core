@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  ASSIGNEES,
   CATEGORIES,
   DISPOSITION_OPTIONS,
   LEVEL_OPTIONS,
@@ -115,6 +116,7 @@ export function ManageBoard() {
   const [disposition, setDisposition] = React.useState("")
   const [category, setCategory] = React.useState("")
   const [risk, setRisk] = React.useState("")
+  const [assignee, setAssignee] = React.useState("")
   const [origin, setOrigin] = React.useState("") // "week3" | "prior" | "multiweek" | ""
   const [page, setPage] = React.useState(1)
 
@@ -140,6 +142,7 @@ export function ManageBoard() {
     disposition: disposition || undefined,
     category: category || undefined,
     risk: risk || undefined,
+    assignee: assignee || undefined,
     ...(origin === "multiweek"
       ? { multiweek: true }
       : origin === "week3" || origin === "prior"
@@ -155,7 +158,7 @@ export function ManageBoard() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const hasFilter = q || status || level || disposition || category || risk || origin
+  const hasFilter = q || status || level || disposition || category || risk || assignee || origin
   const clearFilters = () => {
     setRawQ("")
     setQ("")
@@ -164,6 +167,7 @@ export function ManageBoard() {
     setDisposition("")
     setCategory("")
     setRisk("")
+    setAssignee("")
     setOrigin("")
     resetPage()
   }
@@ -221,6 +225,12 @@ export function ManageBoard() {
           onChange={onFilter(setRisk)}
           placeholder="위험도"
           options={RISK_LEVELS.map((r) => ({ value: r, label: r }))}
+        />
+        <FilterSelect
+          value={assignee}
+          onChange={onFilter(setAssignee)}
+          placeholder="담당자"
+          options={ASSIGNEES.map((a) => ({ value: a, label: a }))}
         />
         <FilterSelect
           value={origin}
