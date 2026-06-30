@@ -4,6 +4,7 @@
 정상 스트리밍 및 Non-Streaming 응답을 책임집니다.
 """
 
+import asyncio
 import json
 import logging
 from datetime import datetime, timezone
@@ -23,6 +24,66 @@ from app.services.llm.factory import get_llm_service
 from app.services.rag.factory import get_rag_service
 
 logger = logging.getLogger(__name__)
+
+# 비동기 백필 태스크 참조 보관소 — GC 로 태스크가 취소되는 것을 방지.
+_citation_backfill_tasks: set[asyncio.Task] = set()
+
+
+async def _backfill_citations_async(
+    bot_id: int,
+    model_name: str,
+    system_prompt: str,
+    message_id: int,
+    prompt: str,
+) -> None:
+    """응답 트랜잭션과 분리된 새 세션에서 interactions 인용을 캡처해 메시지에 백필한다.
+
+    메인 답변(generate_content+persona)은 grounding 보고를 억제해 인용을 거의 못 남기므로,
+    응답을 막지 않도록 별도 비동기 태스크에서 정확 인용을 채운다. 실패는 조용히 경고만 남긴다.
+    """
+    try:
+        rag_service = get_rag_service(provider=model_name)
+        search_fn = getattr(rag_service, "search_citations", None)
+        if search_fn is None:
+            return
+        citations = await search_fn(
+            bot_id=bot_id,
+            prompt=prompt,
+            system_prompt=system_prompt,
+            model_name=model_name,
+        )
+        if not citations:
+            return
+
+        # 응답 트랜잭션과 분리된 새 세션으로 백필 (요청 커밋 이후 실행되므로 안전).
+        from app.core.database import async_session
+
+        async with async_session() as session:
+            updated = await crud_chat.update_message_citations(
+                session, message_id, [c.model_dump() for c in citations]
+            )
+            if updated:
+                await session.commit()
+                logger.info(
+                    "인용 백필 완료 message_id=%s citations=%d", message_id, len(citations)
+                )
+    except Exception as e:
+        logger.warning("인용 백필 실패 message_id=%s: %s", message_id, e)
+
+
+def _schedule_citation_backfill(
+    bot_id: int,
+    model_name: str,
+    system_prompt: str,
+    message_id: int,
+    prompt: str,
+) -> None:
+    """인용 백필을 백그라운드 태스크로 예약한다(응답 반환을 막지 않음)."""
+    task = asyncio.create_task(
+        _backfill_citations_async(bot_id, model_name, system_prompt, message_id, prompt)
+    )
+    _citation_backfill_tasks.add(task)
+    task.add_done_callback(_citation_backfill_tasks.discard)
 
 
 class ChatService:
@@ -160,7 +221,7 @@ class ChatService:
                     history=history or None,
                 )
 
-                await crud_chat.create_message(
+                assistant_msg = await crud_chat.create_message(
                     session=self.session,
                     session_id=chat_session.id,
                     role=MessageRole.ASSISTANT,
@@ -170,6 +231,16 @@ class ChatService:
                 )
                 chat_session.updated_at = datetime.now(timezone.utc)
                 await self.session.commit()
+
+                # 메인 답변 경로(persona)가 인용을 못 남기면 interactions 로 정확 인용을 비동기 백필.
+                if not rag_response.citations:
+                    _schedule_citation_backfill(
+                        bot_id=bot.id,
+                        model_name=bot.llm_model,
+                        system_prompt=bot.system_prompt,
+                        message_id=assistant_msg.id,
+                        prompt=request.message,
+                    )
 
                 # followups 는 RAG 호출(rag_service.generate_with_rag) 1회 안에서 같이 받음.
                 # 별도 LLM call(followup_service) 을 제거해 wall-time/비용 절반 + timeout 사고 차단.
@@ -260,6 +331,16 @@ class ChatService:
             )
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
+
+            # 스트림 grounding 이 인용을 못 남기면 interactions 로 정확 인용을 비동기 백필.
+            if not captured_citations:
+                _schedule_citation_backfill(
+                    bot_id=bot.id,
+                    model_name=bot.llm_model,
+                    system_prompt=bot.system_prompt,
+                    message_id=assistant_msg.id,
+                    prompt=request.message,
+                )
 
             if followups:
                 payload = json.dumps(
