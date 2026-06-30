@@ -142,6 +142,19 @@ async def create_message(
     return msg
 
 
+async def update_message_citations(
+    session: AsyncSession, message_id: int, citations: list
+) -> bool:
+    """메시지의 citations 를 갱신한다(인용 비동기 백필용). 없으면 False."""
+    msg = await session.get(Message, message_id)
+    if msg is None:
+        return False
+    msg.citations = citations
+    session.add(msg)
+    await session.flush()
+    return True
+
+
 async def get_message_with_session(
     session: AsyncSession, message_id: int
 ) -> tuple[Message, ChatSession] | None:
