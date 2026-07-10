@@ -5,8 +5,9 @@ import * as React from "react"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { DISPOSITION_STYLE, LEVEL_STYLE, RISK_STYLE, STATUS_SPINE, STATUS_STYLE } from "../constants"
+import { AI_AUTO_TAG, DISPOSITION_STYLE, LEVEL_STYLE, RISK_STYLE, STATUS_SPINE, STATUS_STYLE } from "../constants"
 import type { ManageGroupSummary } from "../types"
+import { AiBadge } from "./ai-badge"
 
 function WeekDot({ active, label }: { active: boolean; label: string }) {
   return (
@@ -114,6 +115,7 @@ export function ManageGroupList({
                       위험 {g.risk}
                     </span>
                   )}
+                  {g.tags.includes(AI_AUTO_TAG) && <AiBadge />}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
                   {g.category ? (
@@ -130,11 +132,14 @@ export function ManageGroupList({
                       담당 {g.assignee}
                     </Badge>
                   )}
-                  {g.tags.slice(0, 2).map((t) => (
-                    <Badge key={t} variant="outline" className="text-[10px] text-muted-foreground">
-                      #{t}
-                    </Badge>
-                  ))}
+                  {g.tags
+                    .filter((t) => t !== AI_AUTO_TAG)
+                    .slice(0, 2)
+                    .map((t) => (
+                      <Badge key={t} variant="outline" className="text-[10px] text-muted-foreground">
+                        #{t}
+                      </Badge>
+                    ))}
                   <div className="ml-auto flex items-center gap-1" title="출현 주차">
                     <WeekDot active={g.week3_present} label="3주" />
                     <WeekDot active={g.week2_matched} label="2주" />
