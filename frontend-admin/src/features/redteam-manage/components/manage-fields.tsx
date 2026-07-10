@@ -14,9 +14,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { DISPOSITION_OPTIONS, LEVEL_OPTIONS, STATUS_OPTIONS } from "../constants"
+import { AI_AUTO_TAG, DISPOSITION_OPTIONS, LEVEL_OPTIONS, STATUS_OPTIONS } from "../constants"
 import { useUpdateGroupManage } from "../hooks"
 import type { ManageGroupDetail, ManageStatus, Disposition } from "../types"
+import { AiBadge } from "./ai-badge"
 import { TagInput } from "./tag-input"
 
 const LEVEL_NONE = "__none__"
@@ -89,6 +90,12 @@ export function ManageFields({ detail }: { detail: ManageGroupDetail }) {
               ))}
             </SelectContent>
           </Select>
+          {detail.tags.includes(AI_AUTO_TAG) && (
+            <div className="flex items-center gap-1.5">
+              <AiBadge />
+              <span className="text-[10px] text-muted-foreground">codex 자동분류 · 근거는 아래 담당자 피드백 참고</span>
+            </div>
+          )}
         </div>
 
         {/* 분류 */}

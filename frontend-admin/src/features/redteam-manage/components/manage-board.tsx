@@ -3,9 +3,10 @@
 // 입력관리 보드 — 필터/검색 + 마스터 리스트(좌) + 상세 편집(우) + 페이지네이션 + 요약 스트립.
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { cn } from "@/lib/utils"
 import {
   Select,
   SelectContent,
@@ -14,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import {
+  AI_AUTO_TAG,
   ASSIGNEES,
   CATEGORIES,
   DISPOSITION_OPTIONS,
@@ -118,6 +120,7 @@ export function ManageBoard() {
   const [risk, setRisk] = React.useState("")
   const [assignee, setAssignee] = React.useState("")
   const [origin, setOrigin] = React.useState("") // "week3" | "prior" | "multiweek" | ""
+  const [aiOnly, setAiOnly] = React.useState(false) // AI 자동분류 항목만
   const [page, setPage] = React.useState(1)
 
   // 검색 디바운스
@@ -143,6 +146,7 @@ export function ManageBoard() {
     category: category || undefined,
     risk: risk || undefined,
     assignee: assignee || undefined,
+    tag: aiOnly ? AI_AUTO_TAG : undefined,
     ...(origin === "multiweek"
       ? { multiweek: true }
       : origin === "week3" || origin === "prior"
@@ -158,7 +162,8 @@ export function ManageBoard() {
   const total = data?.total ?? 0
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
-  const hasFilter = q || status || level || disposition || category || risk || assignee || origin
+  const hasFilter =
+    q || status || level || disposition || category || risk || assignee || origin || aiOnly
   const clearFilters = () => {
     setRawQ("")
     setQ("")
@@ -169,6 +174,7 @@ export function ManageBoard() {
     setRisk("")
     setAssignee("")
     setOrigin("")
+    setAiOnly(false)
     resetPage()
   }
 
@@ -242,6 +248,27 @@ export function ManageBoard() {
             { value: "multiweek", label: "다주차 중복" },
           ]}
         />
+        <span className="mx-0.5 h-5 w-px self-center bg-border" aria-hidden />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          aria-pressed={aiOnly}
+          title="AI가 자동분류한 항목만 보기"
+          onClick={() => {
+            setAiOnly((v) => !v)
+            resetPage()
+          }}
+          className={cn(
+            "h-8 gap-1 px-2.5 text-xs",
+            aiOnly
+              ? "border-violet-600 bg-violet-600 text-white hover:bg-violet-700 hover:text-white"
+              : "text-violet-700 hover:text-violet-800 dark:text-violet-300"
+          )}
+        >
+          <Sparkles className="size-3" aria-hidden />
+          AI 자동분류
+        </Button>
         {hasFilter && (
           <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={clearFilters}>
             필터 초기화

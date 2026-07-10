@@ -95,6 +95,9 @@ export function meaningfulEtc(v: string | null | undefined): boolean {
   return s.length > 0 && !ETC_NOISE.has(s)
 }
 
+// AI 자동분류(Lv0) 처리 표식 태그 — _lv0_apply.py 가 tags 에 심는 값과 동일해야 함
+export const AI_AUTO_TAG = "AI자동분류"
+
 // 담당자 피드백 작성자 프리셋 (자유 입력도 허용)
 export const FEEDBACK_AUTHORS = ["장우성", "이동규", "윤종범"] as const
 
