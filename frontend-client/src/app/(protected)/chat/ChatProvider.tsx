@@ -320,37 +320,39 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             return null;
           };
 
-          const hasCitations = (msgs: MessageResponse[]) =>
-            msgs.some(
-              (m) =>
-                m.role === "assistant" &&
-                Array.isArray(m.citations) &&
-                m.citations.length > 0,
-            );
+          const citationsOf = (msgs: MessageResponse[], id?: number) => {
+            const m = id === undefined ? undefined : msgs.find((x) => x.id === id);
+            return Array.isArray(m?.citations) && m.citations.length > 0
+              ? m.citations
+              : null;
+          };
 
           const first = await refetchMessages();
           if (first) setMessages(first);
 
+          // 백필은 **이번 답변**에만 채워지므로 그 message id 를 특정해 그것만 기다린다.
+          // 세션 전체에 인용이 하나라도 있으면 됐다고 보면, 앞선 답변에 인용이 붙어 있는 순간
+          // 새 답변은 영영 폴링되지 않는다(= 새로고침해야만 보임).
+          const targetId = first
+            ? [...first].reverse().find((m) => m.role === "assistant")?.id
+            : undefined;
+
           // 백필이 아직이면 확보될 때까지 폴링한다. 응답 반환을 막지 않도록 await 하지 않는다.
           // 이 시점엔 awaiting=false 라 사용자가 새 메시지를 보냈을 수 있으므로, 전체 교체 대신
           // id 로 citations 만 병합해 낙관적 메시지를 덮어쓰지 않는다.
-          if (!first || !hasCitations(first)) {
+          if (!first || !citationsOf(first, targetId)) {
             void (async () => {
               for (let i = 0; i < CITATION_POLL_MAX_TRIES; i++) {
                 await new Promise((r) => setTimeout(r, CITATION_POLL_INTERVAL_MS));
                 if (activeSessionRef.current !== activeSessionId) return;
                 const next = await refetchMessages();
-                if (!next || activeSessionRef.current !== activeSessionId) return;
-                const citById = new Map(
-                  next
-                    .filter((m) => Array.isArray(m.citations) && m.citations.length > 0)
-                    .map((m) => [m.id, m.citations]),
-                );
-                if (citById.size === 0) continue;
+                // 일시적 네트워크 실패는 다음 회차에 재시도한다(세션 이동은 위 가드가 잡음).
+                if (!next) continue;
+                if (activeSessionRef.current !== activeSessionId) return;
+                const cits = citationsOf(next, targetId);
+                if (!cits) continue;
                 setMessages((prev) =>
-                  prev.map((m) =>
-                    citById.has(m.id) ? { ...m, citations: citById.get(m.id) } : m,
-                  ),
+                  prev.map((m) => (m.id === targetId ? { ...m, citations: cits } : m)),
                 );
                 return;
               }

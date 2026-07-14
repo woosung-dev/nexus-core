@@ -46,6 +46,11 @@
 - **핵심 업그레이드**: 공감 1문장 의무화 + 정죄·행정딱딱함 배격(2회차 "행정언어 과다" 18건 직격). 자가점검("이 답만으로 행동 가능한가 + 핵심 누락 없나").
 
 ## 7. RAG 파이프라인 변경 (라이브 경로, 두 봇 공통 = 공정 A/B)
+
+> **[2026-07-14 추기]** 이 절은 설계 시점 기록이라 현재 코드와 다르다. `RAG_TEMPERATURE` 실제값은
+> **0.3**(`config.py:54`)이고, 인용(출처) 구조는 이후 크게 바뀌었다 — 페르소나가 grounding 보고를
+> 억제한다는 게 실측으로 밝혀져(캡처율 1.4%) 인용은 별도 `interactions` 백필로 채운다.
+> 현재 구조·측정치·제약은 `docs/architecture/rag-citations.md` 참조.
 - `backend/app/services/rag/gemini.py` — `FileSearch(top_k=settings.RAG_TOP_K)` 추가. RAG 사실 경로 생성 `temperature` 기본 0.2로(설정값 `RAG_TEMPERATURE`). 스트리밍·비스트리밍 경로 모두 적용.
 - `backend/app/core/config.py` — `RAG_TOP_K: int = 12`, `RAG_TEMPERATURE: float = 0.2` 추가.
 - **테스트** — config 주입·FileSearch 인자 전달·temperature 적용을 pytest로 검증(외부 API mock).

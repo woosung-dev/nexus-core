@@ -132,11 +132,15 @@ def _citation_from_retrieved_context(ctx) -> RAGCitation:
     )
 
 
-def _citation_key(c: RAGCitation) -> tuple[str | None, int | None, str]:
+def _citation_key(c: RAGCitation) -> tuple[str | None, str | None, int | None, str]:
     """청크 동일성 키. Gemini Developer API 엔 안정적 청크 ID 가 없어(chunk_id·document_name 은
-    Vertex 전용) (제목, 페이지, 본문 앞부분 해시)로 근사한다."""
+    Vertex 전용) (제목, uri, 페이지, 본문 앞부분 해시)로 근사한다.
+
+    uri 를 포함하는 이유: source 가 비면 content 가 None 이라 해시가 전부 같아진다.
+    그때 제목·페이지만으로 묶으면 서로 다른 청크가 한 건으로 뭉개진다.
+    """
     body = (c.content or "").strip()
-    return (c.title, c.page_number, hashlib.sha256(body[:200].encode()).hexdigest())
+    return (c.title, c.uri, c.page_number, hashlib.sha256(body[:200].encode()).hexdigest())
 
 
 def _dedupe_citations(citations: list[RAGCitation]) -> list[RAGCitation]:
@@ -146,7 +150,7 @@ def _dedupe_citations(citations: list[RAGCitation]) -> list[RAGCitation]:
     수십 건으로 불어난다(실측 35건 → 고유 청크 10개, 문서 3개). 중복을 버리기만 하면
     "어느 문서를 제일 많이 참고했나"를 잃으므로, 합치면서 횟수를 점수로 남긴다.
     """
-    merged: dict[tuple[str | None, int | None, str], RAGCitation] = {}
+    merged: dict[tuple[str | None, str | None, int | None, str], RAGCitation] = {}
     for c in citations:
         key = _citation_key(c)
         prev = merged.get(key)

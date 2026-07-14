@@ -102,8 +102,10 @@ export function MessageCitations({ citations }: MessageCitationsProps) {
                         {g.title}
                       </p>
                       {gi === 0 && groups.length > 1 && (
+                        // 근사 인용일 땐 "주요 근거"라 쓸 수 없다 — 이 순위는 표시된 답변이
+                        // 아니라 백필이 새로 생성한 답변을 뒷받침한 정도이기 때문.
                         <span className="text-[10.5px] font-medium text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 shrink-0">
-                          주요 근거
+                          {isApproximate ? "가장 많이 검색됨" : "주요 근거"}
                         </span>
                       )}
                     </div>

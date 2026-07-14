@@ -39,7 +39,8 @@ async def _backfill_citations_async(
     """응답 트랜잭션과 분리된 새 세션에서 interactions 인용을 캡처해 메시지에 백필한다.
 
     메인 답변(generate_content+persona)은 grounding 보고를 억제해 인용을 거의 못 남기므로,
-    응답을 막지 않도록 별도 비동기 태스크에서 정확 인용을 채운다. 실패는 조용히 경고만 남긴다.
+    응답을 막지 않도록 별도 비동기 태스크에서 채운다. 실패는 조용히 경고만 남긴다.
+    이 인용은 표시된 답변이 아니라 이 호출이 새로 생성한 답변 기준이라 approximate=True 로 나간다.
     """
     try:
         rag_service = get_rag_service(provider=model_name)
@@ -232,7 +233,7 @@ class ChatService:
                 chat_session.updated_at = datetime.now(timezone.utc)
                 await self.session.commit()
 
-                # 메인 답변 경로(persona)가 인용을 못 남기면 interactions 로 정확 인용을 비동기 백필.
+                # 메인 답변 경로(persona)가 인용을 못 남기면 interactions 로 근사 인용을 비동기 백필.
                 if not rag_response.citations:
                     _schedule_citation_backfill(
                         bot_id=bot.id,
@@ -332,7 +333,7 @@ class ChatService:
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
 
-            # 스트림 grounding 이 인용을 못 남기면 interactions 로 정확 인용을 비동기 백필.
+            # 스트림 grounding 이 인용을 못 남기면 interactions 로 근사 인용을 비동기 백필.
             if not captured_citations:
                 _schedule_citation_backfill(
                     bot_id=bot.id,
