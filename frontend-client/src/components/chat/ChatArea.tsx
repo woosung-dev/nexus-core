@@ -10,6 +10,7 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 import { FeedbackType } from "@/types/api";
 import { FeedbackReasonForm } from "./FeedbackReasonForm";
 import { FollowupPills } from "./FollowupPills";
+import { MessageCitations } from "./MessageCitations";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { useChat } from "@/app/(protected)/chat/ChatProvider";
 
@@ -424,6 +425,8 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                             </div>
                           )}
                         </div>
+                        {/* 참고한 자료(RAG 출처): 봇 응답에만 노출, 인용 0건이면 카드 자체가 안 뜸 */}
+                        {!isUser && <MessageCitations citations={msg.citations} />}
                         {/* 후속 질문: 가장 마지막 봇 응답에만 노출, 스트리밍 중에는 숨김 */}
                         {!isUser &&
                           idx === messages.length - 1 &&

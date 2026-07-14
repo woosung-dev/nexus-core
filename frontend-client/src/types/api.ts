@@ -39,11 +39,18 @@ export interface ChatSessionListResponse {
   total: number;
 }
 
+// 봇 답변이 참고한 RAG 출처 (backend RAGCitation 의 title/content 부분).
+export interface Citation {
+  title?: string | null;
+  content?: string | null;
+}
+
 export interface MessageResponse {
   id: number;
   session_id: number;
   role: MessageRole;
   content: string;
+  citations?: Citation[] | null;
   feedback?: "up" | "down" | null;
   feedback_reasons?: string[];
   feedback_comment?: string | null;
