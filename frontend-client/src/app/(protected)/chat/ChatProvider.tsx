@@ -295,20 +295,57 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
           // 서버에서 진짜 message id 를 갖는 메시지로 교체 — feedback PATCH 가 음수 임시 id 로
           // 호출되지 않도록. (음수는 PostgreSQL int32 범위를 벗어나 500 발생.)
-          try {
-            const refetchRes = await authedFetch(
-              `${API_BASE_URL}/chats/${activeSessionId}/messages`,
-              {},
-              getToken,
-            );
-            // refetch 도중 사용자가 또 다른 세션으로 이동했을 수 있으므로 한 번 더 체크.
-            if (refetchRes.ok && activeSessionRef.current === activeSessionId) {
-              const real: MessageResponse[] = await refetchRes.json();
-              setMessages(real);
+          // 인용(citations)은 응답 반환 후 interactions 백필이 별도 세션으로 DB 에 늦게 채우므로,
+          // 즉시 재조회로 못 잡으면 한 번 더 지연 재조회해서 "참고한 자료" 카드를 노출한다.
+          const refetchMessages = async (): Promise<MessageResponse[] | null> => {
+            try {
+              const res = await authedFetch(
+                `${API_BASE_URL}/chats/${activeSessionId}/messages`,
+                {},
+                getToken,
+              );
+              // refetch 도중 사용자가 또 다른 세션으로 이동했을 수 있으므로 한 번 더 체크.
+              if (res.ok && activeSessionRef.current === activeSessionId) {
+                return (await res.json()) as MessageResponse[];
+              }
+            } catch (refetchErr) {
+              // refetch 실패해도 사용자는 응답 자체는 본 상태 — silent. 다음 라우트 진입 시 정상화됨.
+              console.warn("messages refetch after completion failed", refetchErr);
             }
-          } catch (refetchErr) {
-            // refetch 실패해도 사용자는 응답 자체는 본 상태 — silent. 다음 라우트 진입 시 정상화됨.
-            console.warn("messages refetch after completion failed", refetchErr);
+            return null;
+          };
+
+          const hasCitations = (msgs: MessageResponse[]) =>
+            msgs.some(
+              (m) =>
+                m.role === "assistant" &&
+                Array.isArray(m.citations) &&
+                m.citations.length > 0,
+            );
+
+          const first = await refetchMessages();
+          if (first) setMessages(first);
+
+          // 백필이 아직이면 2.5s 뒤 딱 1회만 재조회 (폴링 남발 방지). 그래도 없으면 다음 진입 시 노출.
+          // 이 시점엔 awaiting=false 라 사용자가 새 메시지를 보냈을 수 있으므로, 전체 교체 대신
+          // id 로 citations 만 병합해 낙관적 메시지를 덮어쓰지 않는다.
+          if (!first || !hasCitations(first)) {
+            setTimeout(async () => {
+              if (activeSessionRef.current !== activeSessionId) return;
+              const second = await refetchMessages();
+              if (!second || activeSessionRef.current !== activeSessionId) return;
+              const citById = new Map(
+                second
+                  .filter((m) => Array.isArray(m.citations) && m.citations.length > 0)
+                  .map((m) => [m.id, m.citations]),
+              );
+              if (citById.size === 0) return;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  citById.has(m.id) ? { ...m, citations: citById.get(m.id) } : m,
+                ),
+              );
+            }, 2500);
           }
         }
       } catch (err) {
