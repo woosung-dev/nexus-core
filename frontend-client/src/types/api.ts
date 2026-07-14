@@ -43,6 +43,10 @@ export interface ChatSessionListResponse {
 export interface Citation {
   title?: string | null;
   content?: string | null;
+  // true = 표시된 답변이 직접 인용한 것이 아니라, 같은 질문으로 재검색한 근사 출처.
+  approximate?: boolean | null;
+  uri?: string | null;
+  page_number?: number | null;
 }
 
 export interface MessageResponse {

@@ -75,7 +75,8 @@ async def test_search_citations_maps_file_citation(monkeypatch):
     assert c.title == "축복식안내.txt"
     assert c.uri == "files/doc1"
     assert c.page_number == 4
-    assert c.approximate is False
+    # 백필은 표시답변과 별개의 두 번째 생성이라 근사 인용이다(2026-07-02 프로브: 앵커 불일치 7/25).
+    assert c.approximate is True
     assert len(c.content) == 800  # source[:800] 로 잘림
 
 
@@ -119,6 +120,42 @@ async def test_search_citations_appends_cite_instruction(monkeypatch):
     assert captured["system_instruction"] == "PERSONA" + _CITATION_INSTRUCTION
     assert "generation_config" not in captured  # temperature 0 금지 → 미지정
     assert captured["tools"][0]["metadata_filter"] == "bot_id = 5"
+
+
+@pytest.mark.asyncio
+async def test_search_citations_dedupes_repeated_source(monkeypatch):
+    # interactions 는 같은 근거를 여러 주장에 반복 인용한다 → 목록엔 한 번만 남아야 함.
+    svc = _make_service(monkeypatch)
+    ann = {
+        "type": "file_citation",
+        "file_name": "규정집.pdf",
+        "document_uri": "files/doc1",
+        "source": "동일한 근거 본문",
+        "page_number": 12,
+    }
+    other = {**ann, "page_number": 13}  # 페이지가 다르면 별개 인용
+    dump = {"steps": [{"content": [{"annotations": [ann, dict(ann), other]}]}]}
+    svc._client = MagicMock()
+    svc._client.aio.interactions.create = AsyncMock(return_value=_fake_interaction(dump))
+
+    out = await svc.search_citations(bot_id=5, prompt="질문")
+
+    assert len(out) == 2
+    assert [c.page_number for c in out] == [12, 13]  # 첫 등장 순서 보존
+
+
+def test_dedupe_citations_keys_on_title_page_and_body():
+    from app.services.rag.gemini import _dedupe_citations
+
+    a = RAGCitation(title="문서A", content="본문1", page_number=1)
+    b = RAGCitation(title="문서A", content="본문1", page_number=1)  # 완전 중복
+    c = RAGCitation(title="문서A", content="본문2", page_number=1)  # 본문 다름
+    d = RAGCitation(title="문서B", content="본문1", page_number=1)  # 제목 다름
+
+    out = _dedupe_citations([a, b, c, d])
+
+    assert len(out) == 3
+    assert out[0] is a and out[1] is c and out[2] is d
 
 
 @pytest.mark.asyncio

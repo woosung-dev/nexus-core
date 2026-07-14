@@ -117,6 +117,41 @@ def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
     return raw.strip(), followups
 
 
+def _citation_from_retrieved_context(ctx) -> RAGCitation:
+    """grounding_chunks[].retrieved_context → RAGCitation 로 변환한다.
+
+    page_number·uri 는 Gemini Developer API 에서 지원되는 필드다(SDK docstring 상
+    "not supported in **Vertex AI**"). 반대로 document_name·rag_chunk(chunk_id)는
+    Vertex 전용이라 이 클라이언트에선 항상 None 이므로 쓰지 않는다.
+    """
+    return RAGCitation(
+        title=ctx.title,
+        content=ctx.text[:800] if ctx.text else None,
+        uri=ctx.uri,
+        page_number=ctx.page_number,
+    )
+
+
+def _dedupe_citations(citations: list[RAGCitation]) -> list[RAGCitation]:
+    """같은 청크가 여러 번 인용돼도 목록엔 한 번만 남긴다(첫 등장 순서 보존).
+
+    Gemini Developer API 에는 안정적인 청크 식별자가 없다(chunk_id·document_name 은
+    Vertex 전용). 그래서 (제목, 페이지, 본문 앞부분 해시) 복합 키로 근사 dedup 한다.
+    top_k=12 인데 한 문서가 여러 청크로 쪼개지거나, interactions 가 같은 근거를 여러 주장에
+    반복 인용하면 목록이 수십 건으로 불어나기 때문이다(실측 31건 → 고유 4종).
+    """
+    seen: set[tuple[str | None, int | None, str]] = set()
+    unique: list[RAGCitation] = []
+    for c in citations:
+        body = (c.content or "").strip()
+        key = (c.title, c.page_number, hashlib.sha256(body[:200].encode()).hexdigest())
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(c)
+    return unique
+
+
 class GeminiRAGService(BaseRAGService):
     """Gemini File Search 기반 RAG 응답 및 업로드 서비스"""
 
@@ -399,15 +434,9 @@ class GeminiRAGService(BaseRAGService):
                 for chunk in grounding.grounding_chunks:
                     if chunk.retrieved_context:
                         citations.append(
-                            RAGCitation(
-                                title=chunk.retrieved_context.title,
-                                content=(
-                                    chunk.retrieved_context.text[:800]
-                                    if chunk.retrieved_context.text
-                                    else None
-                                ),
-                            )
+                            _citation_from_retrieved_context(chunk.retrieved_context)
                         )
+                citations = _dedupe_citations(citations)
         except (AttributeError, IndexError) as e:
             logger.debug(f"인용 정보 추출 실패 (정상 케이스일 수 있음): {e}")
 
@@ -492,16 +521,8 @@ class GeminiRAGService(BaseRAGService):
         if last_grounding and last_grounding.grounding_chunks:
             for gc in last_grounding.grounding_chunks:
                 if gc.retrieved_context:
-                    citations.append(
-                        RAGCitation(
-                            title=gc.retrieved_context.title,
-                            content=(
-                                gc.retrieved_context.text[:800]
-                                if gc.retrieved_context.text
-                                else None
-                            ),
-                        )
-                    )
+                    citations.append(_citation_from_retrieved_context(gc.retrieved_context))
+            citations = _dedupe_citations(citations)
         yield {"citations": [c.model_dump() for c in citations]}
 
     async def search_citations(
@@ -512,11 +533,18 @@ class GeminiRAGService(BaseRAGService):
         model_name: str | None = None,
         history: list[dict[str, str]] | None = None,
     ) -> list[RAGCitation]:
-        """interactions.create 로 정확 인용(file_citation)만 별도 캡처한다.
+        """interactions.create 로 file_citation 인용을 별도 캡처한다(근사 인용).
 
         메인 답변 경로(generate_content)는 persona가 grounding 보고를 억제해 인용을 거의 못 남긴다.
-        interactions 채널은 persona가 있어도 정확 인용(annotations)을 보고하므로, 응답 후
-        비동기 백필에서 호출해 messages.citations 를 채운다(approximate=False, 근사 아님).
+        interactions 채널은 persona가 있어도 annotations 를 보고하므로, 응답 후 비동기 백필에서
+        호출해 messages.citations 를 채운다.
+
+        **approximate=True 인 이유**: 이 호출은 사용자에게 표시된 답변과 별개의 두 번째 생성이다.
+        어노테이션의 span 은 그 두 번째 답변(B) 기준이라, 사용자가 읽은 답변(A)의 인용이 아니다.
+        2026-07-02 프로브에서 25문항 중 7건의 앵커 불일치를 실측했다(표시답변엔 없는 금액을
+        백필 인용이 근거로 제시하는 등). 그래서 "정확 인용"으로 단정하지 않고 근사로 라벨한다.
+        exports/rag_ad_probe_2026-07-02/REPORT.md, exports/rag_citation_audit/REPORT.md 참조.
+
         호출/파싱 실패는 [] 반환(logger.warning) — 답변 경로를 절대 막지 않는다.
         """
         actual_model_name = model_name or "gemini-2.5-flash"
@@ -558,9 +586,10 @@ class GeminiRAGService(BaseRAGService):
                                 content=source[:800] if source else None,
                                 uri=ann.get("document_uri"),
                                 page_number=ann.get("page_number"),
-                                approximate=False,
+                                approximate=True,
                             )
                         )
+            citations = _dedupe_citations(citations)
         except Exception as e:
             logger.warning("search_citations 파싱 실패 bot_id=%s: %s", bot_id, e)
             return []
