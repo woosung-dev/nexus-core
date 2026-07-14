@@ -547,7 +547,13 @@ class GeminiRAGService(BaseRAGService):
 
         호출/파싱 실패는 [] 반환(logger.warning) — 답변 경로를 절대 막지 않는다.
         """
-        actual_model_name = model_name or "gemini-2.5-flash"
+        # 주의: 이 기본값은 사실상 죽은 값이다 — chat_service 가 항상 model_name=bot.llm_model
+        # (=gemini-3.1-flash-lite)을 명시 전달한다. 그리고 그게 맞다: 2026-07-14 스윕(봇5 라이브
+        # persona × 실사용자 25문항)에서 인용율이 flash-lite 88% vs 2.5-flash 40% 로, 현행 lite 가
+        # 2.2배 낫다. 2.5-flash 는 상담형 질문에서 인용을 통째로 포기한다(13문항 중 lite 만 인용).
+        # 2026-06-30 통제실험의 "2.5-flash 100%" 는 정보성 문항 12trial 한정이라 재현되지 않았다.
+        # 근거: exports/rag_citation_sweep_2026-07-14/REPORT.md
+        actual_model_name = model_name or "gemini-3.1-flash-lite"
         settings = get_settings()
         store_name = await self.ensure_store()
 
