@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 
 class RAGCitation(BaseModel):
-    """RAG 응답 인용 정보"""
+    """RAG 응답 인용 정보 — 문서가 아니라 **청크** 하나를 가리킨다."""
     title: str | None = None
     content: str | None = None
     # interactions file_citation 기반 정확 인용 여부 (False=정확, True=별도 검색 근사).
@@ -14,6 +14,11 @@ class RAGCitation(BaseModel):
     # 원문 문서 URI / 인용된 페이지 번호 (있을 때만). 기존 {title,content} UI 에는 무영향.
     uri: str | None = None
     page_number: int | None = None
+    # 이 청크가 답변의 몇 개 구간을 뒷받침했는지 (= file_citation 어노테이션 수).
+    # 출처를 문서 단위로 묶어 "가장 많이 참고한 순"으로 정렬하는 랭킹 점수로 쓴다.
+    # 주의: 근사 인용(approximate=True)의 구간은 표시된 답변이 아니라 백필이 새로
+    # 생성한 답변 기준이다 → 정렬에만 쓰고 "답변의 N% 근거" 같은 수치로 노출 금지.
+    cite_count: int = 1
 
 
 class RAGResponse(BaseModel):

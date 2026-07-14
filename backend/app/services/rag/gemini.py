@@ -132,24 +132,29 @@ def _citation_from_retrieved_context(ctx) -> RAGCitation:
     )
 
 
-def _dedupe_citations(citations: list[RAGCitation]) -> list[RAGCitation]:
-    """같은 청크가 여러 번 인용돼도 목록엔 한 번만 남긴다(첫 등장 순서 보존).
+def _citation_key(c: RAGCitation) -> tuple[str | None, int | None, str]:
+    """청크 동일성 키. Gemini Developer API 엔 안정적 청크 ID 가 없어(chunk_id·document_name 은
+    Vertex 전용) (제목, 페이지, 본문 앞부분 해시)로 근사한다."""
+    body = (c.content or "").strip()
+    return (c.title, c.page_number, hashlib.sha256(body[:200].encode()).hexdigest())
 
-    Gemini Developer API 에는 안정적인 청크 식별자가 없다(chunk_id·document_name 은
-    Vertex 전용). 그래서 (제목, 페이지, 본문 앞부분 해시) 복합 키로 근사 dedup 한다.
-    top_k=12 인데 한 문서가 여러 청크로 쪼개지거나, interactions 가 같은 근거를 여러 주장에
-    반복 인용하면 목록이 수십 건으로 불어나기 때문이다(실측 31건 → 고유 4종).
+
+def _dedupe_citations(citations: list[RAGCitation]) -> list[RAGCitation]:
+    """같은 청크는 하나로 합치고 cite_count 를 누적한다(첫 등장 순서 보존).
+
+    한 청크가 답변의 여러 구간을 뒷받침하면 어노테이션이 구간마다 1건씩 붙어 목록이
+    수십 건으로 불어난다(실측 35건 → 고유 청크 10개, 문서 3개). 중복을 버리기만 하면
+    "어느 문서를 제일 많이 참고했나"를 잃으므로, 합치면서 횟수를 점수로 남긴다.
     """
-    seen: set[tuple[str | None, int | None, str]] = set()
-    unique: list[RAGCitation] = []
+    merged: dict[tuple[str | None, int | None, str], RAGCitation] = {}
     for c in citations:
-        body = (c.content or "").strip()
-        key = (c.title, c.page_number, hashlib.sha256(body[:200].encode()).hexdigest())
-        if key in seen:
-            continue
-        seen.add(key)
-        unique.append(c)
-    return unique
+        key = _citation_key(c)
+        prev = merged.get(key)
+        if prev is None:
+            merged[key] = c.model_copy()
+        else:
+            prev.cite_count += c.cite_count
+    return list(merged.values())
 
 
 class GeminiRAGService(BaseRAGService):
@@ -595,7 +600,9 @@ class GeminiRAGService(BaseRAGService):
                                 approximate=True,
                             )
                         )
+            # 같은 청크의 반복 인용을 합치고, 많이 참고한 청크가 앞에 오게 정렬한다.
             citations = _dedupe_citations(citations)
+            citations.sort(key=lambda c: c.cite_count, reverse=True)
         except Exception as e:
             logger.warning("search_citations 파싱 실패 bot_id=%s: %s", bot_id, e)
             return []
