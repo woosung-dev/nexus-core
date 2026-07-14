@@ -64,6 +64,11 @@ interface ChatContextValue {
   sendMessage: (content: string) => Promise<void>;
 }
 
+// 인용 백필(persona-free 재검색)은 응답 저장 후에야 시작해서 실서버 실측 ~15초 걸린다.
+// 2초 간격 15회(최대 30초)로 그 지연을 덮는다 — 확보 즉시 중단하므로 대개 몇 회로 끝난다.
+const CITATION_POLL_INTERVAL_MS = 2000;
+const CITATION_POLL_MAX_TRIES = 15;
+
 const ChatContext = createContext<ChatContextValue | null>(null);
 
 export function useChat() {
@@ -296,7 +301,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           // 서버에서 진짜 message id 를 갖는 메시지로 교체 — feedback PATCH 가 음수 임시 id 로
           // 호출되지 않도록. (음수는 PostgreSQL int32 범위를 벗어나 500 발생.)
           // 인용(citations)은 응답 반환 후 interactions 백필이 별도 세션으로 DB 에 늦게 채우므로,
-          // 즉시 재조회로 못 잡으면 한 번 더 지연 재조회해서 "참고한 자료" 카드를 노출한다.
+          // 즉시 재조회로 못 잡으면 확보될 때까지 폴링해서 출처 카드를 노출한다.
           const refetchMessages = async (): Promise<MessageResponse[] | null> => {
             try {
               const res = await authedFetch(
@@ -315,37 +320,43 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             return null;
           };
 
-          const hasCitations = (msgs: MessageResponse[]) =>
-            msgs.some(
-              (m) =>
-                m.role === "assistant" &&
-                Array.isArray(m.citations) &&
-                m.citations.length > 0,
-            );
+          const citationsOf = (msgs: MessageResponse[], id?: number) => {
+            const m = id === undefined ? undefined : msgs.find((x) => x.id === id);
+            return Array.isArray(m?.citations) && m.citations.length > 0
+              ? m.citations
+              : null;
+          };
 
           const first = await refetchMessages();
           if (first) setMessages(first);
 
-          // 백필이 아직이면 2.5s 뒤 딱 1회만 재조회 (폴링 남발 방지). 그래도 없으면 다음 진입 시 노출.
+          // 백필은 **이번 답변**에만 채워지므로 그 message id 를 특정해 그것만 기다린다.
+          // 세션 전체에 인용이 하나라도 있으면 됐다고 보면, 앞선 답변에 인용이 붙어 있는 순간
+          // 새 답변은 영영 폴링되지 않는다(= 새로고침해야만 보임).
+          const targetId = first
+            ? [...first].reverse().find((m) => m.role === "assistant")?.id
+            : undefined;
+
+          // 백필이 아직이면 확보될 때까지 폴링한다. 응답 반환을 막지 않도록 await 하지 않는다.
           // 이 시점엔 awaiting=false 라 사용자가 새 메시지를 보냈을 수 있으므로, 전체 교체 대신
           // id 로 citations 만 병합해 낙관적 메시지를 덮어쓰지 않는다.
-          if (!first || !hasCitations(first)) {
-            setTimeout(async () => {
-              if (activeSessionRef.current !== activeSessionId) return;
-              const second = await refetchMessages();
-              if (!second || activeSessionRef.current !== activeSessionId) return;
-              const citById = new Map(
-                second
-                  .filter((m) => Array.isArray(m.citations) && m.citations.length > 0)
-                  .map((m) => [m.id, m.citations]),
-              );
-              if (citById.size === 0) return;
-              setMessages((prev) =>
-                prev.map((m) =>
-                  citById.has(m.id) ? { ...m, citations: citById.get(m.id) } : m,
-                ),
-              );
-            }, 2500);
+          if (!first || !citationsOf(first, targetId)) {
+            void (async () => {
+              for (let i = 0; i < CITATION_POLL_MAX_TRIES; i++) {
+                await new Promise((r) => setTimeout(r, CITATION_POLL_INTERVAL_MS));
+                if (activeSessionRef.current !== activeSessionId) return;
+                const next = await refetchMessages();
+                // 일시적 네트워크 실패는 다음 회차에 재시도한다(세션 이동은 위 가드가 잡음).
+                if (!next) continue;
+                if (activeSessionRef.current !== activeSessionId) return;
+                const cits = citationsOf(next, targetId);
+                if (!cits) continue;
+                setMessages((prev) =>
+                  prev.map((m) => (m.id === targetId ? { ...m, citations: cits } : m)),
+                );
+                return;
+              }
+            })();
           }
         }
       } catch (err) {

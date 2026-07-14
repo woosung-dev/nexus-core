@@ -3,6 +3,13 @@ import { z } from "zod";
 export const citationSchema = z.object({
   title: z.string().nullable().optional(),
   content: z.string().nullable().optional(),
+  // true = 표시된 답변이 직접 인용한 게 아니라, 같은 질문으로 재검색한 근사 출처.
+  // 이 필드를 떨어뜨리면 관리자 화면이 근사 인용을 "정확"으로 보여준다(레드팀 판단 오염).
+  approximate: z.boolean().nullable().optional(),
+  uri: z.string().nullable().optional(),
+  page_number: z.number().nullable().optional(),
+  // 이 청크가 뒷받침한 구간 수 — 문서 단위 랭킹 점수(수치 노출 금지).
+  cite_count: z.number().nullable().optional(),
 });
 
 export const chatMessageSchema = z.object({

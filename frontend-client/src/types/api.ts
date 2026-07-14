@@ -43,6 +43,13 @@ export interface ChatSessionListResponse {
 export interface Citation {
   title?: string | null;
   content?: string | null;
+  // true = 표시된 답변이 직접 인용한 것이 아니라, 같은 질문으로 재검색한 근사 출처.
+  approximate?: boolean | null;
+  uri?: string | null;
+  page_number?: number | null;
+  // 이 청크가 뒷받침한 구간 수. 문서 단위 랭킹 점수로만 쓴다(수치 노출 금지 — 근사 인용의
+  // 구간은 표시된 답변이 아니라 백필이 새로 생성한 답변 기준이므로).
+  cite_count?: number | null;
 }
 
 export interface MessageResponse {

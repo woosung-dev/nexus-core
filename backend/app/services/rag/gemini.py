@@ -117,6 +117,50 @@ def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
     return raw.strip(), followups
 
 
+def _citation_from_retrieved_context(ctx) -> RAGCitation:
+    """grounding_chunks[].retrieved_context → RAGCitation 로 변환한다.
+
+    page_number·uri 는 Gemini Developer API 에서 지원되는 필드다(SDK docstring 상
+    "not supported in **Vertex AI**"). 반대로 document_name·rag_chunk(chunk_id)는
+    Vertex 전용이라 이 클라이언트에선 항상 None 이므로 쓰지 않는다.
+    """
+    return RAGCitation(
+        title=ctx.title,
+        content=ctx.text[:800] if ctx.text else None,
+        uri=ctx.uri,
+        page_number=ctx.page_number,
+    )
+
+
+def _citation_key(c: RAGCitation) -> tuple[str | None, str | None, int | None, str]:
+    """청크 동일성 키. Gemini Developer API 엔 안정적 청크 ID 가 없어(chunk_id·document_name 은
+    Vertex 전용) (제목, uri, 페이지, 본문 앞부분 해시)로 근사한다.
+
+    uri 를 포함하는 이유: source 가 비면 content 가 None 이라 해시가 전부 같아진다.
+    그때 제목·페이지만으로 묶으면 서로 다른 청크가 한 건으로 뭉개진다.
+    """
+    body = (c.content or "").strip()
+    return (c.title, c.uri, c.page_number, hashlib.sha256(body[:200].encode()).hexdigest())
+
+
+def _dedupe_citations(citations: list[RAGCitation]) -> list[RAGCitation]:
+    """같은 청크는 하나로 합치고 cite_count 를 누적한다(첫 등장 순서 보존).
+
+    한 청크가 답변의 여러 구간을 뒷받침하면 어노테이션이 구간마다 1건씩 붙어 목록이
+    수십 건으로 불어난다(실측 35건 → 고유 청크 10개, 문서 3개). 중복을 버리기만 하면
+    "어느 문서를 제일 많이 참고했나"를 잃으므로, 합치면서 횟수를 점수로 남긴다.
+    """
+    merged: dict[tuple[str | None, str | None, int | None, str], RAGCitation] = {}
+    for c in citations:
+        key = _citation_key(c)
+        prev = merged.get(key)
+        if prev is None:
+            merged[key] = c.model_copy()
+        else:
+            prev.cite_count += c.cite_count
+    return list(merged.values())
+
+
 class GeminiRAGService(BaseRAGService):
     """Gemini File Search 기반 RAG 응답 및 업로드 서비스"""
 
@@ -399,15 +443,9 @@ class GeminiRAGService(BaseRAGService):
                 for chunk in grounding.grounding_chunks:
                     if chunk.retrieved_context:
                         citations.append(
-                            RAGCitation(
-                                title=chunk.retrieved_context.title,
-                                content=(
-                                    chunk.retrieved_context.text[:800]
-                                    if chunk.retrieved_context.text
-                                    else None
-                                ),
-                            )
+                            _citation_from_retrieved_context(chunk.retrieved_context)
                         )
+                citations = _dedupe_citations(citations)
         except (AttributeError, IndexError) as e:
             logger.debug(f"인용 정보 추출 실패 (정상 케이스일 수 있음): {e}")
 
@@ -492,16 +530,8 @@ class GeminiRAGService(BaseRAGService):
         if last_grounding and last_grounding.grounding_chunks:
             for gc in last_grounding.grounding_chunks:
                 if gc.retrieved_context:
-                    citations.append(
-                        RAGCitation(
-                            title=gc.retrieved_context.title,
-                            content=(
-                                gc.retrieved_context.text[:800]
-                                if gc.retrieved_context.text
-                                else None
-                            ),
-                        )
-                    )
+                    citations.append(_citation_from_retrieved_context(gc.retrieved_context))
+            citations = _dedupe_citations(citations)
         yield {"citations": [c.model_dump() for c in citations]}
 
     async def search_citations(
@@ -512,14 +542,27 @@ class GeminiRAGService(BaseRAGService):
         model_name: str | None = None,
         history: list[dict[str, str]] | None = None,
     ) -> list[RAGCitation]:
-        """interactions.create 로 정확 인용(file_citation)만 별도 캡처한다.
+        """interactions.create 로 file_citation 인용을 별도 캡처한다(근사 인용).
 
         메인 답변 경로(generate_content)는 persona가 grounding 보고를 억제해 인용을 거의 못 남긴다.
-        interactions 채널은 persona가 있어도 정확 인용(annotations)을 보고하므로, 응답 후
-        비동기 백필에서 호출해 messages.citations 를 채운다(approximate=False, 근사 아님).
+        interactions 채널은 persona가 있어도 annotations 를 보고하므로, 응답 후 비동기 백필에서
+        호출해 messages.citations 를 채운다.
+
+        **approximate=True 인 이유**: 이 호출은 사용자에게 표시된 답변과 별개의 두 번째 생성이다.
+        어노테이션의 span 은 그 두 번째 답변(B) 기준이라, 사용자가 읽은 답변(A)의 인용이 아니다.
+        2026-07-02 프로브에서 25문항 중 7건의 앵커 불일치를 실측했다(표시답변엔 없는 금액을
+        백필 인용이 근거로 제시하는 등). 그래서 "정확 인용"으로 단정하지 않고 근사로 라벨한다.
+        exports/rag_ad_probe_2026-07-02/REPORT.md, exports/rag_citation_audit/REPORT.md 참조.
+
         호출/파싱 실패는 [] 반환(logger.warning) — 답변 경로를 절대 막지 않는다.
         """
-        actual_model_name = model_name or "gemini-2.5-flash"
+        # 주의: 이 기본값은 사실상 죽은 값이다 — chat_service 가 항상 model_name=bot.llm_model
+        # (=gemini-3.1-flash-lite)을 명시 전달한다. 그리고 그게 맞다: 2026-07-14 스윕(봇5 라이브
+        # persona × 실사용자 25문항)에서 인용율이 flash-lite 88% vs 2.5-flash 40% 로, 현행 lite 가
+        # 2.2배 낫다. 2.5-flash 는 상담형 질문에서 인용을 통째로 포기한다(13문항 중 lite 만 인용).
+        # 2026-06-30 통제실험의 "2.5-flash 100%" 는 정보성 문항 12trial 한정이라 재현되지 않았다.
+        # 근거: exports/rag_citation_sweep_2026-07-14/REPORT.md
+        actual_model_name = model_name or "gemini-3.1-flash-lite"
         settings = get_settings()
         store_name = await self.ensure_store()
 
@@ -558,9 +601,12 @@ class GeminiRAGService(BaseRAGService):
                                 content=source[:800] if source else None,
                                 uri=ann.get("document_uri"),
                                 page_number=ann.get("page_number"),
-                                approximate=False,
+                                approximate=True,
                             )
                         )
+            # 같은 청크의 반복 인용을 합치고, 많이 참고한 청크가 앞에 오게 정렬한다.
+            citations = _dedupe_citations(citations)
+            citations.sort(key=lambda c: c.cite_count, reverse=True)
         except Exception as e:
             logger.warning("search_citations 파싱 실패 bot_id=%s: %s", bot_id, e)
             return []

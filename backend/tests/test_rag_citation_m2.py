@@ -38,6 +38,7 @@ def test_citation_schema_new_fields_serialize():
         "approximate": False,
         "uri": None,
         "page_number": None,
+        "cite_count": 1,
     }
 
 
@@ -75,7 +76,8 @@ async def test_search_citations_maps_file_citation(monkeypatch):
     assert c.title == "축복식안내.txt"
     assert c.uri == "files/doc1"
     assert c.page_number == 4
-    assert c.approximate is False
+    # 백필은 표시답변과 별개의 두 번째 생성이라 근사 인용이다(2026-07-02 프로브: 앵커 불일치 7/25).
+    assert c.approximate is True
     assert len(c.content) == 800  # source[:800] 로 잘림
 
 
@@ -119,6 +121,49 @@ async def test_search_citations_appends_cite_instruction(monkeypatch):
     assert captured["system_instruction"] == "PERSONA" + _CITATION_INSTRUCTION
     assert "generation_config" not in captured  # temperature 0 금지 → 미지정
     assert captured["tools"][0]["metadata_filter"] == "bot_id = 5"
+
+
+@pytest.mark.asyncio
+async def test_search_citations_dedupes_repeated_source(monkeypatch):
+    # interactions 는 같은 근거를 여러 주장에 반복 인용한다 → 목록엔 한 번만 남아야 함.
+    svc = _make_service(monkeypatch)
+    ann = {
+        "type": "file_citation",
+        "file_name": "규정집.pdf",
+        "document_uri": "files/doc1",
+        "source": "동일한 근거 본문",
+        "page_number": 12,
+    }
+    other = {**ann, "page_number": 13}  # 페이지가 다르면 별개 인용
+    dump = {"steps": [{"content": [{"annotations": [ann, dict(ann), other]}]}]}
+    svc._client = MagicMock()
+    svc._client.aio.interactions.create = AsyncMock(return_value=_fake_interaction(dump))
+
+    out = await svc.search_citations(bot_id=5, prompt="질문")
+
+    assert len(out) == 2
+    # p.12 는 2회 인용되어 합산·정렬로 앞에 온다. p.13 은 1회.
+    assert [(c.page_number, c.cite_count) for c in out] == [(12, 2), (13, 1)]
+
+
+def test_dedupe_citations_merges_and_counts():
+    from app.services.rag.gemini import _dedupe_citations
+
+    a = RAGCitation(title="문서A", content="본문1", page_number=1)
+    b = RAGCitation(title="문서A", content="본문1", page_number=1)  # 완전 중복 → 합산
+    c = RAGCitation(title="문서A", content="본문2", page_number=1)  # 본문 다름 → 별개
+    d = RAGCitation(title="문서B", content="본문1", page_number=1)  # 제목 다름 → 별개
+
+    out = _dedupe_citations([a, b, c, d])
+
+    assert len(out) == 3
+    assert [(x.title, x.page_number, x.cite_count) for x in out] == [
+        ("문서A", 1, 2),
+        ("문서A", 1, 1),
+        ("문서B", 1, 1),
+    ]
+    # 원본을 변형하지 않는다 (model_copy 로 합치므로).
+    assert a.cite_count == 1
 
 
 @pytest.mark.asyncio
