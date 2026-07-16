@@ -69,6 +69,16 @@ export const LEVEL_COLOR: Record<string, string> = {
   미분류: "#cbd2cb",
 }
 
+// 평점 필터 버킷 — 전 주차 평균 평점을 점수대(반올림)로 구분. BE list_groups bounds와 동일 기준.
+export const RATING_OPTIONS = [
+  { value: "5", label: "5점대 (4.5↑)" },
+  { value: "4", label: "4점대" },
+  { value: "3", label: "3점대" },
+  { value: "2", label: "2점대" },
+  { value: "1", label: "1점대" },
+  { value: "없음", label: "평점 없음" },
+] as const
+
 // 처리 분류
 export const DISPOSITION_OPTIONS = [
   { value: "학습", label: "학습" },

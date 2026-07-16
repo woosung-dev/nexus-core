@@ -115,6 +115,14 @@ export function ManageGroupList({
                       위험 {g.risk}
                     </span>
                   )}
+                  {g.rating_avg != null && (
+                    <span
+                      className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                      title="전 주차 평균 평점"
+                    >
+                      ⭐ {g.rating_avg.toFixed(1)}
+                    </span>
+                  )}
                   {g.tags.includes(AI_AUTO_TAG) && <AiBadge />}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5">
