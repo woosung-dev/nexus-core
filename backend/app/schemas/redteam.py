@@ -51,6 +51,27 @@ class ManageFeedbackItem(BaseModel):
     created_at: datetime | None = None
 
 
+class TestbotEvalItem(BaseModel):
+    """테스트 봇 재검증 — 답변 + AI(codex) 3평가 단건"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    run_label: str
+    bot_label: str
+    bot_id: int | None = None
+    bot_model: str | None = None
+    answer: str
+    citations: list[str] = []       # 직접 인용(grounding) 문서 제목
+    bf_citations: list[str] = []     # 백필 근사 인용 문서 제목(p.N 포함)
+    risk_recur: str | None = None    # 재발 | 부분재발 | 해소 | 판정불가
+    risk_recur_detail: str = ""
+    independent_risk: str | None = None  # 상 | 중 | 하 | 없음
+    independent_risk_detail: str = ""
+    ai_rating: float | None = None   # 1~5
+    ai_rating_detail: str = ""
+    created_at: datetime | None = None
+
+
 class ResponseItem(BaseModel):
     """레드팀 원본 응답 단건"""
 
@@ -130,6 +151,7 @@ class GroupDetail(BaseModel):
     week1_responses: list[ResponseItem]
     reviews: list[ReviewItem]
     feedback: list[ManageFeedbackItem]  # 입력관리 담당자 피드백(코멘트 스레드)
+    testbot_evals: list[TestbotEvalItem] = []  # 테스트 봇 재검증 답변 + AI 3평가
 
 
 class CandidateItem(BaseModel):
@@ -185,6 +207,7 @@ class GroupCompare(BaseModel):
     week3: list[CompareWeekResponse]
     week2: list[CompareWeekResponse]
     week1: list[CompareWeekResponse]
+    testbot_evals: list[TestbotEvalItem] = []  # 테스트 봇 회차 (별도 "테스트" 칸)
 
 
 class ManageStatsResponse(BaseModel):

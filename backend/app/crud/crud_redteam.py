@@ -14,6 +14,7 @@ from app.models.redteam import (
     RedteamQuestionGroup,
     RedteamResponse,
     RedteamReview,
+    RedteamTestbotEval,
 )
 from app.schemas.redteam import TAG_PRESETS
 from app.services.redteam_matching import similarity
@@ -415,6 +416,18 @@ async def get_feedback(session: AsyncSession, group_id: int) -> Sequence[Redteam
         select(RedteamManageFeedback)
         .where(RedteamManageFeedback.group_id == group_id)
         .order_by(RedteamManageFeedback.created_at, RedteamManageFeedback.id)
+    )
+    return result.scalars().all()
+
+
+async def get_testbot_evals(
+    session: AsyncSession, group_id: int
+) -> Sequence[RedteamTestbotEval]:
+    """그룹의 테스트 봇 재검증 결과 (회차·id 순)"""
+    result = await session.execute(
+        select(RedteamTestbotEval)
+        .where(RedteamTestbotEval.group_id == group_id)
+        .order_by(RedteamTestbotEval.run_label, RedteamTestbotEval.id)
     )
     return result.scalars().all()
 
