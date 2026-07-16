@@ -42,6 +42,7 @@ export async function fetchManageGroups(
     params: {
       ...(params.category ? { category: params.category } : {}),
       ...(params.risk ? { risk: params.risk } : {}),
+      ...(params.rating ? { rating: params.rating } : {}),
       ...(params.status ? { status: params.status } : {}),
       ...(params.level != null ? { level: params.level } : {}), // level=0 도 포함되도록 != null
       ...(params.disposition ? { disposition: params.disposition } : {}),

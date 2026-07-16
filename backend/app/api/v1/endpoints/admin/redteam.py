@@ -64,6 +64,7 @@ async def get_report(session: AsyncSession = Depends(get_session)) -> ReportResp
 async def list_groups(
     category: str | None = None,
     risk: str | None = None,
+    rating: str | None = Query(default=None, pattern="^(5|4|3|2|1|없음)$"),
     status: str | None = None,
     level: int | None = Query(default=None, ge=0, le=3),
     disposition: str | None = None,
@@ -83,6 +84,7 @@ async def list_groups(
         session,
         category=category,
         risk=risk,
+        rating=rating,
         status=status,
         level=level,
         disposition=disposition,
@@ -99,6 +101,7 @@ async def list_groups(
     group_ids = [g.id for g in groups]
     matched_map = await crud_redteam.get_matched_weeks_map(session, group_ids)
     reviews_map = await crud_redteam.get_reviews_map(session, group_ids)
+    ratings_map = await crud_redteam.get_ratings_map(session, group_ids)
 
     summaries: list[GroupSummary] = []
     for g in groups:
@@ -119,6 +122,7 @@ async def list_groups(
                 category=g.category,
                 category_source=g.category_source,
                 risk=g.risk,
+                rating_avg=ratings_map.get(g.id),
                 status=g.status,
                 level=g.level,
                 disposition=g.disposition,

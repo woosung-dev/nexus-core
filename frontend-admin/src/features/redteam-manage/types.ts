@@ -16,6 +16,7 @@ export type ManageGroupSummary = {
   category: string | null
   category_source: string
   risk: string | null
+  rating_avg: number | null // 전 주차 평균 평점(1-5), 평점 응답 없으면 null
   status: string
   level: number | null
   disposition: string
@@ -151,6 +152,7 @@ export type ManageReportResponse = {
 export type ManageGroupListParams = {
   category?: string
   risk?: string
+  rating?: string // 평점 버킷: '5'~'1' | '없음'
   status?: string
   level?: number
   disposition?: string

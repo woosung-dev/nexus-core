@@ -86,6 +86,7 @@ class GroupSummary(BaseModel):
     category: str | None
     category_source: str
     risk: str | None
+    rating_avg: float | None = None  # 전 주차 평균 평점(1-5), 평점 응답 없으면 None
     # 중간보고 입력관리 상태
     status: str
     level: int | None
