@@ -5,7 +5,7 @@
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import String, cast, func
+from sqlalchemy import String, cast, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -87,7 +87,14 @@ async def list_groups(
     if category:
         conditions.append(RedteamQuestionGroup.category == category)
     if risk:
-        conditions.append(RedteamQuestionGroup.risk == risk)
+        # risk 컬럼은 nullable이고 적재 시 랭크0("없음")은 NULL로 저장됨 → "없음" 선택은 NULL도 포함
+        # (통계의 `risk or "없음"` coalescing과 의미를 맞춰 없음+하+중+상이 전건과 일치)
+        if risk == "없음":
+            conditions.append(
+                or_(RedteamQuestionGroup.risk.is_(None), RedteamQuestionGroup.risk == "없음")
+            )
+        else:
+            conditions.append(RedteamQuestionGroup.risk == risk)
     if status:
         conditions.append(RedteamQuestionGroup.status == status)
     if level is not None:
