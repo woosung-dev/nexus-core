@@ -185,3 +185,81 @@ class RedteamManageFeedback(SQLModel, table=True):
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
         default_factory=get_utc_now,
     )
+
+
+class RedteamTestbotEval(SQLModel, table=True):
+    """테스트 봇 재검증 — 3주차 상·중 질문을 테스트 봇에 재질의한 답변 + AI(codex) 3평가.
+
+    (그룹 × 봇 × 회차)당 1행. 재임포트(TRUNCATE) 후 question_norm 으로 재연결해 보존한다.
+    """
+
+    __tablename__ = "redteam_testbot_evals"
+    __table_args__ = (
+        UniqueConstraint("group_id", "bot_label", "run_label", name="uq_redteam_testbot_eval"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+
+    group_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("redteam_question_groups.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+    question_norm: str = Field(index=True)  # 재임포트 재연결 키
+
+    run_label: str = Field(
+        default="테스트 1주차",
+        sa_column=Column(String(), nullable=False, server_default="테스트 1주차"),
+    )  # 테스트 회차 라벨 (향후 2·3회차 추가 가능)
+    bot_label: str = Field(
+        default="테스트 봇 D-1",
+        sa_column=Column(String(), nullable=False, server_default="테스트 봇 D-1"),
+    )
+    bot_id: int | None = Field(default=None)  # 소스 bots.id
+    bot_model: str | None = Field(default=None)  # 실행 시 사용한 llm_model
+
+    answer: str = Field(
+        default="", sa_column=Column(String(), nullable=False, server_default="")
+    )
+    # 직접 인용(grounding, 정확) / 백필 인용(interactions, 근사) 문서 제목 목록
+    citations: list[str] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]")
+    )
+    bf_citations: list[str] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]")
+    )
+
+    # ─── AI(codex) 3평가 ───
+    # ① 위험 재발: '재발' | '부분재발' | '해소' | '판정불가'
+    risk_recur: str | None = Field(default=None)
+    risk_recur_detail: str = Field(
+        default="", sa_column=Column(String(), nullable=False, server_default="")
+    )
+    # ② 독립 위험도: '상' | '중' | '하' | '없음'
+    independent_risk: str | None = Field(default=None)
+    independent_risk_detail: str = Field(
+        default="", sa_column=Column(String(), nullable=False, server_default="")
+    )
+    # ③ AI 평점: 1~5 (3주차 사람 평점 앵커 기반)
+    ai_rating: float | None = Field(default=None, sa_column=Column(Float, nullable=True))
+    ai_rating_detail: str = Field(
+        default="", sa_column=Column(String(), nullable=False, server_default="")
+    )
+
+    eval_engine: str = Field(
+        default="codex", sa_column=Column(String(), nullable=False, server_default="codex")
+    )
+
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+        default_factory=get_utc_now,
+    )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        ),
+        default_factory=get_utc_now,
+    )
