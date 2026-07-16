@@ -54,6 +54,25 @@ export type ManageGroupDetail = {
   week1_responses: ResponseItem[]
   reviews: ReviewItem[]
   feedback: ManageFeedbackItem[]
+  testbot_evals: TestbotEval[]
+}
+
+/** 테스트 봇 재검증 — 답변 + AI(codex) 3평가 (① 위험 재발 ② 독립 위험도 ③ AI 평점) */
+export type TestbotEval = {
+  run_label: string
+  bot_label: string
+  bot_id: number | null
+  bot_model: string | null
+  answer: string
+  citations: string[] // 직접 인용(grounding) 문서 제목
+  bf_citations: string[] // 백필 근사 인용 문서 제목(p.N 포함)
+  risk_recur: string | null // 재발 | 부분재발 | 해소 | 판정불가
+  risk_recur_detail: string
+  independent_risk: string | null // 상 | 중 | 하 | 없음
+  independent_risk_detail: string
+  ai_rating: number | null // 1~5
+  ai_rating_detail: string
+  created_at: string | null
 }
 
 /**
@@ -98,6 +117,7 @@ export type GroupCompare = {
   week3: CompareWeekResponse[]
   week2: CompareWeekResponse[]
   week1: CompareWeekResponse[]
+  testbot_evals: TestbotEval[]
 }
 
 export type ManageStatsResponse = {
