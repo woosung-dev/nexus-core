@@ -5,7 +5,7 @@
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import String, cast, func
+from sqlalchemy import String, cast, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -14,6 +14,7 @@ from app.models.redteam import (
     RedteamQuestionGroup,
     RedteamResponse,
     RedteamReview,
+    RedteamTestbotEval,
 )
 from app.schemas.redteam import TAG_PRESETS
 from app.services.redteam_matching import similarity
@@ -66,6 +67,7 @@ async def list_groups(
     *,
     category: str | None = None,
     risk: str | None = None,
+    rating: str | None = None,  # 평점 버킷: '5'~'1'(점수대·반올림) | '없음'(미집계)
     status: str | None = None,
     level: int | None = None,
     disposition: str | None = None,
@@ -87,7 +89,40 @@ async def list_groups(
     if category:
         conditions.append(RedteamQuestionGroup.category == category)
     if risk:
-        conditions.append(RedteamQuestionGroup.risk == risk)
+        # risk 컬럼은 nullable이고 적재 시 랭크0("없음")은 NULL로 저장됨 → "없음" 선택은 NULL도 포함
+        # (통계의 `risk or "없음"` coalescing과 의미를 맞춰 없음+하+중+상이 전건과 일치)
+        if risk == "없음":
+            conditions.append(
+                or_(RedteamQuestionGroup.risk.is_(None), RedteamQuestionGroup.risk == "없음")
+            )
+        else:
+            conditions.append(RedteamQuestionGroup.risk == risk)
+    if rating:
+        # 평점은 응답(RedteamResponse.rating) 단위 → 그룹별 전 주차 평균으로 집계 후 점수대(반올림)로 버킷
+        rating_avg = (
+            select(
+                RedteamResponse.group_id.label("gid"),
+                func.avg(RedteamResponse.rating).label("avg_rating"),
+            )
+            .where(RedteamResponse.rating.is_not(None))
+            .group_by(RedteamResponse.group_id)
+            .subquery()
+        )
+        if rating == "없음":
+            conditions.append(
+                RedteamQuestionGroup.id.notin_(select(rating_avg.c.gid).scalar_subquery())
+            )
+        else:
+            # 반올림 half-up 경계: 5→[4.5,∞) 4→[3.5,4.5) 3→[2.5,3.5) 2→[1.5,2.5) 1→(-∞,1.5)
+            bounds = {"5": (4.5, None), "4": (3.5, 4.5), "3": (2.5, 3.5), "2": (1.5, 2.5), "1": (None, 1.5)}
+            lo, hi = bounds.get(rating, (None, None))
+            rng = []
+            if lo is not None:
+                rng.append(rating_avg.c.avg_rating >= lo)
+            if hi is not None:
+                rng.append(rating_avg.c.avg_rating < hi)
+            gids = select(rating_avg.c.gid).where(*rng).scalar_subquery()
+            conditions.append(RedteamQuestionGroup.id.in_(gids))
     if status:
         conditions.append(RedteamQuestionGroup.status == status)
     if level is not None:
@@ -103,9 +138,9 @@ async def list_groups(
         conditions.append(RedteamQuestionGroup.question.ilike(f"%{q}%"))
 
     # 특정 주차에 출현한 그룹만 / 또는 1·2주차에 출현한 그룹만 (전건 그룹 기준 '출현 주차')
-    if week_present in (1, 2) or matched_only:
+    if week_present in (1, 2, 3) or matched_only:
         sub = select(RedteamResponse.group_id)
-        if week_present in (1, 2):
+        if week_present in (1, 2, 3):
             sub = sub.where(RedteamResponse.week == week_present)
         elif matched_only:
             sub = sub.where(RedteamResponse.week.in_((1, 2)))
@@ -164,6 +199,18 @@ async def get_matched_weeks_map(
     for gid, week in result.all():
         out.setdefault(gid, set()).add(week)
     return out
+
+
+async def get_ratings_map(session: AsyncSession, group_ids: list[int]) -> dict[int, float]:
+    """그룹별 전 주차 평균 평점 {group_id: avg}. 평점(1-5)은 응답 단위라 그룹당 평균을 낸다."""
+    if not group_ids:
+        return {}
+    result = await session.execute(
+        select(RedteamResponse.group_id, func.avg(RedteamResponse.rating))
+        .where(RedteamResponse.group_id.in_(group_ids), RedteamResponse.rating.is_not(None))
+        .group_by(RedteamResponse.group_id)
+    )
+    return {gid: round(float(avg), 1) for gid, avg in result.all() if avg is not None}
 
 
 async def get_reviews_map(
@@ -369,6 +416,18 @@ async def get_feedback(session: AsyncSession, group_id: int) -> Sequence[Redteam
         select(RedteamManageFeedback)
         .where(RedteamManageFeedback.group_id == group_id)
         .order_by(RedteamManageFeedback.created_at, RedteamManageFeedback.id)
+    )
+    return result.scalars().all()
+
+
+async def get_testbot_evals(
+    session: AsyncSession, group_id: int
+) -> Sequence[RedteamTestbotEval]:
+    """그룹의 테스트 봇 재검증 결과 (회차·id 순)"""
+    result = await session.execute(
+        select(RedteamTestbotEval)
+        .where(RedteamTestbotEval.group_id == group_id)
+        .order_by(RedteamTestbotEval.run_label, RedteamTestbotEval.id)
     )
     return result.scalars().all()
 

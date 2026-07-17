@@ -31,6 +31,7 @@ from app.schemas.redteam import (
     ReviewItem,
     ReviewUpsertRequest,
     StatsResponse,
+    TestbotEvalItem,
     UnmatchedItem,
 )
 
@@ -64,6 +65,7 @@ async def get_report(session: AsyncSession = Depends(get_session)) -> ReportResp
 async def list_groups(
     category: str | None = None,
     risk: str | None = None,
+    rating: str | None = Query(default=None, pattern="^(5|4|3|2|1|없음)$"),
     status: str | None = None,
     level: int | None = Query(default=None, ge=0, le=3),
     disposition: str | None = None,
@@ -83,6 +85,7 @@ async def list_groups(
         session,
         category=category,
         risk=risk,
+        rating=rating,
         status=status,
         level=level,
         disposition=disposition,
@@ -99,6 +102,7 @@ async def list_groups(
     group_ids = [g.id for g in groups]
     matched_map = await crud_redteam.get_matched_weeks_map(session, group_ids)
     reviews_map = await crud_redteam.get_reviews_map(session, group_ids)
+    ratings_map = await crud_redteam.get_ratings_map(session, group_ids)
 
     summaries: list[GroupSummary] = []
     for g in groups:
@@ -119,6 +123,7 @@ async def list_groups(
                 category=g.category,
                 category_source=g.category_source,
                 risk=g.risk,
+                rating_avg=ratings_map.get(g.id),
                 status=g.status,
                 level=g.level,
                 disposition=g.disposition,
@@ -147,6 +152,7 @@ async def get_group_detail(
     responses = await crud_redteam.get_group_responses(session, group_id)
     reviews = await crud_redteam.get_reviews(session, group_id)
     feedback = await crud_redteam.get_feedback(session, group_id)
+    testbot_evals = await crud_redteam.get_testbot_evals(session, group_id)
 
     base = [ResponseItem.model_validate(r) for r in responses if r.week == 3]
     week2 = [ResponseItem.model_validate(r) for r in responses if r.week == 2]
@@ -170,6 +176,7 @@ async def get_group_detail(
         week1_responses=week1,
         reviews=[ReviewItem.model_validate(rv) for rv in reviews],
         feedback=[ManageFeedbackItem.model_validate(f) for f in feedback],
+        testbot_evals=[TestbotEvalItem.model_validate(t) for t in testbot_evals],
     )
 
 
@@ -284,6 +291,7 @@ async def get_group_compare(
         raise NotFoundError("질문 그룹을 찾을 수 없습니다.")
 
     responses = await crud_redteam.get_group_responses(session, group_id)
+    testbot_evals = await crud_redteam.get_testbot_evals(session, group_id)
 
     def _to_cmp(r) -> CompareWeekResponse:
         bots, note = crud_redteam.normalize_bots(r)
@@ -308,6 +316,7 @@ async def get_group_compare(
         week3=[_to_cmp(r) for r in responses if r.week == 3],
         week2=[_to_cmp(r) for r in responses if r.week == 2],
         week1=[_to_cmp(r) for r in responses if r.week == 1],
+        testbot_evals=[TestbotEvalItem.model_validate(t) for t in testbot_evals],
     )
 
 

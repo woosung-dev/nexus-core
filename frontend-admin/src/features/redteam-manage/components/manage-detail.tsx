@@ -15,6 +15,7 @@ import type { ResponseItem } from "../types"
 import { FeedbackThread } from "./feedback-thread"
 import { ManageFields } from "./manage-fields"
 import { ReferenceReviews } from "./reference-reviews"
+import { TestbotSection } from "./testbot-section"
 
 function ResponseCard({ resp }: { resp: ResponseItem }) {
   const botEntries = Object.entries(resp.bot_responses ?? {}).filter(([, v]) => v)
@@ -182,6 +183,17 @@ export function ManageDetail({ groupId }: { groupId: number | null }) {
         responses={detail.base_responses}
         emptyHint="이 질문은 3주차에 출제되지 않았습니다 (1·2주차 전용)."
       />
+
+      {/* 테스트 봇 재검증 (있을 때만) — 3주차 질문을 봇에 재질의한 답변 + AI 3평가 */}
+      {detail.testbot_evals.length > 0 && (
+        <TestbotSection
+          evals={detail.testbot_evals}
+          humanRatings={detail.base_responses
+            .map((r) => r.rating)
+            .filter((r): r is number => r != null)}
+        />
+      )}
+
       <WeekSection
         title="2주차"
         accent="bg-blue-500"

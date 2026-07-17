@@ -31,6 +31,7 @@ from app.models.redteam import (  # noqa: E402
     RedteamQuestionGroup,
     RedteamResponse,
     RedteamReview,
+    RedteamTestbotEval,
 )
 from app.services.redteam_matching import (  # noqa: E402
     canonical_category,
@@ -319,6 +320,23 @@ async def import_all(files: dict[int, Path], reset_reviews: bool) -> None:
             if saved_feedback:
                 print(f"보존할 피드백: {len(saved_feedback)}건")
 
+        # 기존 테스트 봇 재검증 보존 (question_norm 기준) — CASCADE로 지워지므로 함께 보존
+        saved_testbot: list[dict] = []
+        if not reset_reviews:
+            res4 = await session.execute(
+                text(
+                    "SELECT g.question_norm, t.run_label, t.bot_label, t.bot_id, t.bot_model, "
+                    "t.answer, t.citations, t.bf_citations, t.risk_recur, t.risk_recur_detail, "
+                    "t.independent_risk, t.independent_risk_detail, t.ai_rating, t.ai_rating_detail, "
+                    "t.eval_engine "
+                    "FROM redteam_testbot_evals t "
+                    "JOIN redteam_question_groups g ON t.group_id = g.id"
+                )
+            )
+            saved_testbot = [dict(row._mapping) for row in res4]
+            if saved_testbot:
+                print(f"보존할 테스트봇 평가: {len(saved_testbot)}건")
+
         # 초기화 (CASCADE로 응답/리뷰 함께 제거)
         await session.execute(
             text("TRUNCATE redteam_responses, redteam_reviews, redteam_question_groups "
@@ -395,6 +413,36 @@ async def import_all(files: dict[int, Path], reset_reviews: bool) -> None:
             restored_fb += 1
         if restored_fb:
             print(f"피드백 복원: {restored_fb}건")
+
+        # 테스트 봇 재검증 복원 (question_norm 기준)
+        restored_tb = 0
+        for t in saved_testbot:
+            gid = norm_to_gid.get(t["question_norm"])
+            if gid is None:
+                continue
+            session.add(
+                RedteamTestbotEval(
+                    group_id=gid,
+                    question_norm=t["question_norm"],
+                    run_label=t["run_label"],
+                    bot_label=t["bot_label"],
+                    bot_id=t["bot_id"],
+                    bot_model=t["bot_model"],
+                    answer=t["answer"] or "",
+                    citations=t["citations"] or [],
+                    bf_citations=t["bf_citations"] or [],
+                    risk_recur=t["risk_recur"],
+                    risk_recur_detail=t["risk_recur_detail"] or "",
+                    independent_risk=t["independent_risk"],
+                    independent_risk_detail=t["independent_risk_detail"] or "",
+                    ai_rating=t["ai_rating"],
+                    ai_rating_detail=t["ai_rating_detail"] or "",
+                    eval_engine=t["eval_engine"] or "codex",
+                )
+            )
+            restored_tb += 1
+        if restored_tb:
+            print(f"테스트봇 평가 복원: {restored_tb}건")
 
         await session.commit()
 

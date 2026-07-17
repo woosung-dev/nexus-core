@@ -20,6 +20,7 @@ import {
   CATEGORIES,
   DISPOSITION_OPTIONS,
   LEVEL_OPTIONS,
+  RATING_OPTIONS,
   RISK_LEVELS,
   STATUS_COLOR,
   STATUS_OPTIONS,
@@ -118,8 +119,9 @@ export function ManageBoard() {
   const [disposition, setDisposition] = React.useState("")
   const [category, setCategory] = React.useState("")
   const [risk, setRisk] = React.useState("")
+  const [rating, setRating] = React.useState("") // "5"~"1" | "없음" | ""
   const [assignee, setAssignee] = React.useState("")
-  const [origin, setOrigin] = React.useState("") // "week3" | "prior" | "multiweek" | ""
+  const [origin, setOrigin] = React.useState("") // "week1"|"week2"|"week3"|"prior"|"multiweek"|""
   const [aiOnly, setAiOnly] = React.useState(false) // AI 자동분류 항목만
   const [page, setPage] = React.useState(1)
 
@@ -145,13 +147,20 @@ export function ManageBoard() {
     disposition: disposition || undefined,
     category: category || undefined,
     risk: risk || undefined,
+    rating: rating || undefined,
     assignee: assignee || undefined,
     tag: aiOnly ? AI_AUTO_TAG : undefined,
     ...(origin === "multiweek"
       ? { multiweek: true }
-      : origin === "week3" || origin === "prior"
-        ? { origin: origin as "week3" | "prior" }
-        : {}),
+      : origin === "prior"
+        ? { origin: "prior" as const }
+        : origin === "week1"
+          ? { week_present: 1 as const }
+          : origin === "week2"
+            ? { week_present: 2 as const }
+            : origin === "week3"
+              ? { week_present: 3 as const }
+              : {}),
     page,
     page_size: PAGE_SIZE,
   }
@@ -163,7 +172,16 @@ export function ManageBoard() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
 
   const hasFilter =
-    q || status || level || disposition || category || risk || assignee || origin || aiOnly
+    q ||
+    status ||
+    level ||
+    disposition ||
+    category ||
+    risk ||
+    rating ||
+    assignee ||
+    origin ||
+    aiOnly
   const clearFilters = () => {
     setRawQ("")
     setQ("")
@@ -172,6 +190,7 @@ export function ManageBoard() {
     setDisposition("")
     setCategory("")
     setRisk("")
+    setRating("")
     setAssignee("")
     setOrigin("")
     setAiOnly(false)
@@ -233,6 +252,12 @@ export function ManageBoard() {
           options={RISK_LEVELS.map((r) => ({ value: r, label: r }))}
         />
         <FilterSelect
+          value={rating}
+          onChange={onFilter(setRating)}
+          placeholder="평점"
+          options={RATING_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+        />
+        <FilterSelect
           value={assignee}
           onChange={onFilter(setAssignee)}
           placeholder="담당자"
@@ -241,8 +266,10 @@ export function ManageBoard() {
         <FilterSelect
           value={origin}
           onChange={onFilter(setOrigin)}
-          placeholder="출처"
+          placeholder="주차"
           options={[
+            { value: "week1", label: "1주차" },
+            { value: "week2", label: "2주차" },
             { value: "week3", label: "3주차 기준" },
             { value: "prior", label: "1·2주차 전용" },
             { value: "multiweek", label: "다주차 중복" },
