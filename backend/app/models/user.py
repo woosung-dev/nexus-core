@@ -33,6 +33,7 @@ class User(SQLModel, table=True):
     )
     avatar_url: str | None = Field(default=None, max_length=500)
     is_active: bool = Field(default=True)
+    is_official: bool = Field(default=False)
 
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),

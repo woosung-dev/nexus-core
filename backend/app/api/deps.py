@@ -126,6 +126,9 @@ async def get_current_user(
     # JIT Provisioning: clerk_user_id로 사용자 조회, 없으면 자동 생성
     provider = payload.get("provider", "unknown")
     avatar_url = payload.get("avatar_url")
+    # JWT 템플릿이 boolean을 문자열로 렌더링할 수 있음
+    raw_official = payload.get('is_official')
+    is_official = raw_official is True or (isinstance(raw_official, str) and raw_official.strip().lower() == 'true')
 
     t_user = time.perf_counter()
     now = time.monotonic()
@@ -141,6 +144,7 @@ async def get_current_user(
             email=email,
             provider=provider,
             avatar_url=avatar_url,
+            is_official=is_official,
         )
         # session에서 detach해 캐시에 보관 — 후속 요청은 다른 session 컨텍스트라
         # 그대로 두면 DetachedInstanceError 가능. 읽기 전용 필드만 사용한다는 가정.

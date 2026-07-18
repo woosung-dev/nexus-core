@@ -16,6 +16,7 @@ class UserResponse(BaseModel):
     plan_type: PlanType
     avatar_url: str | None
     is_active: bool  # 어드민 관리 화면에서 활성/비활성 상태 표시 용도
+    is_official: bool  # 하나로 SSO 공직자 여부
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
