@@ -124,6 +124,7 @@ async def create_message(
     content: str,
     citations: list | None = None,
     followups: list | None = None,
+    clarifications: list | None = None,
 ) -> Message:
     """
     새로운 메시지 생성 기록 (Flush).
@@ -136,6 +137,7 @@ async def create_message(
         content=content,
         citations=citations,
         followups=followups,
+        clarifications=clarifications,
     )
     session.add(msg)
     await session.flush()
@@ -191,4 +193,3 @@ async def get_or_create_kakao_session(
     if existing is not None:
         return existing
     return await create_chat_session(session, user_id=user_id, bot_id=bot_id, title="카카오 대화")
-
