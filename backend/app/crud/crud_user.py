@@ -65,6 +65,7 @@ async def get_or_create_by_clerk_id(
     email: str,
     provider: str = "unknown",
     avatar_url: str | None = None,
+    is_official: bool | None = None,
 ) -> User:
     """
     clerk_user_id로 사용자를 조회하고, 없으면 자동 생성(JIT Provisioning)합니다.
@@ -76,6 +77,7 @@ async def get_or_create_by_clerk_id(
         email: JWT payload의 email
         provider: OAuth provider (예: "google", "apple")
         avatar_url: 프로필 이미지 URL (optional)
+        is_official: 하나로 SSO 공직자 여부
 
     Returns:
         User — 기존 또는 새로 생성된 사용자 인스턴스
@@ -89,7 +91,12 @@ async def get_or_create_by_clerk_id(
             email=email,
             provider=provider,
             avatar_url=avatar_url,
+            is_official=bool(is_official),
         )
+        session.add(user)
+        await session.flush()
+    elif is_official is not None and user.is_official != is_official:
+        user.is_official = is_official
         session.add(user)
         await session.flush()
 
@@ -124,4 +131,3 @@ async def get_or_create_kakao_user(
         result = await session.execute(select(User).where(User.clerk_user_id == clerk_user_id))
         user = result.scalar_one()
     return user
-
