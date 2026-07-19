@@ -17,6 +17,8 @@ export type BotResponse = {
   is_new: boolean
   plan_required: PlanType
   is_active: boolean
+  glossary_enabled: boolean
+  clarify_enabled: boolean
   llm_model: string
   system_prompt: string
   history_window: number
@@ -44,6 +46,8 @@ export type BotCreateRequest = {
 // PUT /api/v1/admin/bots/:id — 봇 수정 요청 (부분 업데이트)
 export type BotUpdateRequest = Partial<BotCreateRequest> & {
   is_active?: boolean
+  glossary_enabled?: boolean
+  clarify_enabled?: boolean
   history_window?: number
 }
 
