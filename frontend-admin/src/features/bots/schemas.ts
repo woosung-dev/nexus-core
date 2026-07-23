@@ -29,6 +29,11 @@ export const LLM_MODEL_OPTIONS = [
     value: "gemini-3.1-flash-lite",
     provider: "gemini",
   },
+  {
+    label: "Gemini 3.5 Flash Lite",
+    value: "gemini-3.5-flash-lite",
+    provider: "gemini",
+  },
 ] as const;
 
 export type LLMProvider = "openai" | "gemini" | "unknown";
