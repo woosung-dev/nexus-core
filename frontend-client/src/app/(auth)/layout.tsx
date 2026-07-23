@@ -1,15 +1,17 @@
-import { auth } from "@clerk/nextjs/server";
+// 이미 로그인한 사용자가 로그인 페이지로 오면 메인으로 돌린다
+
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { SESSION_COOKIE } from "@/lib/session";
 
 export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { userId } = await auth();
+  const cookieStore = await cookies();
 
-  // 이미 로그인된 유저는 메인으로 리다이렉트
-  if (userId) {
+  if (cookieStore.get(SESSION_COOKIE)?.value) {
     redirect("/");
   }
 

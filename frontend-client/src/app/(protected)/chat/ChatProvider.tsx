@@ -12,18 +12,17 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@clerk/nextjs";
 import {
   ChatSessionListResponse,
   ChatSessionResponse,
   MessageResponse,
 } from "@/types/api";
 import { useChatStore } from "@/store/useChatStore";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, getSessionToken } from "@/lib/api";
 
 /**
- * Clerk JWT 를 첨부한 fetch — 401 받으면 skipCache:true 로 fresh 토큰 minting 후 1회 자동 재시도.
- * Clerk SDK 의 ~50s 토큰 캐시와 60s JWT TTL 사이 타이밍 차이로 가끔 stale 토큰이 첨부되는 문제 회피.
+ * 세션 JWT 를 첨부한 fetch — 401 받으면 skipCache:true 로 세션을 다시 읽어 1회 자동 재시도.
+ * 토큰 메모리 캐시가 만료 직전 토큰을 물고 있는 경우를 회피한다.
  * (axios interceptor 와 동일한 패턴 — raw fetch 호출이라 직접 구현 필요.)
  */
 async function authedFetch(
@@ -94,7 +93,12 @@ function parseSlug(slug: string[] | undefined): {
 export function ChatProvider({ children }: { children: React.ReactNode }) {
   const params = useParams<{ slug?: string[] }>();
   const queryClient = useQueryClient();
-  const { getToken } = useAuth();
+  // 기존 getToken 과 같은 호출 형태를 유지해 아래 호출부를 그대로 둔다.
+  const getToken = useCallback(
+    (opts?: { template?: string; skipCache?: boolean }) =>
+      getSessionToken(opts?.skipCache === true),
+    [],
+  );
   const setLatestFollowups = useChatStore((s) => s.setLatestFollowups);
   const clearLatestFollowups = useChatStore((s) => s.clearLatestFollowups);
 

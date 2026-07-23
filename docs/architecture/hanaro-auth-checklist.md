@@ -23,25 +23,30 @@
 - [ ] **미검증**: 기존 Clerk 토큰(JWKS 경로) 회귀 — alg 라우팅이 401을 주는 것까지만 확인했고
       실제 Clerk 세션으로는 확인하지 못했다. Phase 2에서 Clerk 이 걷히면 무의미해진다.
 
-## Phase 2 — 프론트 세션 레이어
-- [ ] `/api/auth/login` — 백엔드 호출 후 JWT를 httpOnly·Secure·SameSite=Lax 쿠키로 저장
-- [ ] `/api/auth/session` — 쿠키의 토큰 반환 (api.ts getter용)
-- [ ] `/api/auth/logout` — 쿠키 삭제
-- [ ] `middleware.ts` — `clerkMiddleware` 제거, 쿠키 유무로 `/chat`·`/mypage` 보호
-- [ ] `api.ts` — 토큰 getter만 교체, 인터셉터·401 재시도 구조는 유지
-- [ ] `api-server.ts` — `auth()` → `cookies()`
-- [ ] `useAuthStore` — Clerk 훅 제거, 표시 이름은 userid 기반 (소비처 `Header`·`UserMenu` 2곳)
-- [ ] `LogoutButton` — `useClerk().signOut` → `/api/auth/logout`
-- [ ] **검증**: 로그인 → `/chat` 진입 → 백엔드 API 200 → 로그아웃 → `/chat` 차단
+## Phase 2 — 프론트 세션 레이어 ✅ 완료 (2026-07-23)
+- [x] `/api/auth/login` — 백엔드 호출 후 JWT를 httpOnly·Secure·SameSite=Lax 쿠키로 저장
+- [x] `/api/auth/session` — 쿠키의 토큰·사용자 반환 (api.ts getter + useAuthStore 공용)
+- [x] `/api/auth/logout` — 쿠키 삭제
+- [x] `middleware.ts` — `clerkMiddleware` 제거, 쿠키 유무로 `/chat`·`/mypage` 보호 + `redirect_url` 보존
+- [x] `api.ts` — 토큰 getter만 교체, 인터셉터·401 재시도 구조는 유지
+- [x] `api-server.ts` — `auth()` → `cookies()`
+- [x] `useAuthStore` — Clerk 훅 제거, 표시 이름은 userid 기반 (소비처 `Header`·`UserMenu` 무수정)
+- [x] `LogoutButton` — `useClerk().signOut` → `/api/auth/logout`
+- [x] `(protected)`·`(auth)` layout — `auth()` → 쿠키 검사
+- [x] `ChatProvider` — Clerk `getToken` → 세션 토큰 getter 어댑터
+- [x] **검증**: 로그인 → `/` 진입 → `/mypage` 백엔드 데이터 표시 → 채팅 전송·AI 응답 → 로그아웃 → `/chat` 차단
+- [x] **검증**: 보호 경로 직행 → `redirect_url` 붙어 로그인 → 원래 목적지 복귀
 
-## Phase 3 — Clerk 제거
-- [ ] `layout.tsx` `ClerkProvider` 제거
-- [ ] `sso-callback/` · `SignupForm.tsx` · `/signup` 삭제
-- [ ] `LoginForm` 이메일 탭 · OAuth(Google/Apple) 버튼 삭제 → 하나로 폼 단독
-- [ ] `lib/hanaro.ts` · `/api/auth/hanaro/route.ts` 삭제 (백엔드로 이관됨)
-- [ ] `npm rm @clerk/nextjs` · Clerk env 4종 정리 (`.env.example` 포함)
-- [ ] **검증**: `grep -ri clerk frontend-client/src` 0건
-- [ ] **검증**: tsc 0 · eslint 0 · `npm run build` 성공
+## Phase 3 — Clerk 제거 ✅ 완료 (2026-07-23)
+- [x] `layout.tsx` `ClerkProvider` 제거
+- [x] `sso-callback/` · `SignupForm.tsx` · `/signup` 삭제
+- [x] `LoginForm` 이메일 탭 · OAuth(Google/Apple) 버튼 삭제 → 하나로 폼 단독
+- [x] `lib/hanaro.ts` · `/api/auth/hanaro/route.ts` 삭제 (백엔드로 이관됨)
+- [x] `pnpm remove @clerk/nextjs`
+- [x] **검증**: `grep -ri clerk frontend-client/src` 0건
+- [x] **검증**: tsc 0 · eslint 0
+- [ ] Clerk env 4종 정리 (`.env.example`·`.env.local`) — 남아도 무해하나 정리 필요
+- [ ] `npm run build` 프로덕션 빌드 확인
 
 ## Phase 4 — 기존 테스트 유저 정리
 - [ ] Neon 스냅샷/백업 확보
