@@ -8,17 +8,20 @@
 - [x] 기존 유저 성격 확인 → clerk 15명 전부 테스트 계정, 삭제 가능
 - [ ] 하나로 장애 시 관리자 비상 계정을 둘지 결정 (미결 #1)
 
-## Phase 1 — 백엔드 인증 엔드포인트
-- [ ] `app/core/hanaro.py` — v2 호출 (`keyValue`/`userid`/`password`, form-urlencoded, httpx, timeout 8s)
-- [ ] 응답 매핑 — `authenticated`/`isOfficial`/`error`(`invalid_key`·`missing_parameter`·`rate_limited`)
-- [ ] 429는 그대로 전파 (규격서 §5 — 아이디당 실패 15회, 5분 후 자동 해제)
-- [ ] `app/api/v1/endpoints/auth.py` — `POST /auth/hanaro/login`
-- [ ] 유저 upsert — `clerk_user_id='hanaro:{userid}'`, email=`{userid}@hanaro.sso`, `is_official` 반영
-- [ ] HS256 JWT 발급 (`sub`·`email`·`provider`·`is_official`·`exp` 12h)
-- [ ] `deps.py` — `AUTH_JWT_SECRET` 있으면 HS256 대칭키 검증, 없으면 기존 JWKS 유지
-- [ ] `config.py` — `AUTH_JWT_SECRET`·`OFFICIAL_CHECK_KEY`·`OFFICIAL_CHECK_URL` 추가
-- [ ] **검증**: curl 로그인 → JWT 수신 → 그 JWT로 보호 API 호출 200
-- [ ] **검증**: 잘못된 비밀번호 → 401 · 키 오류 → 500(설정) 이 구분되어 응답
+## Phase 1 — 백엔드 인증 엔드포인트 ✅ 완료 (2026-07-23)
+- [x] `app/core/hanaro.py` — v2 호출 (`keyValue`/`userid`/`password`, form-urlencoded, httpx, timeout 8s)
+- [x] 응답 매핑 — `authenticated`/`isOfficial`/`error`(`invalid_key`·`missing_parameter`·`rate_limited`)
+- [x] 429는 그대로 전파 (규격서 §5 — 아이디당 실패 15회, 5분 후 자동 해제)
+- [x] `app/api/v1/endpoints/auth.py` — `POST /auth/hanaro/login`
+- [x] 유저 upsert — `clerk_user_id='hanaro:{userid}'`, email=`{userid}@hanaro.sso`, `is_official` 반영
+- [x] HS256 JWT 발급 (`sub`·`email`·`provider`·`is_official`·`exp` 12h)
+- [x] `deps.py` — alg=HS256 이면 `AUTH_JWT_SECRET` 검증, 그 외는 기존 JWKS 경로
+- [x] `config.py` — `AUTH_JWT_SECRET`·`OFFICIAL_CHECK_KEY`·`OFFICIAL_CHECK_URL` 추가
+- [x] alembic head 정리 — `8f3d7a1c9e5b` 를 main head 뒤로 재배치, 라이브 적용 완료
+- [x] **검증**: 로그인 200 → JWT 발급 → `/users/me` 200 (`is_official=true`)
+- [x] **검증**: 잘못된 자격 401 · 토큰 없음 401 · 변조 토큰 401
+- [ ] **미검증**: 기존 Clerk 토큰(JWKS 경로) 회귀 — alg 라우팅이 401을 주는 것까지만 확인했고
+      실제 Clerk 세션으로는 확인하지 못했다. Phase 2에서 Clerk 이 걷히면 무의미해진다.
 
 ## Phase 2 — 프론트 세션 레이어
 - [ ] `/api/auth/login` — 백엔드 호출 후 JWT를 httpOnly·Secure·SameSite=Lax 쿠키로 저장

@@ -57,3 +57,21 @@ v2(`officialLoginCheck2`) 호출이 500으로 실패해 원인을 추적했다. 
 - `frontend-admin` — Clerk 참조 0건
 - 카카오 봇 — HMAC 인증, Clerk 무관
 - `useAuthStore` 소비처가 2곳(`Header`·`UserMenu`)뿐이라 훅 내부만 갈아끼우면 컴포넌트는 안 건드려도 된다. 이 추상화가 있어서 프론트 작업량이 예상보다 작다.
+
+### Phase 1 결과 — 하나로 연동 실증 성공 (2026-07-23)
+백엔드 로그인 엔드포인트로 `kjl51555` 로그인이 성공했다. **`is_official=true`** — 공직자 판별까지 실제로 동작한다. 발급된 HS256 JWT 로 `/users/me` 가 200을 반환해 `deps.py` 의 새 검증 경로도 확인됐다.
+
+### 라이브 DB 스키마가 브랜치보다 앞서 있었다
+로그인 500의 실제 원인은 `column users.is_official does not exist` 였다. PR #40 의 마이그레이션이 로컬에만 적용돼 있었고 Neon 에는 없었다.
+
+더 큰 문제가 딸려 나왔다 — 브랜치가 `e7d9c3b1a5f2` 에서 갈라졌는데 그 사이 main 이 `f8a4c2d9e1b7`(지침 빌더)까지 나아가 있었다. 두 마이그레이션이 같은 부모를 가리켜 **alembic head 가 2개**가 되는 상태였다. PR #40 본문이 예고한 그 상황이다.
+
+→ main 을 브랜치에 병합하고 `8f3d7a1c9e5b.down_revision` 을 `f8a4c2d9e1b7` 로 옮겨 선형화했다. 라이브가 이 마이그레이션을 적용한 적이 없어 재배치가 안전했다. 이후 Neon 에 `alembic upgrade head` 로 컬럼 1개만 추가 적용(사용자 승인).
+
+**교훈**: 브랜치가 오래 떠 있으면 마이그레이션 부모가 낡는다. 라이브 적용 전에 `alembic heads` 가 1개인지부터 본다.
+
+### 개발 중에는 v1 주소를 쓴다
+`backend/.env` 의 `OFFICIAL_CHECK_URL` 은 v1(`officialLoginCheck`)로 두었다. 보유 키가 v1 전용이라 v2 주소로는 `invalid_key` 가 나기 때문이다. v2 키를 받으면 URL 만 `officialLoginCheck2` 로 바꾸면 된다 — 규격서 §7 이 요청·응답 형식 동일을 보장한다.
+
+### 라이브 DB에 테스트 유저 1건 생성됨
+검증 과정에서 Neon 에 `hanaro:kjl51555`(users.id=21) 가 생성됐다. Phase 4 정리 대상에 포함한다.
