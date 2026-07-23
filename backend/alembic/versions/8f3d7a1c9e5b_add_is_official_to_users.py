@@ -1,7 +1,7 @@
 """add is_official to users
 
 Revision ID: 8f3d7a1c9e5b
-Revises: e7d9c3b1a5f2
+Revises: f8a4c2d9e1b7
 Create Date: 2026-07-19 00:00:00.000000
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision: str = '8f3d7a1c9e5b'
-down_revision: Union[str, Sequence[str], None] = 'e7d9c3b1a5f2'
+down_revision: Union[str, Sequence[str], None] = 'f8a4c2d9e1b7'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
