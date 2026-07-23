@@ -18,6 +18,7 @@ from app.models.user import User  # noqa: F401
 from app.models.bot import Bot  # noqa: F401
 from app.models.chat import ChatSession, Message  # noqa: F401
 from app.models.faq import Faq  # noqa: F401
+from app.models.instruction import BotInstruction  # noqa: F401
 from app.models.bot_kakao_channel import BotKakaoChannel  # noqa: F401
 from app.models.redteam import (  # noqa: F401
     RedteamManageFeedback,
