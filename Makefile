@@ -73,12 +73,12 @@ fa-dev:
 
 # 전체 서비스 기동 (백그라운드)
 up:
-	docker-compose up -d
+	docker compose up -d
 
 # 전체 서비스 종료
 down:
-	docker-compose down
+	docker compose down
 
 # 전체 로그 스트리밍
 logs:
-	docker-compose logs -f
+	docker compose logs -f
