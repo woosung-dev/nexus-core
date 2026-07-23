@@ -19,13 +19,13 @@ dependencies = [
     "pgvector>=0.3.0",
     "boto3>=1.35.0",
     "openpyxl>=3.1.0",
+    "httpx>=0.28.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
-    "httpx>=0.28.0",
 ]
 
 [tool.pytest.ini_options]

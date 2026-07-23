@@ -25,7 +25,12 @@ security = HTTPBearer()
 
 # JWKS 클라이언트: 인증 서버의 공개키를 자동으로 가져와 캐싱합니다.
 # 플랫폼 교체 시 AUTH_JWKS_URL 환경변수만 변경하면 됩니다.
-jwks_client = PyJWKClient(settings.AUTH_JWKS_URL, cache_keys=True)
+# 하나로 단독 인증(HS256)으로 전환하면 URL 이 없을 수 있어 optional 로 둡니다.
+jwks_client = (
+    PyJWKClient(settings.AUTH_JWKS_URL, cache_keys=True)
+    if settings.AUTH_JWKS_URL
+    else None
+)
 
 # User TTL 캐시 — clerk_user_id별로 SELECT 결과를 짧게 메모이즈해 매 요청 ~400ms DB 호출을 제거.
 # 30초 TTL이면 admin이 유저 deactivate 시 최악 30초간 stale 접근. 챗봇 워크로드에서는 수용 가능.
@@ -58,7 +63,31 @@ async def get_current_user(
     """
     token = credentials.credentials
 
+    if jwks_client is None and not settings.AUTH_JWT_SECRET:
+        logger.error("인증 설정 없음 — AUTH_JWT_SECRET 또는 AUTH_JWKS_URL 중 하나는 필요합니다.")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="인증 서버 설정 오류입니다.",
+        )
+
     try:
+        # 우리가 발급한 하나로 세션 토큰(HS256)과 외부 IdP 토큰(JWKS)을 alg 로 구분한다.
+        # 두 경로는 서로 다른 키를 쓰고 각자 알고리즘을 하나로 고정하므로 alg 혼동 공격은 성립하지 않는다.
+        alg = jwt.get_unverified_header(token).get("alg")
+
+        if alg == "HS256" and settings.AUTH_JWT_SECRET:
+            payload = jwt.decode(
+                token,
+                settings.AUTH_JWT_SECRET.get_secret_value(),
+                algorithms=["HS256"],
+                leeway=10,
+                options={"verify_iat": False},
+            )
+            return await _resolve_user(payload, session)
+
+        if jwks_client is None:
+            raise jwt.InvalidTokenError(f"지원하지 않는 알고리즘: {alg}")
+
         # JWKS에서 이 토큰에 맞는 공개키를 자동으로 찾아 검증
         # 캐시 hit이면 마이크로초, miss면 Clerk JWKS endpoint로 sync HTTP가 발생해 event loop를 막을 수 있어 측정.
         t_jwks = time.perf_counter()
@@ -113,6 +142,14 @@ async def get_current_user(
             detail="인증 서버와의 통신에 실패했습니다.",
         )
 
+    return await _resolve_user(payload, session)
+
+
+async def _resolve_user(payload: dict, session: AsyncSession) -> User:
+    """검증된 JWT payload로 사용자를 조회·생성한다(JIT Provisioning).
+
+    HS256(하나로 세션 토큰)과 JWKS(외부 IdP) 두 검증 경로가 공유한다.
+    """
     # JWT payload에서 사용자 정보 추출
     clerk_user_id: str | None = payload.get("sub")
     email: str | None = payload.get("email")
