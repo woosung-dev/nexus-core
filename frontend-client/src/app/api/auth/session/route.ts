@@ -22,7 +22,8 @@ function readSessionUser(token: string): SessionUser | null {
     if (typeof claims.exp === "number" && claims.exp * 1000 < Date.now()) return null;
     return {
       userid: String(claims.sub).replace(/^hanaro:/, ""),
-      email: typeof claims.email === "string" ? claims.email : "",
+      // 하나로는 이메일을 주지 않는다(규격서 8장). 없으면 없는 채로 둔다.
+      email: typeof claims.email === "string" ? claims.email : undefined,
       isOfficial: claims.is_official === true,
     };
   } catch {

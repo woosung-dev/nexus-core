@@ -8,11 +8,12 @@ from app.core.config import get_settings
 
 
 def create_access_token(
-    *, subject: str, email: str, provider: str, is_official: bool
+    *, subject: str, provider: str, is_official: bool
 ) -> tuple[str, int]:
     """세션 JWT 를 발급하고 (토큰, 만료까지 남은 초)를 반환한다.
 
-    deps.get_current_user 가 필수로 요구하는 sub·email 클레임을 반드시 포함한다.
+    deps.get_current_user 가 요구하는 sub 클레임을 반드시 포함한다. email 은 넣지 않는다 —
+    하나로가 개인정보를 반환하지 않으므로(규격서 8장) 만들어낼 값이 없다.
     갱신(refresh) 토큰은 두지 않는다 — 재발급하려면 하나로 비밀번호가 다시 필요해
     의미가 없기 때문이다. 만료되면 재로그인한다.
     """
@@ -24,7 +25,6 @@ def create_access_token(
     now = datetime.now(timezone.utc)
     payload = {
         "sub": subject,
-        "email": email,
         "provider": provider,
         "is_official": is_official,
         "iat": now,

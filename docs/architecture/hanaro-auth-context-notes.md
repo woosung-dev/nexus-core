@@ -42,7 +42,13 @@ v2(`officialLoginCheck2`) 호출이 500으로 실패해 원인을 추적했다. 
 ### 하나로는 이메일을 주지 않는다
 규격서 §8 — 응답은 `authenticated`·`isOfficial` boolean뿐이고 개인정보를 포함하지 않는다. 그런데 `deps.py:118`은 email이 없으면 401이고 `UserMenu`도 email을 표시한다.
 
-→ 합성 이메일 `{userid}@hanaro.sso`를 쓰기로 했다. DB의 email unique 제약 충족이 목적이고, 화면 표시는 userid를 쓰도록 `useAuthStore`를 바꾼다.
+→ **처음엔 합성 이메일 `{userid}@hanaro.sso`를 저장했다가, 없는 값을 만들어내지 않는 쪽으로 되돌렸다** (2026-07-23). `users.email` 을 nullable 로 바꾸고 하나로 계정은 email 을 비워 둔다. 세션 JWT 에도 email 클레임을 넣지 않고, `deps.py` 는 `sub` 만 필수로 요구한다.
+
+없는 이메일을 합성하면 마이페이지에 `kjl51555@hanaro.sso` 처럼 **실제로 연락 가능한 주소인 양** 표시되고, 어드민 이메일 검색에도 잡혀 오해를 부른다. 표시 이름은 로그인 아이디(JWT `sub` 에서 `hanaro:` 접두사 제거)를 쓴다.
+
+Postgres 의 unique 인덱스는 NULL 을 중복으로 취급하지 않아 기존 제약과 그대로 공존한다. 마이그레이션 `b3e5f7a2c9d4` 가 NOT NULL 을 풀고 이미 저장된 `@hanaro.sso` 값을 NULL 로 정리한다.
+
+카카오 봇 유저는 여전히 `kakao_{hash}@kakao.local` 을 합성해 쓴다 — 이번 범위 밖이라 건드리지 않았다.
 
 참고로 Clerk은 `{userid}@hanaro.local`을 422 `form_param_format_invalid`로 거부했다("Email address must be a valid email address"). Clerk 제거와 함께 이 제약도 사라진다 — 우리 DB는 email 형식을 검증하지 않는다.
 

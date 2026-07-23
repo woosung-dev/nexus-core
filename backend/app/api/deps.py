@@ -154,7 +154,9 @@ async def _resolve_user(payload: dict, session: AsyncSession) -> User:
     clerk_user_id: str | None = payload.get("sub")
     email: str | None = payload.get("email")
 
-    if not clerk_user_id or not email:
+    # email 은 선택이다 — 하나로는 개인정보를 반환하지 않으므로(규격서 8장)
+    # 세션 토큰에 email 클레임이 없다. 사용자 식별은 sub 로만 한다.
+    if not clerk_user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="토큰에 필수 사용자 정보가 없습니다.",

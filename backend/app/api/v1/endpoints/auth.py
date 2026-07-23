@@ -55,7 +55,8 @@ async def hanaro_login(
     """하나로 SSO 계정을 검증하고 세션 JWT 를 발급한다.
 
     비밀번호는 검증에만 사용하고 저장·로깅하지 않는다(규격서 8장).
-    하나로는 개인정보를 반환하지 않으므로 email 은 아이디로 합성한다.
+    하나로는 이름·이메일 등 개인정보를 반환하지 않으므로 email 은 저장하지 않는다.
+    사용자 식별은 clerk_user_id("hanaro:{userid}") 로만 한다.
     """
     userid = body.userid.strip()
     result = await check_official(userid, body.password)
@@ -69,7 +70,6 @@ async def hanaro_login(
     user = await crud_user.get_or_create_by_clerk_id(
         session=session,
         clerk_user_id=f"hanaro:{userid}",
-        email=f"{userid}@hanaro.sso",
         provider="hanaro",
         is_official=result.is_official,
     )
@@ -83,7 +83,6 @@ async def hanaro_login(
 
     token, expires_in = create_access_token(
         subject=f"hanaro:{userid}",
-        email=user.email,
         provider="hanaro",
         is_official=result.is_official,
     )

@@ -62,7 +62,7 @@ async def deactivate_user(session: AsyncSession, user: User) -> None:
 async def get_or_create_by_clerk_id(
     session: AsyncSession,
     clerk_user_id: str,
-    email: str,
+    email: str | None = None,
     provider: str = "unknown",
     avatar_url: str | None = None,
     is_official: bool | None = None,
@@ -74,7 +74,7 @@ async def get_or_create_by_clerk_id(
     Args:
         session: 비동기 DB 세션
         clerk_user_id: Clerk JWT의 sub claim
-        email: JWT payload의 email
+        email: JWT payload의 email (없을 수 있음 — 하나로는 이메일을 주지 않는다)
         provider: OAuth provider (예: "google", "apple")
         avatar_url: 프로필 이미지 URL (optional)
         is_official: 하나로 SSO 공직자 여부

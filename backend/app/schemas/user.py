@@ -11,7 +11,7 @@ from app.models.enums import PlanType
 
 class UserResponse(BaseModel):
     id: int
-    email: str
+    email: str | None
     provider: str | None
     plan_type: PlanType
     avatar_url: str | None

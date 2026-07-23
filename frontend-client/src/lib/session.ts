@@ -4,6 +4,6 @@ export const SESSION_COOKIE = "nexus_session";
 
 export type SessionUser = {
   userid: string;
-  email: string;
+  email?: string;
   isOfficial: boolean;
 };
