@@ -14,14 +14,21 @@ export const instructionKeys = {
   detail: (id: number) => [...instructionKeys.all, "detail", id] as const,
 }
 
-type InstructionBody = Omit<BotInstruction, "id" | "version" | "is_applied" | "created_at" | "updated_at">
+// Gem 저장에 필요한 최소 필드 — 나머지 컬럼은 백엔드 기본값에 위임.
+type InstructionBody = {
+  name: string
+  description: string
+  system_prompt: string
+  llm_model: string
+}
 
-type GenerateBody = Pick<
-  BotInstruction,
-  "role" | "goal" | "tone" | "audience" | "constraints" | "dos" | "donts" | "examples" | "llm_model"
-> & {
+type InstructionUpdateBody = Partial<InstructionBody>
+
+// AI 다듬기 — 붙여넣은 문서(draft)를 개선한다.
+type GenerateBody = {
   mode: "generate" | "improve"
   draft?: string
+  llm_model: string
 }
 
 type PreviewBody = {
@@ -83,7 +90,7 @@ export async function createInstruction(
 
 export async function updateInstruction(
   id: number,
-  body: Partial<InstructionBody>
+  body: InstructionUpdateBody
 ): Promise<BotInstruction> {
   const { data } = await apiClient.put<BotInstruction>(
     `/api/v1/admin/instructions/${id}`,

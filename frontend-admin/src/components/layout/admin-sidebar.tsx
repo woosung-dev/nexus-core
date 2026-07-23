@@ -8,7 +8,7 @@ const items = [
   { title: "Bots", url: "/bots", icon: Bot },
   { title: "FAQs", url: "/faqs", icon: HelpCircle },
   { title: "Documents", url: "/documents", icon: FileText },
-  { title: "지침 빌더", url: "/instructions", icon: Sparkles },
+  { title: "Gems", url: "/instructions", icon: Sparkles },
   { title: "Chats", url: "/chats", icon: MessageSquare },
   { title: "Users", url: "/users", icon: Users },
 ]
