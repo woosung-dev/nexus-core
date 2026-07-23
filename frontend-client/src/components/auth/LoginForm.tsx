@@ -74,7 +74,12 @@ export function LoginForm() {
         return;
       }
       if (!res.ok) {
-        setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+        // 서버 설정/업스트림 장애를 자격증명 오류로 뭉개지 않는다(오진 방지).
+        setError(
+          res.status === 401
+            ? "아이디 또는 비밀번호가 올바르지 않습니다."
+            : "로그인 서버에 문제가 있습니다. 관리자에게 문의해 주세요."
+        );
         return;
       }
       const { ticket } = (await res.json()) as { ticket: string; isOfficial: boolean };

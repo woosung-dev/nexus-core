@@ -30,8 +30,11 @@ export async function checkOfficial(userid: string, password: string): Promise<O
       | null;
     if (!data) return { ok: false, reason: "upstream_error" };
     if (data.error === "rate_limited") return { ok: false, reason: "rate_limited" };
-    if (data.error === "invalid_key" || data.error === "missing_parameter")
+    if (data.error === "invalid_key" || data.error === "missing_parameter") {
+      // 키/비번은 로깅하지 않는다. 업스트림 에러코드만 남겨 설정 오류를 진단 가능하게 한다.
+      console.error(`[hanaro] 업스트림 설정 거절: ${data.error} (url=${url})`);
       return { ok: false, reason: "server_config" };
+    }
     if (data.authenticated === true) return { ok: true, isOfficial: data.isOfficial === true };
     return { ok: false, reason: "invalid_credentials" };
   } catch {

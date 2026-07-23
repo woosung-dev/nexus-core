@@ -38,8 +38,12 @@ export async function POST(req: Request) {
     const token = await client.signInTokens.createSignInToken({ userId, expiresInSeconds: 300 });
     return NextResponse.json({ ticket: token.token, isOfficial: check.isOfficial });
   } catch (e) {
-    // 비밀번호/키는 로깅하지 않는다. 에러 객체만 기록.
-    console.error("[hanaro] sign-in token 발급 실패", e);
+    // 비밀번호/키는 로깅하지 않는다. Clerk 에러는 errors 배열까지 펼쳐야 원인 파악이 된다.
+    const detail =
+      e && typeof e === "object" && "errors" in e
+        ? JSON.stringify((e as { errors: unknown }).errors)
+        : e;
+    console.error("[hanaro] sign-in token 발급 실패", detail);
     return NextResponse.json({ error: "server_error" }, { status: 500 });
   }
 }
