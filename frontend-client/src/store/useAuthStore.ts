@@ -46,10 +46,17 @@ export function useAuthStore() {
     void load();
   }, [load]);
 
-  const signOut = useCallback(async () => {
-    await fetch("/api/auth/logout", { method: "POST" });
-    clearSessionTokenCache();
-    setUser(null);
+  // 로그아웃 후에는 전체 새로고침으로 이동한다. router.push+refresh(소프트
+  // 네비게이션)는 react-query 캐시·진행 중 요청을 초기화하지 못해, 쿠키가
+  // 지워진 뒤에도 컴포넌트가 인증 API를 재호출해 에러가 난다. 세션 정리는
+  // 로그아웃 요청 성공 여부와 무관하게 항상 수행한다.
+  const signOut = useCallback(async (redirectTo: string = "/login") => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } finally {
+      clearSessionTokenCache();
+      window.location.href = redirectTo;
+    }
   }, []);
 
   return {

@@ -10,13 +10,11 @@ import {
   ChevronRight
 } from "lucide-react";
 import { useAuthStore } from "@/store/useAuthStore";
-import { useRouter } from "next/navigation";
 
 export function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, signOut } = useAuthStore();
-  const router = useRouter();
 
   const displayName = user?.user_metadata?.name || user?.email?.split("@")[0] || "사용자";
   const email = user?.email || "";
@@ -34,9 +32,8 @@ export function UserMenu() {
   }, []);
 
   const handleLogout = async () => {
-    await signOut();
-    router.push("/");
-    router.refresh();
+    // signOut 이 세션 정리 후 전체 새로고침으로 이동한다.
+    await signOut("/");
   };
 
   return (
