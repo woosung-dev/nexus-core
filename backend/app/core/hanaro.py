@@ -1,8 +1,12 @@
 # 하나로 SSO 공직자 판별 API v2 를 호출해 로그인 검증과 공직자 여부를 받는 클라이언트
 
+import functools
 import logging
+import ssl
 from dataclasses import dataclass
+from pathlib import Path
 
+import certifi
 import httpx
 
 from app.core.config import get_settings
@@ -12,6 +16,23 @@ logger = logging.getLogger(__name__)
 # 규격서(공직자 판별 API v2, 2026-07-16) 2장 — 엔드포인트
 DEFAULT_URL = "https://hanaro.ffwp.or.kr/API_kim/officialLoginCheck2"
 TIMEOUT_SEC = 8.0
+
+# 하나로 서버는 일부 경로(예: Cloud Run egress)에서 중간 인증서(Sectigo R36)를
+# 빼고 leaf 만 보내, 컨테이너에서 CERTIFICATE_VERIFY_FAILED(unable to get local
+# issuer certificate)가 난다. 브라우저·macOS 는 중간 인증서를 자동 보완하지만
+# httpx/OpenSSL 은 안 한다. 그래서 하나로가 쓰는 중간 인증서를 직접 번들해
+# certifi 루트에 더한다. 루트 검증은 그대로라 보안 저하 없음.
+_INTERMEDIATES = Path(__file__).parent / "certs" / "hanaro_intermediates.pem"
+
+
+@functools.lru_cache(maxsize=1)
+def _ssl_context() -> ssl.SSLContext:
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    if _INTERMEDIATES.exists():
+        ctx.load_verify_locations(cafile=str(_INTERMEDIATES))
+    else:
+        logger.warning("하나로 중간 인증서 번들 없음: %s", _INTERMEDIATES)
+    return ctx
 
 
 @dataclass(frozen=True)
@@ -49,7 +70,7 @@ async def check_official(userid: str, password: str) -> OfficialCheckResult:
         return OfficialCheckResult(ok=False, reason="server_config")
 
     try:
-        async with httpx.AsyncClient(timeout=TIMEOUT_SEC) as client:
+        async with httpx.AsyncClient(timeout=TIMEOUT_SEC, verify=_ssl_context()) as client:
             resp = await client.post(
                 url,
                 data={"keyValue": key, "userid": userid, "password": password},
