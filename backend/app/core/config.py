@@ -62,7 +62,19 @@ class Settings(BaseSettings):
     # JWKS URL로 JWT 서명 검증. 인증 플랫폼 교체 시 이 URL만 바꾸면 됩니다.
     # Clerk:    https://<frontend-api>.clerk.accounts.dev/.well-known/jwks.json
     # Auth0:    https://<domain>.auth0.com/.well-known/jwks.json
-    AUTH_JWKS_URL: str
+    # 하나로 단독 인증으로 전환하면 불필요해지므로 optional 입니다.
+    AUTH_JWKS_URL: str | None = None
+
+    # 하나로 로그인 성공 시 발급하는 세션 JWT(HS256) 서명 키.
+    # 설정되면 alg=HS256 토큰을 이 키로 검증하고, 그 외 알고리즘은 JWKS 경로를 탑니다.
+    AUTH_JWT_SECRET: SecretStr | None = None
+    AUTH_JWT_EXPIRE_HOURS: int = 12
+
+    # --- 하나로 SSO (공직자 판별 API v2) ---
+    # 규격서 2026-07-16 v2 기준. 발급 키는 20자 이상 무작위 문자열이며 IT팀이 별도 채널로 전달합니다.
+    # 소스·저장소에 커밋 금지. v1 키를 v2 주소에 쓰면 업스트림이 invalid_key 로 거부합니다.
+    OFFICIAL_CHECK_KEY: SecretStr | None = None
+    OFFICIAL_CHECK_URL: str = "https://hanaro.ffwp.or.kr/API_kim/officialLoginCheck2"
 
     # --- CORS ---
     # 환경변수에서는 콤마 구분 문자열로 주입 (예: "http://a.com,http://b.com")

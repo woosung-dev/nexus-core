@@ -77,7 +77,9 @@ export function UserMenu() {
                   <span className="font-bold text-zinc-900 truncate">{displayName}</span>
                   <ChevronRight className="w-3 h-3 text-zinc-400" />
                 </div>
-                <p className="text-xs text-zinc-500 truncate">{email}</p>
+                {email && (
+                  <p className="text-xs text-zinc-500 truncate">{email}</p>
+                )}
               </div>
             </div>
           </div>

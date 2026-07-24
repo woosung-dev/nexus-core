@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import api from "@/lib/api";
+import { useAuthStore } from "@/store/useAuthStore";
 
 interface UserProfile {
   id: number;
-  email: string;
+  email?: string | null;
   provider: string | null;
   plan_type: string;
   avatar_url: string | null;
@@ -16,6 +17,7 @@ interface UserProfile {
 }
 
 export function ProfileSection() {
+  const { user: sessionUser } = useAuthStore();
   const { data: user, isLoading } = useQuery<UserProfile>({
     queryKey: ["me"],
     queryFn: async () => {
@@ -37,8 +39,8 @@ export function ProfileSection() {
     return null; 
   }
 
-  // fallback names
-  const displayName = user.email.split('@')[0];
+  // 하나로는 이름·이메일을 주지 않으므로(규격서 8장) 로그인 아이디를 표시 이름으로 쓴다.
+  const displayName = sessionUser?.user_metadata?.name || "사용자";
 
   return (
     <section className="bg-white/90 border border-amber-100 shadow-sm rounded-xl p-8 relative overflow-hidden backdrop-blur-xl">
@@ -68,7 +70,9 @@ export function ProfileSection() {
         </div>
         <div className="flex flex-col">
           <h3 className="text-2xl font-bold text-zinc-900 mb-1">{displayName}</h3>
-          <p className="text-sm text-zinc-500">{user.email}</p>
+          {user.email && (
+            <p className="text-sm text-zinc-500">{user.email}</p>
+          )}
         </div>
       </div>
 

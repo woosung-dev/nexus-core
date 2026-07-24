@@ -1,6 +1,8 @@
 """
 User 모델.
-Clerk Auth 연동을 위해 clerk_user_id, provider 필드를 포함합니다.
+외부 인증 식별자(clerk_user_id)와 provider 를 포함합니다.
+clerk_user_id 는 이름과 달리 Clerk 전용이 아니며 "hanaro:{userid}",
+"kakao:{bot_id}:{user_key}" 처럼 provider 별 네임스페이스를 담습니다.
 """
 
 from datetime import datetime, timezone
@@ -24,7 +26,9 @@ class User(SQLModel, table=True):
     clerk_user_id: str | None = Field(
         default=None, unique=True, index=True, max_length=255
     )
-    email: str = Field(max_length=255, unique=True, index=True)
+    # 하나로 SSO 는 이메일을 제공하지 않으므로(규격서 8장) 없을 수 있다.
+    # Postgres 의 unique 인덱스는 NULL 을 중복으로 보지 않아 제약과 공존한다.
+    email: str | None = Field(default=None, max_length=255, unique=True, index=True)
     hashed_password: str | None = Field(default=None, max_length=255)
     provider: str | None = Field(default=None, max_length=50)
     plan_type: PlanType = Field(

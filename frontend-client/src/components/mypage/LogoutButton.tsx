@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useClerk } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export function LogoutButton() {
   const [isLoading, setIsLoading] = useState(false);
-  const { signOut } = useClerk();
+  const { signOut } = useAuthStore();
   const router = useRouter();
 
   const handleLogout = async () => {
@@ -16,6 +16,7 @@ export function LogoutButton() {
     try {
       await signOut();
       router.push("/login");
+      router.refresh();
     } catch (error) {
       console.error("Logout failed:", error);
     } finally {
