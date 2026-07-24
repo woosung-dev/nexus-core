@@ -44,6 +44,8 @@ class Bot(SQLModel, table=True):
     # 멀티턴 대화 기억 윈도우 — LLM 호출에 함께 보낼 최근 메시지 수. 0이면 기억 안 함(stateless).
     # 카카오 연결 봇은 영구 세션 1개에 메시지가 무한 누적되므로 0 유지 권장.
     history_window: int = Field(default=0, ge=0)
+    glossary_enabled: bool = Field(default=False)  # 용어집 정의 주입 활성화(봇별)
+    clarify_enabled: bool = Field(default=False)  # 재질문(clarify) 게이트 활성화(봇별)
 
     # 활성화 여부
     is_active: bool = Field(default=True)

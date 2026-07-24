@@ -9,6 +9,7 @@ import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
 import { FeedbackType } from "@/types/api";
 import { FeedbackReasonForm } from "./FeedbackReasonForm";
+import { ClarificationCard } from "./ClarificationCard";
 import { FollowupPills } from "./FollowupPills";
 import { MessageCitations } from "./MessageCitations";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
@@ -21,7 +22,7 @@ type FeedbackState = {
 };
 
 export function ChatArea({ sessionId }: { sessionId?: string }) {
-  const { messages: providerMessages, awaiting, isLoadingMessages } = useChat();
+  const { messages: providerMessages, awaiting, isLoadingMessages, sendMessage } = useChat();
   const { latestFollowups, setComposerDraft } = useChatStore();
   // streaming 텍스트는 더 이상 별도 인디케이터로 보여주지 않음 (응답 도착하면 messages 로 들어감)
   const streamingText = "";
@@ -427,6 +428,18 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                         </div>
                         {/* 참고한 자료(RAG 출처): 봇 응답에만 노출, 인용 0건이면 카드 자체가 안 뜸 */}
                         {!isUser && <MessageCitations citations={msg.citations} />}
+                        {!isUser &&
+                          msg.clarifications &&
+                          msg.clarifications.length > 0 &&
+                          idx === messages.length - 1 &&
+                          !isStreaming && (
+                            <ClarificationCard
+                              items={msg.clarifications}
+                              originalQuestion={messages[idx - 1]?.content ?? ""}
+                              disabled={awaiting}
+                              onSubmit={(enriched) => sendMessage(enriched, { skipClarify: true })}
+                            />
+                          )}
                         {/* 후속 질문: 가장 마지막 봇 응답에만 노출, 스트리밍 중에는 숨김 */}
                         {!isUser &&
                           idx === messages.length - 1 &&
@@ -483,5 +496,4 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
     </ScrollArea>
   );
 }
-
 

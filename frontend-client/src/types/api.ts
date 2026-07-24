@@ -52,12 +52,19 @@ export interface Citation {
   cite_count?: number | null;
 }
 
+export interface Clarification {
+  id: string;
+  question: string;
+  options: string[];
+}
+
 export interface MessageResponse {
   id: number;
   session_id: number;
   role: MessageRole;
   content: string;
   citations?: Citation[] | null;
+  clarifications?: Clarification[] | null;
   feedback?: "up" | "down" | null;
   feedback_reasons?: string[];
   feedback_comment?: string | null;
@@ -89,6 +96,7 @@ export interface ChatCompletionRequest {
   session_id?: number | null;
   stream?: boolean;
   use_rag?: boolean;
+  skip_clarify?: boolean;
 }
 
 export interface UserResponse {

@@ -70,6 +70,8 @@ export const botEditFormSchema = z.object({
   is_active: z.boolean(),
   is_verified: z.boolean(),
   is_new: z.boolean(),
+  glossary_enabled: z.boolean(),
+  clarify_enabled: z.boolean(),
   plan_required: z.enum(["FREE", "PRO"]),
   system_prompt: z
     .string()

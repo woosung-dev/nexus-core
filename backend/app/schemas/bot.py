@@ -24,6 +24,8 @@ class BotResponse(BaseModel):
     llm_model: str = ""
     system_prompt: str = ""
     history_window: int = 0
+    glossary_enabled: bool = False
+    clarify_enabled: bool = False
 
 
 class BotListResponse(BaseModel):
@@ -50,6 +52,8 @@ class BotCreateRequest(BaseModel):
     plan_required: PlanType = PlanType.FREE
     system_prompt: str = ""
     llm_model: str = "gemini-2.5-flash"
+    glossary_enabled: bool | None = None
+    clarify_enabled: bool | None = None
 
 
 class BotUpdateRequest(BaseModel):
@@ -65,3 +69,5 @@ class BotUpdateRequest(BaseModel):
     llm_model: str | None = None
     is_active: bool | None = None
     history_window: int | None = None
+    glossary_enabled: bool | None = None
+    clarify_enabled: bool | None = None

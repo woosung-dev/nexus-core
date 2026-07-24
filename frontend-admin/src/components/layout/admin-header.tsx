@@ -28,6 +28,8 @@ function generateBreadcrumbLabel(pathname: string) {
   if (pathname.includes("/dashboard")) return "Dashboard"
   if (pathname.includes("/bots")) return "Bots"
   if (pathname.includes("/faqs")) return "FAQs"
+  if (pathname.includes("/glossary")) return "용어집"
+  if (pathname.includes("/instructions")) return "지침 빌더"
   if (pathname.includes("/documents")) return "Documents"
   if (pathname.includes("/users")) return "Users"
   if (pathname.includes("/settings")) return "Settings"

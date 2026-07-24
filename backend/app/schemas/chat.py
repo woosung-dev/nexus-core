@@ -15,6 +15,12 @@ from app.schemas.bot import BotResponse
 from app.schemas.rag import RAGCitation
 
 
+class ClarifyItem(BaseModel):
+    id: str
+    question: str
+    options: list[str] = Field(default_factory=list)
+
+
 class ChatCompletionRequest(BaseModel):
     """채팅 완성 요청 스키마"""
 
@@ -23,6 +29,7 @@ class ChatCompletionRequest(BaseModel):
     session_id: int | None = None
     stream: bool = True
     use_rag: bool = False  # RAG 활성화 여부
+    skip_clarify: bool = False  # 재질문 답변 재제출 시 True(중복 되묻기 방지)
 
 
 class ChatCompletionResponse(BaseModel):
@@ -32,8 +39,9 @@ class ChatCompletionResponse(BaseModel):
     content: str
     bot_id: int
     citations: list[RAGCitation] | None = None  # RAG 인용구 출처
-    source: str | None = None  # 응답 소스: "faq_override" | "rag" | "llm"
+    source: str | None = None  # 응답 소스: "faq_override" | "clarify" | "rag" | "llm"
     followups: list[str] = Field(default_factory=list)  # 후속 질문 (빈 리스트 = 없음 또는 생성 실패)
+    clarifications: list[ClarifyItem] = Field(default_factory=list)  # source="clarify"일 때만
 
 
 class ChatSessionResponse(BaseModel):
@@ -60,6 +68,7 @@ class MessageResponse(BaseModel):
     feedback_comment: str | None = None
     citations: list[RAGCitation] = Field(default_factory=list)  # RAG 인용 출처 (없거나 도입 전 대화면 빈 배열)
     followups: list[str] = Field(default_factory=list)  # 후속 추천 질문
+    clarifications: list[ClarifyItem] = Field(default_factory=list)
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -81,7 +90,7 @@ class MessageResponse(BaseModel):
                 return []
         return []
 
-    @field_validator("citations", "followups", mode="before")
+    @field_validator("citations", "followups", "clarifications", mode="before")
     @classmethod
     def _none_to_list(cls, v):
         """DB 컬럼이 NULL(도입 전 대화)이면 빈 배열로 보정."""

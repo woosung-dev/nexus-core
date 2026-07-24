@@ -83,6 +83,8 @@ export function BotEditForm({ bot }: BotEditFormProps) {
       is_active: bot.is_active ?? true,
       is_verified: bot.is_verified,
       is_new: bot.is_new,
+      glossary_enabled: bot.glossary_enabled ?? false,
+      clarify_enabled: bot.clarify_enabled ?? false,
       plan_required: bot.plan_required,
       system_prompt: bot.system_prompt,
       llm_model: bot.llm_model,
@@ -483,6 +485,48 @@ export function BotEditForm({ bot }: BotEditFormProps) {
                       <FormLabel className="text-base">신규 뱃지</FormLabel>
                       <FormDescription>
                         활성화하면 봇 목록에서 &apos;NEW&apos; 뱃지가 표시됩니다.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="glossary_enabled"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">용어집 주입</FormLabel>
+                      <FormDescription>
+                        질문에 등장한 용어 정의를 답변 앞단에 주입합니다.
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="clarify_enabled"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">재질문(clarify)</FormLabel>
+                      <FormDescription>
+                        질문이 애매하면 먼저 선택형 확인 질문을 합니다.
                       </FormDescription>
                     </div>
                     <FormControl>

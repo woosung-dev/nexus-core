@@ -17,11 +17,13 @@ from app.crud import crud_chat
 from app.models.bot import Bot
 from app.models.chat import ChatSession
 from app.models.enums import MessageRole
-from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse
+from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse, ClarifyItem
 from app.services.faq_service import search_faq_override
 from app.services.followup_service import generate_followups
 from app.services.llm.factory import get_llm_service
 from app.services.rag.factory import get_rag_service
+from app.services import clarify_service
+from app.services.glossary_service import format_glossary_block, search_glossary_terms
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +191,42 @@ class ChatService:
                 len(history),
             )
 
+        # 용어집(증강 전용) — 관련 용어 정의를 앞단에 주입만, 절대 조기 반환 없음
+        glossary_matches = await search_glossary_terms(self.session, bot, request.message)
+        glossary_block = format_glossary_block(glossary_matches)
+        effective_system_prompt = (bot.system_prompt or "") + glossary_block
+
+        # 재질문(clarify) 게이트 — 애매하면 선택형 질문으로 조기 반환 (FAQ 다음, RAG 이전)
+        if (
+            getattr(bot, "clarify_enabled", False)
+            and not request.skip_clarify
+            and clarify_service.should_consider_clarify(request.message)
+        ):
+            decision = await clarify_service.run_clarify_gate(
+                request.message, bot, domain_context=glossary_block
+            )
+            if decision and decision.ambiguous and decision.clarifications:
+                items = [
+                    ClarifyItem(id=f"c{i}", question=c.question, options=c.options)
+                    for i, c in enumerate(decision.clarifications[: clarify_service.CLARIFY_MAX_ITEMS])
+                ]
+                await crud_chat.create_message(
+                    session=self.session,
+                    session_id=chat_session.id,
+                    role=MessageRole.ASSISTANT,
+                    content=clarify_service.CLARIFY_INTRO,
+                    clarifications=[i.model_dump() for i in items],
+                )
+                chat_session.updated_at = datetime.now(timezone.utc)
+                await self.session.commit()
+                return ChatCompletionResponse(
+                    session_id=chat_session.id,
+                    content=clarify_service.CLARIFY_INTRO,
+                    bot_id=bot.id,
+                    source="clarify",
+                    clarifications=items,
+                )
+
         # 2. (분기) RAG 처리
         # bot.use_rag 로 봇 단위 토글 제공 — file_search store가 비어있는 봇은 admin에서 False로
         # 설정해 매 요청 7-12s의 빈 retrieval 호출을 차단한다. request.use_rag와 AND 평가.
@@ -205,7 +243,7 @@ class ChatService:
 
             if request.stream:
                 return StreamingResponse(
-                    self._generate_rag_stream(rag_service, request, bot, chat_session, history),
+                    self._generate_rag_stream(rag_service, request, bot, chat_session, history, effective_system_prompt),
                     media_type="text/event-stream",
                     headers={
                         "Cache-Control": "no-cache",
@@ -217,7 +255,7 @@ class ChatService:
                 rag_response = await rag_service.generate_with_rag(
                     bot_id=bot.id,
                     prompt=request.message,
-                    system_prompt=bot.system_prompt,
+                    system_prompt=effective_system_prompt,
                     model_name=bot.llm_model,
                     history=history or None,
                 )
@@ -238,7 +276,7 @@ class ChatService:
                     _schedule_citation_backfill(
                         bot_id=bot.id,
                         model_name=bot.llm_model,
-                        system_prompt=bot.system_prompt,
+                        system_prompt=effective_system_prompt,
                         message_id=assistant_msg.id,
                         prompt=request.message,
                     )
@@ -259,7 +297,7 @@ class ChatService:
 
         if request.stream:
             return StreamingResponse(
-                self._generate_llm_stream(llm_service, request, bot, chat_session, history),
+                self._generate_llm_stream(llm_service, request, bot, chat_session, history, effective_system_prompt),
                 media_type="text/event-stream",
                 headers={
                     "Cache-Control": "no-cache",
@@ -270,7 +308,7 @@ class ChatService:
         else:
             content = await llm_service.generate(
                 prompt=request.message,
-                system_prompt=bot.system_prompt,
+                system_prompt=effective_system_prompt,
                 history=history or None,
             )
 
@@ -295,7 +333,8 @@ class ChatService:
                 followups=followups,
             )
 
-    async def _generate_rag_stream(self, rag_service, request, bot, chat_session, history=None):
+    async def _generate_rag_stream(self, rag_service, request, bot, chat_session, history=None, effective_system_prompt=None):
+        sysp = effective_system_prompt if effective_system_prompt is not None else bot.system_prompt
         full_response_content = ""
         try:
             meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
@@ -305,7 +344,7 @@ class ChatService:
             async for chunk in rag_service.generate_stream_with_rag(
                 bot_id=bot.id,
                 prompt=request.message,
-                system_prompt=bot.system_prompt,
+                system_prompt=sysp,
                 model_name=bot.llm_model,
                 history=history or None,
             ):
@@ -338,7 +377,7 @@ class ChatService:
                 _schedule_citation_backfill(
                     bot_id=bot.id,
                     model_name=bot.llm_model,
-                    system_prompt=bot.system_prompt,
+                    system_prompt=sysp,
                     message_id=assistant_msg.id,
                     prompt=request.message,
                 )
@@ -357,7 +396,8 @@ class ChatService:
             error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
             yield f"data: {error_data}\n\n"
 
-    async def _generate_llm_stream(self, llm_service, request, bot, chat_session, history=None):
+    async def _generate_llm_stream(self, llm_service, request, bot, chat_session, history=None, effective_system_prompt=None):
+        sysp = effective_system_prompt if effective_system_prompt is not None else bot.system_prompt
         full_response_content = ""
         try:
             # 클라이언트에게 활성화된 session_id를 가장 먼저 알려줌 (새로고침/리다이렉트 용도)
@@ -366,7 +406,7 @@ class ChatService:
 
             async for chunk in llm_service.generate_stream(
                 prompt=request.message,
-                system_prompt=bot.system_prompt,
+                system_prompt=sysp,
                 history=history or None,
             ):
                 full_response_content += chunk
@@ -399,5 +439,3 @@ class ChatService:
             error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
             yield f"data: {error_data}\n\n"
             # 주의: 오류 발생 시 불완전한 메시지는 저장하지 않음 (롤백 처리됨)
-
-

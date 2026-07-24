@@ -66,6 +66,11 @@ class Message(SQLModel, table=True):
         sa_column=Column(JSON, nullable=True),
         description="후속 추천 질문 JSON 배열 [str]",
     )
+    clarifications: list | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+        description="재질문(clarify) 카드 payload JSON [{id, question, options}] — clarify 응답만",
+    )
 
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
