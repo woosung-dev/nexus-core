@@ -25,6 +25,9 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loginMode, setLoginMode] = useState<"hanaro" | "email">("hanaro");
+  const [hanaroId, setHanaroId] = useState("");
+  const [hanaroPw, setHanaroPw] = useState("");
 
   // 이메일/비밀번호 로그인
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,6 +52,40 @@ export function LoginForm() {
       }
     } catch {
       setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 하나로 SSO 로그인: 서버 라우트로 검증 → Clerk ticket 로그인
+  const handleHanaroSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isLoaded) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/auth/hanaro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userid: hanaroId, password: hanaroPw }),
+      });
+      if (res.status === 429) {
+        setError("로그인 시도가 너무 많습니다. 약 5분 후 다시 시도해 주세요.");
+        return;
+      }
+      if (!res.ok) {
+        setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+        return;
+      }
+      const { ticket } = (await res.json()) as { ticket: string; isOfficial: boolean };
+      const result = await signIn.create({ strategy: "ticket", ticket });
+      if (result.status === "complete") {
+        await setActive({ session: result.createdSessionId, beforeEmit: () => router.push("/") });
+      } else {
+        setError("로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+      }
+    } catch {
+      setError("로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
       setIsLoading(false);
     }
@@ -96,6 +133,46 @@ export function LoginForm() {
           </div>
         )}
 
+        <div className="flex gap-2 p-1 rounded-lg bg-zinc-100 mb-2">
+          <button
+            type="button"
+            onClick={() => setLoginMode("hanaro")}
+            className={`flex-1 h-9 rounded-md text-sm font-semibold transition-all ${loginMode === "hanaro" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500"}`}
+          >
+            하나로 SSO
+          </button>
+          <button
+            type="button"
+            onClick={() => setLoginMode("email")}
+            className={`flex-1 h-9 rounded-md text-sm font-semibold transition-all ${loginMode === "email" ? "bg-white text-zinc-900 shadow-sm" : "text-zinc-500"}`}
+          >
+            이메일
+          </button>
+        </div>
+
+        {loginMode === "hanaro" && (
+          <form onSubmit={handleHanaroSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="hanaroId" className="text-zinc-700 font-medium">하나로 아이디</Label>
+              <Input id="hanaroId" type="text" placeholder="하나로 SSO 아이디" value={hanaroId}
+                onChange={(e) => setHanaroId(e.target.value)} required disabled={isLoading}
+                className="bg-zinc-50 border-zinc-200 text-zinc-900 focus-visible:ring-amber-500/30 focus-visible:border-amber-400 transition-all h-12 shadow-sm" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="hanaroPw" className="text-zinc-700 font-medium">비밀번호</Label>
+              <Input id="hanaroPw" type="password" value={hanaroPw}
+                onChange={(e) => setHanaroPw(e.target.value)} required disabled={isLoading}
+                className="bg-zinc-50 border-zinc-200 text-zinc-900 focus-visible:ring-amber-500/30 focus-visible:border-amber-400 transition-all h-12 shadow-sm" />
+            </div>
+            <Button type="submit" disabled={isLoading}
+              className="w-full h-12 bg-amber-500 hover:bg-amber-600 text-white font-bold text-md mt-6 transition-all shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/30">
+              {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : "하나로 SSO 로그인"}
+            </Button>
+          </form>
+        )}
+
+        {loginMode === "email" && (
+          <>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="email" className="text-zinc-700 font-medium">
@@ -218,6 +295,8 @@ export function LoginForm() {
             Apple 로그인
           </Button>
         </div>
+          </>
+        )}
       </CardContent>
 
       <CardFooter className="flex justify-center z-10 relative border-t border-zinc-100 pt-6 mt-2 pb-8">
