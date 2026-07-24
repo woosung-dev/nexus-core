@@ -63,14 +63,14 @@ jobs:
       # 마이그레이션이 먼저 schema 를 맞춰주고, 실패 시 아래 Deploy step 자체가 실행되지 않음 →
       # 새 코드가 구 schema 위에 올라가는 사고를 차단한다.
       # alembic/env.py 가 app.core.config.get_settings() 를 호출하므로 Settings 의
-      # required 필드(GEMINI_API_KEY/AUTH_JWKS_URL)도 함께 주입해야 ValidationError 방지.
+      # required 필드(GEMINI_API_KEY)도 함께 주입해야 ValidationError 방지.
+      # AUTH_JWKS_URL 은 이제 optional 이라 마이그레이션에 불필요 — 하나로 단독 전환으로 제거.
       - name: Run Alembic migrations
         run: |
           set -euo pipefail
           docker run --rm \
             -e DATABASE_URL="${{ secrets.DATABASE_URL }}" \
             -e GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
-            -e AUTH_JWKS_URL="${{ secrets.AUTH_JWKS_URL }}" \
             "${{ env.IMAGE_URI }}" \
             alembic upgrade head
 
@@ -107,7 +107,9 @@ jobs:
             DEBUG=false
             STORAGE_PROVIDER=r2
             DATABASE_URL=${{ secrets.DATABASE_URL }}
-            AUTH_JWKS_URL=${{ secrets.AUTH_JWKS_URL }}
+            AUTH_JWT_SECRET=${{ secrets.AUTH_JWT_SECRET }}
+            OFFICIAL_CHECK_KEY=${{ secrets.OFFICIAL_CHECK_KEY }}
+            OFFICIAL_CHECK_URL=${{ secrets.OFFICIAL_CHECK_URL }}
             GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
             OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
             R2_ENDPOINT_URL=${{ secrets.R2_ENDPOINT_URL }}
