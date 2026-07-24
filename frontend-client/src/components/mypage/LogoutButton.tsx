@@ -3,25 +3,16 @@
 import { useState } from "react";
 import { LogOut, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/useAuthStore";
 
 export function LogoutButton() {
   const [isLoading, setIsLoading] = useState(false);
   const { signOut } = useAuthStore();
-  const router = useRouter();
 
   const handleLogout = async () => {
     setIsLoading(true);
-    try {
-      await signOut();
-      router.push("/login");
-      router.refresh();
-    } catch (error) {
-      console.error("Logout failed:", error);
-    } finally {
-      setIsLoading(false);
-    }
+    // signOut 이 세션 정리 후 /login 으로 전체 새로고침한다(로딩 상태 유지한 채 이동).
+    await signOut("/login");
   };
 
   return (
