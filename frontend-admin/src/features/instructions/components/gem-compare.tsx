@@ -23,7 +23,7 @@ import { previewInstruction } from "../api"
 import { useInstructions } from "../hooks"
 import { LLM_MODEL_OPTIONS } from "../schemas"
 import type { Citation } from "../types"
-import { GemPickerDialog } from "./gem-picker-dialog"
+import { GemLoadDialog } from "./gem-load-dialog"
 
 const MAX_COLUMNS = 6
 const ALPHABET = "ABCDEFGH"
@@ -73,11 +73,6 @@ export function GemCompare() {
 
   function updateColumn(id: string, patch: Partial<Column>) {
     setColumns((cols) => cols.map((c) => (c.id === id ? { ...c, ...patch } : c)))
-  }
-  function loadGem(id: string, gemId: number) {
-    const gem = gems.find((g) => g.id === gemId)
-    if (!gem) return
-    updateColumn(id, { gemId, system_prompt: gem.system_prompt, llm_model: gem.llm_model })
   }
   function addColumn() {
     setColumns((cols) => (cols.length >= MAX_COLUMNS ? cols : [...cols, newColumn()]))
@@ -253,15 +248,14 @@ export function GemCompare() {
         </div>
       </div>
 
-      {/* Gem 불러오기 모달 — 저장된 Gem을 골라 그 열 프롬프트·모델에 적용 */}
-      <GemPickerDialog
+      {/* Gem 불러오기 모달 — 원문 그대로 넣거나, Gem을 생성기로 삼아 프롬프트를 만들어 이 열에 적용 */}
+      <GemLoadDialog
         open={pickerColId !== null}
         onOpenChange={(open) => !open && setPickerColId(null)}
         gems={gems}
-        onSelect={(gem) => {
-          if (pickerColId) loadGem(pickerColId, gem.id)
+        onApply={(patch) => {
+          if (pickerColId) updateColumn(pickerColId, patch)
         }}
-        description="이 열에 적용할 Gem을 선택하세요. 선택한 Gem의 프롬프트와 모델이 채워집니다."
       />
     </div>
   )
