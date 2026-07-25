@@ -35,6 +35,7 @@ async def _backfill_citations_async(
     system_prompt: str,
     message_id: int,
     prompt: str,
+    answer: str = "",
 ) -> None:
     """응답 트랜잭션과 분리된 새 세션에서 interactions 인용을 캡처해 메시지에 백필한다.
 
@@ -56,6 +57,9 @@ async def _backfill_citations_async(
         if not citations:
             return
 
+        # 근거 구절까지 같이 채워 DB 쓰기를 1회로 끝낸다.
+        await _fill_evidence(rag_service, citations, answer, model_name)
+
         # 응답 트랜잭션과 분리된 새 세션으로 백필 (요청 커밋 이후 실행되므로 안전).
         from app.core.database import async_session
 
@@ -72,16 +76,73 @@ async def _backfill_citations_async(
         logger.warning("인용 백필 실패 message_id=%s: %s", message_id, e)
 
 
+async def _fill_evidence(rag_service, citations, answer: str, model_name: str) -> int:
+    """인용 청크에서 실제 근거 구절을 뽑아 채운다. 지원하지 않는 provider 면 조용히 통과."""
+    fill_fn = getattr(rag_service, "fill_evidence", None)
+    if fill_fn is None or not citations:
+        return 0
+    return await fill_fn(citations=citations, answer=answer, model_name=model_name)
+
+
+async def _fill_evidence_async(
+    model_name: str, message_id: int, citations: list, answer: str
+) -> None:
+    """정확 인용이 이미 붙은 메시지에 근거 구절만 뒤늦게 채운다.
+
+    청크당 LLM 1회라 답변 경로에 넣으면 체감 지연이 그대로 늘어난다. 인용 백필과 같은 이유로
+    응답을 보낸 뒤 별도 태스크에서 돌리고, 실패는 경고만 남긴다(인용 표시 자체는 이미 살아 있다).
+    """
+    try:
+        from app.schemas.rag import RAGCitation
+
+        parsed = [RAGCitation(**c) if isinstance(c, dict) else c for c in citations]
+        rag_service = get_rag_service(provider=model_name)
+        filled = await _fill_evidence(rag_service, parsed, answer, model_name)
+        if not filled:
+            return
+
+        from app.core.database import async_session
+
+        async with async_session() as session:
+            updated = await crud_chat.update_message_citations(
+                session, message_id, [c.model_dump() for c in parsed]
+            )
+            if updated:
+                await session.commit()
+                logger.info(
+                    "근거 구절 채움 message_id=%s cards=%d/%d",
+                    message_id,
+                    filled,
+                    len(parsed),
+                )
+    except Exception as e:
+        logger.warning("근거 구절 채우기 실패 message_id=%s: %s", message_id, e)
+
+
+def _schedule_evidence_fill(
+    model_name: str, message_id: int, citations: list, answer: str
+) -> None:
+    """근거 구절 채우기를 백그라운드 태스크로 예약한다(응답 반환을 막지 않음)."""
+    task = asyncio.create_task(
+        _fill_evidence_async(model_name, message_id, citations, answer)
+    )
+    _citation_backfill_tasks.add(task)
+    task.add_done_callback(_citation_backfill_tasks.discard)
+
+
 def _schedule_citation_backfill(
     bot_id: int,
     model_name: str,
     system_prompt: str,
     message_id: int,
     prompt: str,
+    answer: str = "",
 ) -> None:
     """인용 백필을 백그라운드 태스크로 예약한다(응답 반환을 막지 않음)."""
     task = asyncio.create_task(
-        _backfill_citations_async(bot_id, model_name, system_prompt, message_id, prompt)
+        _backfill_citations_async(
+            bot_id, model_name, system_prompt, message_id, prompt, answer
+        )
     )
     _citation_backfill_tasks.add(task)
     task.add_done_callback(_citation_backfill_tasks.discard)
@@ -234,6 +295,7 @@ class ChatService:
                 await self.session.commit()
 
                 # 메인 답변 경로(persona)가 인용을 못 남기면 interactions 로 근사 인용을 비동기 백필.
+                # 인용이 이미 붙었으면 근거 구절만 따로 채운다 — 어느 쪽이든 응답은 막지 않는다.
                 if not rag_response.citations:
                     _schedule_citation_backfill(
                         bot_id=bot.id,
@@ -241,6 +303,14 @@ class ChatService:
                         system_prompt=bot.system_prompt,
                         message_id=assistant_msg.id,
                         prompt=request.message,
+                        answer=rag_response.answer,
+                    )
+                else:
+                    _schedule_evidence_fill(
+                        model_name=bot.llm_model,
+                        message_id=assistant_msg.id,
+                        citations=[c.model_dump() for c in rag_response.citations],
+                        answer=rag_response.answer,
                     )
 
                 # followups 는 RAG 호출(rag_service.generate_with_rag) 1회 안에서 같이 받음.
@@ -334,6 +404,7 @@ class ChatService:
             await self.session.commit()
 
             # 스트림 grounding 이 인용을 못 남기면 interactions 로 근사 인용을 비동기 백필.
+            # 인용이 이미 붙었으면 근거 구절만 따로 채운다 — 어느 쪽이든 스트림은 막지 않는다.
             if not captured_citations:
                 _schedule_citation_backfill(
                     bot_id=bot.id,
@@ -341,6 +412,14 @@ class ChatService:
                     system_prompt=bot.system_prompt,
                     message_id=assistant_msg.id,
                     prompt=request.message,
+                    answer=full_response_content,
+                )
+            else:
+                _schedule_evidence_fill(
+                    model_name=bot.llm_model,
+                    message_id=assistant_msg.id,
+                    citations=captured_citations,
+                    answer=full_response_content,
                 )
 
             if followups:

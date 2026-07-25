@@ -39,6 +39,8 @@ def test_citation_schema_new_fields_serialize():
         "uri": None,
         "page_number": None,
         "cite_count": 1,
+        "segments": [],
+        "evidence": [],
     }
 
 
