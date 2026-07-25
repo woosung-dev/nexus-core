@@ -8,6 +8,23 @@ const OPEN = "⟦cite:";
 const CLOSE = "⟧";
 export const MARKER_RE = /⟦cite:(\d+)⟧/;
 const MARKER_RE_G = /⟦cite:(\d+)⟧/g;
+// 같은 자료 번호를 다시 달기까지 필요한 최소 간격(글자). 한 문단을 한 자료가 통째로 뒷받침할 때
+// 구간마다 번호가 붙어 본문이 각주로 뒤덮이는 것을 막는다.
+const MIN_GAP = 160;
+
+/**
+ * 표식을 끼울 위치를 다듬는다.
+ *
+ * ① 구간이 강조 기호 사이에서 끝날 수 있다(실측: "… 것은 **가능합니다"). 그 틈에 끼우면
+ *    마크다운이 깨지므로 기호 뒤로 넘긴다.
+ * ② 문장 끝 구두점 앞에 끼우면 "무거우셨겠어요 [1] ." 처럼 어색하게 벌어진다. 구두점 뒤로 넘긴다.
+ */
+function settle(content: string, from: number): number {
+  let at = from;
+  while (at < content.length && (content[at] === "*" || content[at] === "_")) at += 1;
+  while (at < content.length && /[.!?,)\]”"']/.test(content[at])) at += 1;
+  return at;
+}
 
 /**
  * 각 근거 구간(segments)의 끝에 그 구간을 뒷받침한 자료의 카드 번호를 심는다.
@@ -26,20 +43,27 @@ export function insertCitationMarkers(
   const marks = new Map<number, number[]>();
   groups.forEach((g, gi) => {
     const num = gi + 1;
+    const points: number[] = [];
     for (const chunk of g.chunks) {
       for (const seg of chunk.segments ?? []) {
         const text = seg.trim();
         if (text.length < 4) continue;
         const at = content.indexOf(text);
         if (at < 0) continue;
-        // 구간 끝이 강조 기호 사이일 수 있다(실측: 구간이 "… 것은 **가능합니다" 로 끝남).
-        // 그 틈에 표식을 끼우면 마크다운이 깨지므로 기호 뒤로 밀어낸다.
-        let end = at + text.length;
-        while (end < content.length && (content[end] === "*" || content[end] === "_")) end += 1;
-        const nums = marks.get(end) ?? [];
-        if (!nums.includes(num)) nums.push(num);
-        marks.set(end, nums);
+        const end = settle(content, at + text.length);
+        if (!points.includes(end)) points.push(end);
       }
+    }
+    // 같은 자료가 한 문단을 통째로 뒷받침하면 구간마다 번호가 붙어 본문이 [1] 로 뒤덮인다
+    // (실측 한 답변에 7개). 같은 번호는 충분히 떨어졌을 때만 다시 단다.
+    points.sort((a, b) => a - b);
+    let last = -Infinity;
+    for (const p of points) {
+      if (p - last < MIN_GAP) continue;
+      last = p;
+      const nums = marks.get(p) ?? [];
+      if (!nums.includes(num)) nums.push(num);
+      marks.set(p, nums);
     }
   });
   if (marks.size === 0) return content;

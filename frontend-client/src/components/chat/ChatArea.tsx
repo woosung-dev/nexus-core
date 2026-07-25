@@ -360,7 +360,7 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                                             })
                                           }
                                           title={`참고한 자료 ${num}번 보기`}
-                                          className="align-super mx-0.5 text-[10px] font-semibold text-amber-600 hover:text-amber-700 no-underline"
+                                          className="align-super ml-px mr-0.5 text-[10px] font-semibold text-amber-600 hover:text-amber-700 no-underline"
                                         >
                                           [{num}]
                                         </button>
