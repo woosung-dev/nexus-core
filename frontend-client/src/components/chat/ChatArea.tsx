@@ -11,6 +11,7 @@ import { FeedbackType } from "@/types/api";
 import { FeedbackReasonForm } from "./FeedbackReasonForm";
 import { FollowupPills } from "./FollowupPills";
 import { MessageCitations } from "./MessageCitations";
+import { insertCitationMarkers, rehypeCitationMarkers } from "./citationMarkers";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { useChat } from "@/app/(protected)/chat/ChatProvider";
 
@@ -31,6 +32,13 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
   // ChatGPT/Claude 스타일 스크롤 — 사용자 메시지를 viewport 최상단으로 보내고, 응답이 그 아래로 들어오게 한다.
   const prevIsStreamingRef = useRef(false);
   const initializedSessionRef = useRef<string | null>(null);
+  // 본문 각주를 누르면 해당 메시지의 자료 목록을 펼쳐 그 카드로 보낸다.
+  // nonce 는 같은 번호를 다시 눌러도 반응하게 하려고 둔다.
+  const [citeFocus, setCiteFocus] = useState<{
+    messageId: number;
+    num: number;
+    nonce: number;
+  } | null>(null);
 
   const getViewport = () =>
     scrollRef.current?.querySelector<HTMLElement>('[data-radix-scroll-area-viewport]') ?? null;
@@ -331,8 +339,38 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                           ) : (
                             <div className="flex flex-col">
                               <div className="prose prose-zinc max-w-none prose-p:leading-relaxed prose-pre:bg-zinc-50 prose-pre:border prose-pre:zinc-100 prose-code:text-amber-600 prose-headings:text-zinc-900 prose-a:text-amber-500">
-                                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                                  {msg.content}
+                                <ReactMarkdown
+                                  remarkPlugins={[remarkGfm]}
+                                  rehypePlugins={[rehypeCitationMarkers]}
+                                  components={{
+                                    // 각주 번호 — 누르면 아래 자료 목록에서 해당 카드를 펼쳐 보여준다.
+                                    sup: ({ children, ...props }) => {
+                                      const num = Number(
+                                        (props as { "data-cite"?: string })["data-cite"]
+                                      );
+                                      if (!num) return <sup>{children}</sup>;
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setCiteFocus({
+                                              messageId: msg.id,
+                                              num,
+                                              nonce: Date.now(),
+                                            })
+                                          }
+                                          title={`참고한 자료 ${num}번 보기`}
+                                          className="align-super mx-0.5 text-[10px] font-semibold text-amber-600 hover:text-amber-700 no-underline"
+                                        >
+                                          [{num}]
+                                        </button>
+                                      );
+                                    },
+                                  }}
+                                >
+                                  {!isUser
+                                    ? insertCitationMarkers(msg.content, msg.citations)
+                                    : msg.content}
                                 </ReactMarkdown>
                               </div>
                               {/* Action Bar */}
@@ -426,7 +464,16 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                           )}
                         </div>
                         {/* 참고한 자료(RAG 출처): 봇 응답에만 노출, 인용 0건이면 카드 자체가 안 뜸 */}
-                        {!isUser && <MessageCitations citations={msg.citations} />}
+                        {!isUser && (
+                          <MessageCitations
+                            citations={msg.citations}
+                            focus={
+                              citeFocus?.messageId === msg.id
+                                ? { num: citeFocus.num, nonce: citeFocus.nonce }
+                                : null
+                            }
+                          />
+                        )}
                         {/* 후속 질문: 가장 마지막 봇 응답에만 노출, 스트리밍 중에는 숨김 */}
                         {!isUser &&
                           idx === messages.length - 1 &&

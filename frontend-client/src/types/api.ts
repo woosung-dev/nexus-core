@@ -50,6 +50,11 @@ export interface Citation {
   // 이 청크가 뒷받침한 구간 수. 문서 단위 랭킹 점수로만 쓴다(수치 노출 금지 — 근사 인용의
   // 구간은 표시된 답변이 아니라 백필이 새로 생성한 답변 기준이므로).
   cite_count?: number | null;
+  // 이 청크가 뒷받침한 답변 본문 구간. 답변에 그대로 존재해 문자열 검색으로 앵커할 수 있다.
+  segments?: string[] | null;
+  // content 중 실제 근거가 된 구절 — 형광펜 대상. 백엔드가 원문 대조로 스냅해 넣으므로
+  // 항상 content 의 부분문자열이다(모델이 지어낸 문자는 들어오지 않는다).
+  evidence?: string[] | null;
 }
 
 export interface MessageResponse {
