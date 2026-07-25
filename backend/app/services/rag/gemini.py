@@ -155,10 +155,44 @@ def _dedupe_citations(citations: list[RAGCitation]) -> list[RAGCitation]:
         key = _citation_key(c)
         prev = merged.get(key)
         if prev is None:
-            merged[key] = c.model_copy()
+            merged[key] = c.model_copy(deep=True)
         else:
             prev.cite_count += c.cite_count
+            # 같은 청크가 답변의 여러 구간을 뒷받침하면 구간도 함께 모은다(중복 제외).
+            for seg in c.segments:
+                if seg not in prev.segments:
+                    prev.segments.append(seg)
     return list(merged.values())
+
+
+def _citations_from_grounding(grounding) -> list[RAGCitation]:
+    """grounding_metadata → RAGCitation 목록. chunks 로 만들고 supports 로 답변 구간을 붙인다.
+
+    grounding_supports[].grounding_chunk_indices 는 **원본 grounding_chunks 의 인덱스**라,
+    구간을 붙이는 일은 반드시 중복 제거 이전에 끝내야 한다(합치고 나면 인덱스가 어긋난다).
+
+    supports 는 지금까지 버려지던 데이터다. 여기엔 (답변 구간 ↔ 청크) 매핑이 들어 있어
+    추가 API 호출 없이 "이 문장은 이 자료 근거" 표시를 만들 수 있다. 2026-07-25 D-1 프로브에서
+    3.5-flash-lite 는 5/5 문항에 supports 를 3~10개씩 실었고, segment.text 는 답변 본문에
+    100% 그대로 존재했다(37/37) — 그래서 byte offset 대신 문자열 검색으로 앵커한다.
+    """
+    chunks = grounding.grounding_chunks or []
+    # supports 인덱스와 자리를 맞추기 위해 retrieved_context 가 없는 칸도 None 으로 남긴다.
+    by_index: list[RAGCitation | None] = [
+        _citation_from_retrieved_context(gc.retrieved_context) if gc.retrieved_context else None
+        for gc in chunks
+    ]
+
+    for sup in getattr(grounding, "grounding_supports", None) or []:
+        text = (getattr(sup.segment, "text", None) or "").strip() if sup.segment else ""
+        if not text:
+            continue
+        for idx in sup.grounding_chunk_indices or []:
+            cit = by_index[idx] if 0 <= idx < len(by_index) else None
+            if cit is not None and text not in cit.segments:
+                cit.segments.append(text)
+
+    return _dedupe_citations([c for c in by_index if c is not None])
 
 
 class GeminiRAGService(BaseRAGService):
@@ -440,12 +474,7 @@ class GeminiRAGService(BaseRAGService):
             grounding = response.candidates[0].grounding_metadata
             if grounding and grounding.grounding_chunks:
                 chunk_count = len(grounding.grounding_chunks)
-                for chunk in grounding.grounding_chunks:
-                    if chunk.retrieved_context:
-                        citations.append(
-                            _citation_from_retrieved_context(chunk.retrieved_context)
-                        )
-                citations = _dedupe_citations(citations)
+                citations = _citations_from_grounding(grounding)
         except (AttributeError, IndexError) as e:
             logger.debug(f"인용 정보 추출 실패 (정상 케이스일 수 있음): {e}")
 
@@ -528,10 +557,7 @@ class GeminiRAGService(BaseRAGService):
         # generate_with_rag(비스트리밍)과 동일한 추출 로직.
         citations: list[RAGCitation] = []
         if last_grounding and last_grounding.grounding_chunks:
-            for gc in last_grounding.grounding_chunks:
-                if gc.retrieved_context:
-                    citations.append(_citation_from_retrieved_context(gc.retrieved_context))
-            citations = _dedupe_citations(citations)
+            citations = _citations_from_grounding(last_grounding)
         yield {"citations": [c.model_dump() for c in citations]}
 
     async def search_citations(
@@ -618,3 +644,17 @@ class GeminiRAGService(BaseRAGService):
             len(citations),
         )
         return citations
+
+    async def fill_evidence(
+        self, citations: list[RAGCitation], answer: str, model_name: str | None = None
+    ) -> int:
+        """각 인용 청크에서 실제 근거가 된 구절을 찾아 evidence 에 채운다(제자리 수정).
+
+        답변 전송 이후 비동기로 도는 것을 전제로 한다 — 청크당 1회 호출이라 사용자 대기에
+        넣으면 안 된다. 자세한 근거는 services/rag/evidence.py 참조.
+        """
+        from app.services.rag.evidence import fill_evidence
+
+        return await fill_evidence(
+            self._client, model_name or "gemini-3.5-flash-lite", citations, answer
+        )

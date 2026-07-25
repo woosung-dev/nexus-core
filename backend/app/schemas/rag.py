@@ -19,6 +19,13 @@ class RAGCitation(BaseModel):
     # 주의: 근사 인용(approximate=True)의 구간은 표시된 답변이 아니라 백필이 새로
     # 생성한 답변 기준이다 → 정렬에만 쓰고 "답변의 N% 근거" 같은 수치로 노출 금지.
     cite_count: int = 1
+    # 이 청크가 뒷받침한 답변 본문 구간 (grounding_supports[].segment.text).
+    # 답변에 그대로 존재하므로 프론트가 문자열 검색만으로 각주를 앵커할 수 있다.
+    # approximate=True 인 인용은 span 기준 답변이 달라 채우지 않는다.
+    segments: list[str] = []
+    # content 중 실제 근거가 된 구절 — 형광펜 대상. **반드시 content 의 부분문자열**이다
+    # (LLM 이 제안하더라도 원문 대조로 스냅한 뒤 저장하므로 모델이 지어낸 문자는 들어올 수 없다).
+    evidence: list[str] = []
 
 
 class RAGResponse(BaseModel):
