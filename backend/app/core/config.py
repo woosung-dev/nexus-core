@@ -35,7 +35,7 @@ class Settings(BaseSettings):
 
     # --- 파일 스토리지 ---
     STORAGE_PROVIDER: Literal["r2", "s3", "local"] = "r2"
-    MAX_UPLOAD_SIZE_MB: int = 10
+    MAX_UPLOAD_SIZE_MB: int = 50
 
     # --- Cloudflare R2 ---
     # R2_ENDPOINT_URL: https://<account-id>.r2.cloudflarestorage.com

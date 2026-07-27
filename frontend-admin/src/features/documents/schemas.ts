@@ -12,7 +12,7 @@ export const ALLOWED_EXTENSIONS_LABEL =
   "PDF · 오피스(doc/docx·xls/xlsx·pptx) · 텍스트(txt·md·html·csv·tsv·rtf) · 데이터(json·xml)"
 // <input accept> 속성 — ALLOWED_EXTENSIONS 와 항상 동기화 (드리프트 방지)
 export const ACCEPT_ATTR = ALLOWED_EXTENSIONS.map((e) => `.${e}`).join(",")
-const MAX_FILE_SIZE_MB = 20
+const MAX_FILE_SIZE_MB = 50
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024
 
 function getExtension(filename: string): string {
