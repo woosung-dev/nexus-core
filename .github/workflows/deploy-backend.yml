@@ -13,11 +13,12 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  GCP_PROJECT: jetaime-dev
+  GCP_PROJECT: gcp-project-504004
   GCP_REGION: asia-northeast3
   SERVICE_NAME: nexus-core
   ARTIFACT_REGISTRY: nexus-repo
   BACKEND_IMAGE: nexus-core
+  RUNTIME_SERVICE_ACCOUNT: nexus-core-runtime@gcp-project-504004.iam.gserviceaccount.com
 
 jobs:
   deploy:
@@ -98,6 +99,7 @@ jobs:
           # 최신 gcloud는 개별 --startup-probe-* 플래그 대신 단일 --startup-probe=KEY=VAL,... 형식.
           flags: >-
             --allow-unauthenticated --port=8080 --memory=1Gi
+            --service-account=${{ env.RUNTIME_SERVICE_ACCOUNT }}
             --min-instances=0 --max-instances=3
             --cpu-boost --no-cpu-throttling
             --startup-probe=httpGet.path=/health,initialDelaySeconds=5,periodSeconds=10,timeoutSeconds=5,failureThreshold=30
