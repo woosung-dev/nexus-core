@@ -22,6 +22,11 @@ from app.services.faq_service import search_faq_override
 from app.services.followup_service import generate_followups
 from app.services.llm.factory import get_llm_service
 from app.services.rag.factory import get_rag_service
+from app.services.strict_mode import (
+    STRICT_EVIDENCE_MESSAGE,
+    has_direct_citation,
+    is_refusal_faq,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -218,12 +223,19 @@ class ChatService:
         )
 
         if faq_match:
-            # FAQ 매칭 성공 → LLM 호출 없이 즉시 응답 (비용 절약 + 환각 방지)
+            # FAQ는 strict 봇의 명시적인 거절 안내에만 사용한다.
+            faq_content = faq_match.answer
+            faq_source = "faq_override"
+            if bot.evidence_policy_mode == "strict" and not is_refusal_faq(faq_content):
+                logger.warning("strict FAQ blocked: faq_id=%s", faq_match.faq_id)
+                faq_content = STRICT_EVIDENCE_MESSAGE
+                faq_source = "policy_block"
+
             await crud_chat.create_message(
                 session=self.session,
                 session_id=chat_session.id,
                 role=MessageRole.ASSISTANT,
-                content=faq_match.answer,
+                content=faq_content,
             )
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
@@ -235,9 +247,9 @@ class ChatService:
 
             return ChatCompletionResponse(
                 session_id=chat_session.id,
-                content=faq_match.answer,
+                content=faq_content,
                 bot_id=bot.id,
-                source="faq_override",
+                source=faq_source,
             )
 
         # 멀티턴 대화 기억 — FAQ 분기 통과 후 1회만 로드 (FAQ hit 시 불필요한 쿼리 방지).
@@ -264,6 +276,22 @@ class ChatService:
                 bool(getattr(rag_service, "_store_resource_name", None)),
             )
 
+            if request.stream and bot.evidence_policy_mode == "strict":
+                return StreamingResponse(
+                    self._generate_strict_rag_stream(
+                        rag_service,
+                        request,
+                        bot,
+                        chat_session,
+                        history,
+                    ),
+                    media_type="text/event-stream",
+                    headers={
+                        "Cache-Control": "no-cache",
+                        "Connection": "keep-alive",
+                        "X-Accel-Buffering": "no",
+                    },
+                )
             if request.stream:
                 return StreamingResponse(
                     self._generate_rag_stream(rag_service, request, bot, chat_session, history),
@@ -282,6 +310,14 @@ class ChatService:
                     model_name=bot.llm_model,
                     history=history or None,
                 )
+                if (
+                    bot.evidence_policy_mode == "strict"
+                    and not has_direct_citation(rag_response.citations)
+                ):
+                    logger.info("strict response blocked: no direct citation bot_id=%s", bot.id)
+                    rag_response.answer = STRICT_EVIDENCE_MESSAGE
+                    rag_response.citations = []
+                    rag_response.followups = []
 
                 assistant_msg = await crud_chat.create_message(
                     session=self.session,
@@ -296,7 +332,7 @@ class ChatService:
 
                 # 메인 답변 경로(persona)가 인용을 못 남기면 interactions 로 근사 인용을 비동기 백필.
                 # 인용이 이미 붙었으면 근거 구절만 따로 채운다 — 어느 쪽이든 응답은 막지 않는다.
-                if not rag_response.citations:
+                if not rag_response.citations and bot.evidence_policy_mode != "strict":
                     _schedule_citation_backfill(
                         bot_id=bot.id,
                         model_name=bot.llm_model,
@@ -323,6 +359,24 @@ class ChatService:
                     source="rag",
                     followups=rag_response.followups,
                 )
+
+        if bot.evidence_policy_mode == "strict":
+            # strict 봇은 RAG가 비활성화된 요청으로 사실 답변을 만들지 않는다.
+            content = STRICT_EVIDENCE_MESSAGE
+            await crud_chat.create_message(
+                session=self.session,
+                session_id=chat_session.id,
+                role=MessageRole.ASSISTANT,
+                content=content,
+            )
+            chat_session.updated_at = datetime.now(timezone.utc)
+            await self.session.commit()
+            return ChatCompletionResponse(
+                session_id=chat_session.id,
+                content=content,
+                bot_id=bot.id,
+                source="policy_block",
+            )
 
         # 3. 일반 LLM 처리
         llm_service = get_llm_service(bot.llm_model)
@@ -365,7 +419,61 @@ class ChatService:
                 followups=followups,
             )
 
-    async def _generate_rag_stream(self, rag_service, request, bot, chat_session, history=None):
+    async def _generate_strict_rag_stream(
+        self, rag_service, request, bot, chat_session, history=None
+    ):
+        """strict 봇의 SSE 경로.
+
+        Gemini가 grounding을 응답 마지막에만 주므로, 본문을 먼저 흘리면 근거 정책을
+        되돌릴 수 없다. 이 경로는 검증 뒤 하나의 청크로 전송한다.
+        """
+        try:
+            meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
+            yield f"data: {meta_data}\n\n"
+
+            response = await rag_service.generate_with_rag(
+                bot_id=bot.id,
+                prompt=request.message,
+                system_prompt=bot.system_prompt,
+                model_name=bot.llm_model,
+                history=history or None,
+            )
+            if has_direct_citation(response.citations):
+                content = response.answer
+                citations = [c.model_dump() for c in response.citations]
+                followups = response.followups
+            else:
+                logger.info("strict stream blocked: no direct citation bot_id=%s", bot.id)
+                content = STRICT_EVIDENCE_MESSAGE
+                citations = []
+                followups = []
+
+            assistant_msg = await crud_chat.create_message(
+                session=self.session,
+                session_id=chat_session.id,
+                role=MessageRole.ASSISTANT,
+                content=content,
+                citations=citations,
+                followups=followups or None,
+            )
+            chat_session.updated_at = datetime.now(timezone.utc)
+            await self.session.commit()
+
+            yield f"data: {json.dumps({'content': content}, ensure_ascii=False)}\n\n"
+            if followups:
+                payload = json.dumps(
+                    {"type": "followups", "message_id": assistant_msg.id, "items": followups},
+                    ensure_ascii=False,
+                )
+                yield f"data: {payload}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            logger.error("strict RAG 스트리밍 오류: %s", e)
+            yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+
+    async def _generate_rag_stream(
+        self, rag_service, request, bot, chat_session, history=None
+    ):
         full_response_content = ""
         try:
             meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
@@ -478,5 +586,3 @@ class ChatService:
             error_data = json.dumps({"error": str(e)}, ensure_ascii=False)
             yield f"data: {error_data}\n\n"
             # 주의: 오류 발생 시 불완전한 메시지는 저장하지 않음 (롤백 처리됨)
-
-

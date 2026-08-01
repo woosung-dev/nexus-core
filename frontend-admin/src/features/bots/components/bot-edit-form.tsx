@@ -87,6 +87,7 @@ export function BotEditForm({ bot }: BotEditFormProps) {
       system_prompt: bot.system_prompt,
       llm_model: bot.llm_model,
       history_window: bot.history_window ?? 0,
+      evidence_policy_mode: bot.evidence_policy_mode ?? "legacy",
     },
   })
 
@@ -427,6 +428,33 @@ export function BotEditForm({ bot }: BotEditFormProps) {
                   봇의 노출 상태 및 인증 여부를 관리합니다.
                 </p>
               </div>
+
+              <FormField
+                control={form.control}
+                name="evidence_policy_mode"
+                render={({ field }) => (
+                  <FormItem className="rounded-lg border p-4">
+                    <FormLabel className="text-base">근거 검증 모드</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger className="mt-2">
+                          <SelectValue />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="legacy">기존 호환 모드</SelectItem>
+                        <SelectItem value="strict">직접 인용 필수 모드</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      엄격 모드는 RAG가 이번 답변에 직접 인용을 남기지 못하면 답변을 차단합니다.
+                      FAQ는 “답변할 수 없습니다” 같은 거절 안내문으로만 등록해 주세요. 문서 최신성·용어
+                      검증은 이 모드의 범위에 포함되지 않습니다.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* 활성 상태 */}
               <FormField

@@ -85,6 +85,7 @@ export const botEditFormSchema = z.object({
     .number()
     .int({ message: "정수를 입력해 주세요." })
     .min(0, { message: "0 이상이어야 합니다." }),
+  evidence_policy_mode: z.enum(["legacy", "strict"]),
 });
 
 export type BotEditFormValues = z.infer<typeof botEditFormSchema>;

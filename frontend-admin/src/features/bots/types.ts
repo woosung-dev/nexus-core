@@ -20,6 +20,7 @@ export type BotResponse = {
   llm_model: string
   system_prompt: string
   history_window: number
+  evidence_policy_mode: "legacy" | "strict"
 }
 
 // GET /api/v1/admin/bots (목록)
@@ -39,6 +40,7 @@ export type BotCreateRequest = {
   plan_required?: PlanType
   system_prompt?: string
   llm_model?: string
+  evidence_policy_mode?: "legacy" | "strict"
 }
 
 // PUT /api/v1/admin/bots/:id — 봇 수정 요청 (부분 업데이트)
