@@ -15,6 +15,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ChatSessionListResponse,
   ChatSessionResponse,
+  ChatClarificationActionResponse,
+  ChatClarificationStateResponse,
+  ChatClarificationView,
   MessageResponse,
 } from "@/types/api";
 import { useChatStore } from "@/store/useChatStore";
@@ -60,7 +63,12 @@ interface ChatContextValue {
   awaiting: boolean;
   // 사이드바 클릭/직접 URL 진입 시 해당 세션 메시지 fetch 중. 스켈레톤/스피너 표시용.
   isLoadingMessages: boolean;
+  clarification: ChatClarificationView | null;
   sendMessage: (content: string) => Promise<void>;
+  actOnClarification: (
+    action: "start_companion" | "submit",
+    values?: string[],
+  ) => Promise<void>;
 }
 
 // 인용 백필(persona-free 재검색)은 응답 저장 후에야 시작해서 실서버 실측 ~15초 걸린다.
@@ -109,6 +117,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<MessageResponse[]>([]);
   const [awaiting, setAwaiting] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [clarification, setClarification] = useState<ChatClarificationView | null>(null);
   const [phase, setPhase] = useState<ChatPhase>(
     urlSessionId ? "thread" : urlBotId ? "thread" : "empty",
   );
@@ -129,20 +138,46 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       setPhase("thread");
       setAwaiting(false);
       setMessages([]); // 새 세션 메시지는 아래 fetch 에서 채움
+      setClarification(null);
     } else if (urlBotId) {
       setSessionId(null);
       setBotId(urlBotId);
       setPhase("thread");
       setAwaiting(false);
       setMessages([]);
+      setClarification(null);
     } else {
       setSessionId(null);
       setBotId(null);
       setPhase("empty");
       setAwaiting(false);
       setMessages([]);
+      setClarification(null);
     }
   }, [urlSessionId, urlBotId]);
+
+  // pending 카드만 별도 조회한다. 메시지 본문 계약을 바꾸지 않아도 reload 후 동행 상태가 복원된다.
+  useEffect(() => {
+    if (!sessionId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await authedFetch(
+          `${API_BASE_URL}/chats/${sessionId}/clarification`,
+          {},
+          getToken,
+        );
+        if (!res.ok || cancelled) return;
+        const data = (await res.json()) as ChatClarificationStateResponse;
+        if (!cancelled) setClarification(data.active ? data.clarification : null);
+      } catch (err) {
+        console.warn("clarification fetch error", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, getToken]);
 
   // sessionId 가 정해지면 기존 메시지 fetch (사이드바 클릭/직접 URL 진입 케이스)
   useEffect(() => {
@@ -282,6 +317,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         );
         if (!compRes.ok) throw new Error(`completions failed ${compRes.status}`);
         const data = await compRes.json();
+        setClarification((data.clarification as ChatClarificationView | null | undefined) ?? null);
 
         // ★ 응답 받은 시점에 사용자가 이미 다른 세션으로 이동했다면 state 오염 방지.
         // 사이드바 캐시(invalidate) 와 followups store 갱신은 그대로 (다른 세션과 무관).
@@ -380,9 +416,53 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     ],
   );
 
+  const actOnClarification = useCallback(
+    async (action: "start_companion" | "submit", values: string[] = []) => {
+      if (!sessionId || !clarification?.version) return;
+      const facet = clarification.facet;
+      setAwaiting(true);
+      try {
+        const res = await authedFetch(
+          `${API_BASE_URL}/chats/${sessionId}/clarification`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action,
+              version: clarification.version,
+              facet_id: action === "submit" ? facet?.id : undefined,
+              values,
+            }),
+          },
+          getToken,
+        );
+        if (!res.ok) throw new Error(`clarification action failed ${res.status}`);
+        const data = (await res.json()) as ChatClarificationActionResponse;
+        setClarification(data.clarification ?? null);
+        const messagesRes = await authedFetch(
+          `${API_BASE_URL}/chats/${sessionId}/messages`,
+          {},
+          getToken,
+        );
+        if (messagesRes.ok && activeSessionRef.current === sessionId) {
+          setMessages((await messagesRes.json()) as MessageResponse[]);
+        }
+        queryClient.invalidateQueries({ queryKey: ["chats"] });
+      } catch (err) {
+        console.error("clarification action error:", err);
+      } finally {
+        setAwaiting(false);
+      }
+    },
+    [sessionId, clarification, getToken, queryClient],
+  );
+
   return (
     <ChatContext.Provider
-      value={{ phase, sessionId, botId, messages, awaiting, isLoadingMessages, sendMessage }}
+      value={{
+        phase, sessionId, botId, messages, awaiting, isLoadingMessages, clarification,
+        sendMessage, actOnClarification,
+      }}
     >
       {children}
     </ChatContext.Provider>

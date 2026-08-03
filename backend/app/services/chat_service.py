@@ -18,6 +18,12 @@ from app.models.bot import Bot
 from app.models.chat import ChatSession
 from app.models.enums import MessageRole
 from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse
+from app.services.adaptive_clarification_service import (
+    route_message,
+    state_for_decision,
+    terminal_message,
+    view_for_decision,
+)
 from app.services.faq_service import search_faq_override
 from app.services.followup_service import generate_followups
 from app.services.llm.factory import get_llm_service
@@ -215,6 +221,92 @@ class ChatService:
             chat_session.id,
         )
 
+        # clarify_enabled 봇만 일반 채팅에 적응형 제어기를 붙인다. 기존 봇과 preview는 이
+        # 분기 밖에 있어 과거 흐름이 바뀌지 않는다.
+        adaptive_view = None
+        adaptive_decision = None
+        effective_use_rag = request.use_rag and bot.use_rag
+        if getattr(bot, "clarify_enabled", False) and effective_use_rag:
+            adaptive_decision = await route_message(request.message, bot)
+            adaptive_view = view_for_decision(adaptive_decision)
+            if adaptive_decision.route in {"optional_ask", "blocking_ask"}:
+                state = state_for_decision(adaptive_decision)
+                chat_session.clarification_state = state
+                self.session.add(chat_session)
+                if state is not None:
+                    adaptive_view = view_for_decision(adaptive_decision, state["version"])
+                if adaptive_decision.route == "blocking_ask":
+                    content = "정확한 안내를 위해 한 가지만 확인할게요.\n\n" + (
+                        adaptive_decision.facet.question if adaptive_decision.facet else ""
+                    )
+                    await crud_chat.create_message(
+                        session=self.session,
+                        session_id=chat_session.id,
+                        role=MessageRole.ASSISTANT,
+                        content=content,
+                    )
+                    chat_session.updated_at = datetime.now(timezone.utc)
+                    await self.session.commit()
+                    if request.stream:
+                        return StreamingResponse(
+                            self._generate_clarification_terminal_stream(
+                                chat_session.id, content, adaptive_view
+                            ),
+                            media_type="text/event-stream",
+                            headers={
+                                "Cache-Control": "no-cache",
+                                "Connection": "keep-alive",
+                                "X-Accel-Buffering": "no",
+                            },
+                        )
+                    return ChatCompletionResponse(
+                        session_id=chat_session.id,
+                        content=content,
+                        bot_id=bot.id,
+                        source="clarification",
+                        clarification=adaptive_view,
+                    )
+            elif adaptive_decision.route in {"abstain", "handoff"} or adaptive_decision.message:
+                # C-09도 answer route이지만 고정 보안 경계 응답으로 종료한다.
+                content = terminal_message(adaptive_decision)
+                chat_session.clarification_state = None
+                await crud_chat.create_message(
+                    session=self.session,
+                    session_id=chat_session.id,
+                    role=MessageRole.ASSISTANT,
+                    content=content,
+                )
+                chat_session.updated_at = datetime.now(timezone.utc)
+                await self.session.commit()
+                if request.stream:
+                    return StreamingResponse(
+                        self._generate_clarification_terminal_stream(
+                            chat_session.id, content, adaptive_view
+                        ),
+                        media_type="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive",
+                            "X-Accel-Buffering": "no",
+                        },
+                    )
+                return ChatCompletionResponse(
+                    session_id=chat_session.id,
+                    content=content,
+                    bot_id=bot.id,
+                    source="clarification",
+                    clarification=adaptive_view,
+                )
+            elif adaptive_decision.canonical_slots:
+                # 정책에서 현재 요청만으로 받은 canonical 값만 최종 RAG에 보탠다.
+                slots = "\n".join(
+                    f"- {key}: {', '.join(values)}"
+                    for key, values in adaptive_decision.canonical_slots.items()
+                )
+                request = request.model_copy(
+                    update={"message": f"{request.message}\n\n[서버 검증 확인값]\n{slots}"}
+                )
+
         # 1. FAQ Override 검색 (시맨틱 라우팅)
         faq_match = await search_faq_override(
             session=self.session,
@@ -250,6 +342,7 @@ class ChatService:
                 content=faq_content,
                 bot_id=bot.id,
                 source=faq_source,
+                clarification=adaptive_view,
             )
 
         # 멀티턴 대화 기억 — FAQ 분기 통과 후 1회만 로드 (FAQ hit 시 불필요한 쿼리 방지).
@@ -265,7 +358,6 @@ class ChatService:
         # 2. (분기) RAG 처리
         # bot.use_rag 로 봇 단위 토글 제공 — file_search store가 비어있는 봇은 admin에서 False로
         # 설정해 매 요청 7-12s의 빈 retrieval 호출을 차단한다. request.use_rag와 AND 평가.
-        effective_use_rag = request.use_rag and bot.use_rag
         if effective_use_rag:
             rag_service = get_rag_service(provider=bot.llm_model)
             # 인스턴스 캐시 검증: store_cached=False면 매 요청 ensure_store가 외부 API를 호출 중.
@@ -284,6 +376,7 @@ class ChatService:
                         bot,
                         chat_session,
                         history,
+                        adaptive_view,
                     ),
                     media_type="text/event-stream",
                     headers={
@@ -294,7 +387,9 @@ class ChatService:
                 )
             if request.stream:
                 return StreamingResponse(
-                    self._generate_rag_stream(rag_service, request, bot, chat_session, history),
+                    self._generate_rag_stream(
+                        rag_service, request, bot, chat_session, history, adaptive_view
+                    ),
                     media_type="text/event-stream",
                     headers={
                         "Cache-Control": "no-cache",
@@ -358,6 +453,7 @@ class ChatService:
                     citations=rag_response.citations,
                     source="rag",
                     followups=rag_response.followups,
+                    clarification=adaptive_view,
                 )
 
         if bot.evidence_policy_mode == "strict":
@@ -376,6 +472,7 @@ class ChatService:
                 content=content,
                 bot_id=bot.id,
                 source="policy_block",
+                clarification=adaptive_view,
             )
 
         # 3. 일반 LLM 처리
@@ -417,10 +514,20 @@ class ChatService:
                 bot_id=bot.id,
                 source="llm",
                 followups=followups,
+                clarification=adaptive_view,
             )
 
+    async def _generate_clarification_terminal_stream(self, session_id, content, view):
+        """최종 RAG를 부르지 않는 route도 기존 JSON SSE 프레임으로 전달한다."""
+        yield f"data: {json.dumps({'session_id': session_id}, ensure_ascii=False)}\n\n"
+        if view is not None:
+            payload = {"type": "clarification", **view.model_dump()}
+            yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+        yield f"data: {json.dumps({'content': content}, ensure_ascii=False)}\n\n"
+        yield "data: [DONE]\n\n"
+
     async def _generate_strict_rag_stream(
-        self, rag_service, request, bot, chat_session, history=None
+        self, rag_service, request, bot, chat_session, history=None, adaptive_view=None
     ):
         """strict 봇의 SSE 경로.
 
@@ -430,6 +537,8 @@ class ChatService:
         try:
             meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
             yield f"data: {meta_data}\n\n"
+            if adaptive_view is not None:
+                yield f"data: {json.dumps({'type': 'clarification', **adaptive_view.model_dump()}, ensure_ascii=False)}\n\n"
 
             response = await rag_service.generate_with_rag(
                 bot_id=bot.id,
@@ -472,12 +581,14 @@ class ChatService:
             yield f"data: {json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
 
     async def _generate_rag_stream(
-        self, rag_service, request, bot, chat_session, history=None
+        self, rag_service, request, bot, chat_session, history=None, adaptive_view=None
     ):
         full_response_content = ""
         try:
             meta_data = json.dumps({"session_id": chat_session.id}, ensure_ascii=False)
             yield f"data: {meta_data}\n\n"
+            if adaptive_view is not None:
+                yield f"data: {json.dumps({'type': 'clarification', **adaptive_view.model_dump()}, ensure_ascii=False)}\n\n"
 
             captured_citations: list | None = None
             async for chunk in rag_service.generate_stream_with_rag(

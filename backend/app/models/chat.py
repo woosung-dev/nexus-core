@@ -24,6 +24,8 @@ class ChatSession(SQLModel, table=True):
     user_id: int | None = Field(default=None, foreign_key="users.id", index=True)
     bot_id: int | None = Field(default=None, foreign_key="bots.id", index=True)
     title: str = Field(default="새 대화", max_length=200)
+    # 일반 채팅 D-1 동행 흐름의 서버 소유 상태. 기존 세션은 NULL 그대로 둔다.
+    clarification_state: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
 
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),

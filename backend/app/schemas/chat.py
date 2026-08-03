@@ -13,6 +13,7 @@ from app.models.enums import (
 )
 from app.schemas.bot import BotResponse
 from app.schemas.rag import RAGCitation
+from app.schemas.clarification import ChatClarificationView
 
 
 class ChatCompletionRequest(BaseModel):
@@ -34,6 +35,8 @@ class ChatCompletionResponse(BaseModel):
     citations: list[RAGCitation] | None = None  # RAG 인용구 출처
     source: str | None = None  # 응답 소스: "faq_override" | "rag" | "llm"
     followups: list[str] = Field(default_factory=list)  # 후속 질문 (빈 리스트 = 없음 또는 생성 실패)
+    # clarify_enabled 파일럿 봇에서만 채워지는 선택적 동행 UI. 기존 content 계약은 유지한다.
+    clarification: ChatClarificationView | None = None
 
 
 class ChatSessionResponse(BaseModel):

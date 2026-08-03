@@ -96,6 +96,45 @@ export interface ChatCompletionRequest {
   use_rag?: boolean;
 }
 
+export type ClarificationRoute =
+  | "answer"
+  | "optional_ask"
+  | "blocking_ask"
+  | "abstain"
+  | "handoff";
+
+export interface ChatClarificationFacet {
+  id: string;
+  question: string;
+  selection_mode: "single" | "multiple";
+  options: string[];
+  allow_custom: boolean;
+  policy: boolean;
+}
+
+export interface ChatClarificationView {
+  route: ClarificationRoute;
+  mode: "optional" | "blocking" | "terminal";
+  version: number | null;
+  cta_label: string | null;
+  facet: ChatClarificationFacet | null;
+  message: string | null;
+  diagnostics_reason?: string | null;
+}
+
+export interface ChatClarificationStateResponse {
+  active: boolean;
+  clarification: ChatClarificationView | null;
+}
+
+export interface ChatClarificationActionResponse {
+  session_id: number;
+  content: string | null;
+  citations: Citation[];
+  followups: string[];
+  clarification: ChatClarificationView | null;
+}
+
 export interface UserResponse {
   id: number;
   email?: string | null;

@@ -20,7 +20,8 @@ from app.schemas.clarification import (
     ClarificationPreviewResponse,
 )
 from app.services.rag.factory import get_rag_service
-from app.services.clarification_service import fixture_decision, live_decision
+from app.services.clarification_service import fixture_decision
+from app.services.adaptive_clarification_service import preview_compatible_decision
 
 router = APIRouter(prefix="/clarification-preview", tags=["맥락 보완 프로토타입"])
 _optional_bearer = HTTPBearer(auto_error=False)
@@ -87,14 +88,7 @@ async def preview_clarification(
     if _dev_auth_bypass_enabled() and request.bot_id == PROTOTYPE_TEST_BOT_ID:
         if request.mode == "fixture":
             return fixture_decision(request.message, request.answers, request.round)
-        return await live_decision(
-            request.message,
-            request.answers,
-            request.round,
-            _prototype_test_bot,
-            policy_rule_id=request.policy_rule_id,
-            policy_context=request.policy_context,
-        )
+        return await preview_compatible_decision(request.message, _prototype_test_bot)
 
     bot = await _get_prototype_bot(session, request.bot_id)
     if not bot:
@@ -109,14 +103,7 @@ async def preview_clarification(
     ):
         raise ValidationError("이 봇은 맥락 보완 파일럿이 활성화되어 있지 않습니다.")
 
-    return await live_decision(
-        request.message,
-        request.answers,
-        request.round,
-        bot,
-        policy_rule_id=request.policy_rule_id,
-        policy_context=request.policy_context,
-    )
+    return await preview_compatible_decision(request.message, bot)
 
 
 @router.post("/answer", response_model=ClarificationAnswerResponse)

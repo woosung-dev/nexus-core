@@ -13,6 +13,13 @@ def test_rag_settings_defaults():
     assert s.RAG_TEMPERATURE == 0.3
 
 
+def test_structured_rag_recovers_a_valid_bare_json_plan_but_not_plain_text():
+    from app.services.rag.gemini import _structured_json_from_output
+
+    assert _structured_json_from_output('{"route":"answer"}') == '{"route": "answer"}'
+    assert _structured_json_from_output("문서 근거만 있습니다.") is None
+
+
 @pytest.mark.asyncio
 async def test_generate_with_rag_injects_topk_and_temperature(monkeypatch):
     # genai client 생성을 mock 으로 대체해 API 키 없이 서비스 구성

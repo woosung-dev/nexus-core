@@ -13,6 +13,7 @@ import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { ChatComposer } from "@/components/chat/ChatComposer";
 import { ClarificationPrototype } from "@/components/chat/ClarificationPrototype";
+import { ClarificationCard } from "@/components/chat/ClarificationCard";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useChat } from "./ChatProvider";
 
@@ -62,6 +63,7 @@ export function ChatShell({ children }: { children?: React.ReactNode }) {
         ) : (
           <>
             <ChatArea sessionId={sessionId ?? undefined} />
+            <ClarificationCard />
             <ChatComposer />
           </>
         )}

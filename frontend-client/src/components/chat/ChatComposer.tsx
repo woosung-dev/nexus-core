@@ -9,7 +9,7 @@ import { useChat } from "@/app/(protected)/chat/ChatProvider";
 import { useChatStore } from "@/store/useChatStore";
 
 export function ChatComposer() {
-  const { awaiting, sendMessage } = useChat();
+  const { awaiting, clarification, sendMessage } = useChat();
   // 입력값은 store로 끌어올린 controlled state. FollowupPills 클릭이 store만 set하면
   // 이쪽이 자동 반영되어 입력창에 prefill 된다.
   const input = useChatStore((s) => s.composerDraft);
@@ -17,6 +17,7 @@ export function ChatComposer() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const busy = awaiting;
+  const blockedByClarification = clarification?.mode === "blocking";
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -38,7 +39,7 @@ export function ChatComposer() {
 
   const handleSend = () => {
     const trimmed = input.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busy || blockedByClarification) return;
     setInput("");
     void sendMessage(trimmed);
   };
@@ -69,9 +70,10 @@ export function ChatComposer() {
             ref={textareaRef}
             rows={1}
             value={input}
+            disabled={blockedByClarification}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={busy ? "답변이 끝나면 보낼 메시지를 미리 적어두세요..." : "AI에게 무엇이든 물어보세요..."}
+            placeholder={blockedByClarification ? "위 추가 확인 카드에 먼저 답해 주세요." : busy ? "답변이 끝나면 보낼 메시지를 미리 적어두세요..." : "AI에게 무엇이든 물어보세요..."}
             className="flex-1 bg-transparent border-0 focus:ring-0 focus:outline-none text-[15px] text-zinc-900 placeholder:text-zinc-400 py-3 pl-4 pr-4 resize-none max-h-[200px] leading-relaxed scrollbar-hide overflow-y-auto"
           />
 
@@ -92,7 +94,7 @@ export function ChatComposer() {
 
             <button
               onClick={handleSend}
-              disabled={isEmpty || busy}
+              disabled={isEmpty || busy || blockedByClarification}
               className={`w-10 h-10 shrink-0 flex items-center justify-center rounded-2xl transition-all duration-300 ${
                 busy
                   ? "bg-amber-50 text-amber-500 cursor-not-allowed"

@@ -7,6 +7,7 @@ Gemini File Search API 기반 RAG 서비스.
 
 import hashlib
 import io
+import json
 import logging
 import re
 import time
@@ -77,6 +78,36 @@ _CITATION_MARKER_RE = re.compile(r"\s*\[[\d.,\s]+\]")
 _JSON_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL | re.IGNORECASE)
 # Interactions의 자연어 근거 블록 뒤에 붙는 기계 소비용 계획 JSON을 꺼낸다.
 _PLAN_ENVELOPE_RE = re.compile(r"\[PLAN\]\s*(.*)\Z", re.DOTALL | re.IGNORECASE)
+
+
+def _structured_json_from_output(output_text: str) -> str | None:
+    """PLAN envelope를 우선하고, 유효한 bare JSON만 제한적으로 복구한다.
+
+    Interactions가 명시된 [PLAN] 태그를 드물게 빼더라도 JSON 객체 자체가 온전하면 이는
+    의미 판단 실패가 아니라 transport 형식 변형이다. 자연어 응답은 None으로 남겨 호출자가
+    안전하게 실패 처리한다.
+    """
+    envelope_match = _PLAN_ENVELOPE_RE.search(output_text)
+    if envelope_match:
+        raw_json = _CITATION_MARKER_RE.sub("", envelope_match.group(1))
+        fence_match = _JSON_FENCE_RE.match(raw_json)
+        return fence_match.group(1) if fence_match else raw_json
+
+    cleaned = _CITATION_MARKER_RE.sub("", output_text).strip()
+    fence_match = _JSON_FENCE_RE.match(cleaned)
+    if fence_match:
+        cleaned = fence_match.group(1)
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(cleaned):
+        if char != "{":
+            continue
+        try:
+            value, _ = decoder.raw_decode(cleaned[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(value, dict):
+            return json.dumps(value, ensure_ascii=False)
+    return None
 # followup 블록 앞쪽의 `---` 같은 구분자 잔여 제거용.
 _TRAILING_SEPARATOR_RE = re.compile(r"\n\s*-{3,}\s*$", re.MULTILINE)
 # 줄 앞의 list marker 만 잡는 패턴 — 숫자 뒤에 ".)" 같은 구분자가 따라와야 인정.
@@ -595,13 +626,9 @@ class GeminiRAGService(BaseRAGService):
         gen_ms = (time.perf_counter() - t_gen) * 1000
 
         output_text = getattr(interaction, "output_text", "") or ""
-        envelope_match = _PLAN_ENVELOPE_RE.search(output_text)
-        if not envelope_match:
+        raw_json = _structured_json_from_output(output_text)
+        if raw_json is None:
             raise RuntimeError("RAG 기반 맥락 보완 응답에 [PLAN] JSON이 없습니다.")
-        raw_json = _CITATION_MARKER_RE.sub("", envelope_match.group(1))
-        fence_match = _JSON_FENCE_RE.match(raw_json)
-        if fence_match:
-            raw_json = fence_match.group(1)
         if not raw_json.strip():
             raise RuntimeError("RAG 기반 맥락 보완 응답이 비어 있습니다.")
         result = response_schema.model_validate_json(raw_json)

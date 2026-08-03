@@ -1,4 +1,4 @@
-"""비영속 맥락 보완 프로토타입의 요청/응답 계약."""
+"""맥락 보완 프로토타입과 일반 채팅 동행 흐름의 요청/응답 계약."""
 
 from typing import Literal
 
@@ -77,3 +77,56 @@ class ClarificationAnswerResponse(BaseModel):
     citations: list[RAGCitation] = Field(default_factory=list)
     followups: list[str] = Field(default_factory=list)
     source: Literal["rag"] = "rag"
+
+
+# D-1 v3 일반 채팅 계약. preview의 ``ask | ready`` 형식은 위의 기존 모델로 유지한다.
+ClarificationRoute = Literal["answer", "optional_ask", "blocking_ask", "abstain", "handoff"]
+
+
+class ChatClarificationFacet(BaseModel):
+    """현재 한 번에 보여 줄 확인 항목. 옵션은 정책 카드에서만 사용한다."""
+
+    id: str
+    question: str
+    selection_mode: Literal["single", "multiple"] = "single"
+    options: list[str] = Field(default_factory=list)
+    allow_custom: bool = True
+    policy: bool = False
+
+
+class ChatClarificationView(BaseModel):
+    """기존 completion content와 독립적으로 렌더링하는 동행 UI 상태."""
+
+    route: ClarificationRoute
+    mode: Literal["optional", "blocking", "terminal"]
+    version: int | None = None
+    cta_label: str | None = None
+    facet: ChatClarificationFacet | None = None
+    message: str | None = None
+    diagnostics_reason: str | None = None
+
+
+class ChatClarificationStateResponse(BaseModel):
+    """새로고침 뒤에도 복원하는 서버 소유 pending 상태."""
+
+    active: bool = False
+    clarification: ChatClarificationView | None = None
+
+
+class ChatClarificationActionRequest(BaseModel):
+    """CTA 시작 또는 현재 facet 제출. 클라이언트는 route/정책을 지정할 수 없다."""
+
+    action: Literal["start_companion", "submit"]
+    version: int = Field(ge=1)
+    facet_id: str | None = Field(default=None, max_length=100)
+    values: list[str] = Field(default_factory=list, max_length=5)
+
+
+class ChatClarificationActionResponse(BaseModel):
+    """동행 액션이 만든 카드·최종 답변의 결과."""
+
+    session_id: int
+    content: str | None = None
+    citations: list[RAGCitation] = Field(default_factory=list)
+    followups: list[str] = Field(default_factory=list)
+    clarification: ChatClarificationView | None = None
