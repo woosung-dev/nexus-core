@@ -1,0 +1,12 @@
+# 기존 원격 테스트 봇을 읽기 전용으로 연결하는 로컬 전용 오버라이드.
+# 아래 명령은 backend/.env의 DATABASE_URL과 File Search Store 이름을 메모리에만 주입한다.
+# 마이그레이션, 문서 업로드, ChatSession/Message 저장을 실행하지 않는다.
+services:
+  api:
+    environment:
+      DATABASE_URL: ${NEXUS_REAL_BOT_DATABASE_URL:?NEXUS_REAL_BOT_DATABASE_URL is required}
+      FILE_SEARCH_STORE_NAME: ${NEXUS_REAL_BOT_FILE_SEARCH_STORE_NAME:?NEXUS_REAL_BOT_FILE_SEARCH_STORE_NAME is required}
+      FILE_SEARCH_STORE_READ_ONLY: "true"
+      CLARIFICATION_PROTOTYPE_LEGACY_BOT_SCHEMA: "true"
+      CLARIFICATION_PROTOTYPE_ALLOW_LIVE_UNPILOTED: "true"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload

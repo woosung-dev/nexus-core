@@ -7,7 +7,8 @@ import { useForm, useWatch } from "react-hook-form"
 import { ImagePlus, X } from "lucide-react"
 
 import { useUpdateBot } from "@/features/bots/hooks"
-import type { BotResponse } from "@/features/bots/types"
+import { updateBot as updateBotRequest } from "@/features/bots/api"
+import { DEFAULT_CLARIFICATION_POLICY, type BotResponse, type ClarificationPolicy } from "@/features/bots/types"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -46,6 +47,7 @@ import {
   getModelProvider,
 } from "../schemas"
 import { KakaoChannelSection } from "./kakao-channel-section"
+import { ClarificationPolicySection } from "./clarification-policy-section"
 
 interface BotEditFormProps {
   bot: BotResponse
@@ -88,6 +90,8 @@ export function BotEditForm({ bot }: BotEditFormProps) {
       llm_model: bot.llm_model,
       history_window: bot.history_window ?? 0,
       evidence_policy_mode: bot.evidence_policy_mode ?? "legacy",
+      clarify_enabled: bot.clarify_enabled ?? false,
+      clarification_policy: bot.clarification_policy ?? DEFAULT_CLARIFICATION_POLICY,
     },
   })
 
@@ -133,6 +137,11 @@ export function BotEditForm({ bot }: BotEditFormProps) {
   // 폼 제출 — useUpdateBot 훅으로 API 호출 (이미지 변경 시 순차 업로드 처리)
   function onSubmit(values: BotEditFormValues) {
     updateBot({ request: values, imageFile })
+  }
+
+  async function persistClarificationPolicy(policy: ClarificationPolicy) {
+    const updated = await updateBotRequest(bot.id, { clarification_policy: policy })
+    form.setValue("clarification_policy", updated.clarification_policy)
   }
 
   return (
@@ -418,6 +427,12 @@ export function BotEditForm({ bot }: BotEditFormProps) {
               )}
             />
 
+            <ClarificationPolicySection
+              botId={bot.id}
+              initialPolicy={bot.clarification_policy ?? DEFAULT_CLARIFICATION_POLICY}
+              onPersist={persistClarificationPolicy}
+            />
+
             <Separator />
 
             {/* ── 운영 메타데이터 섹션 ── */}
@@ -452,6 +467,28 @@ export function BotEditForm({ bot }: BotEditFormProps) {
                       검증은 이 모드의 범위에 포함되지 않습니다.
                     </FormDescription>
                     <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="clarify_enabled"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">맥락 보완 파일럿</FormLabel>
+                      <FormDescription>
+                        모호한 요청에 선택형 추가 질문을 생성하는 실제 LLM 테스트를 이 봇에서만 허용합니다.
+                      </FormDescription>
+                      <FormMessage />
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
                   </FormItem>
                 )}
               />

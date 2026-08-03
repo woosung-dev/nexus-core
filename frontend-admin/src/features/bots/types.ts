@@ -6,6 +6,57 @@
 // PlanType enum (backend/app/models/enums.py 동기화)
 export type PlanType = "FREE" | "PRO"
 
+export type ClarificationPolicyOption = {
+  id: string
+  label: string
+}
+
+export type ClarificationPolicyDocumentRef = {
+  document_id: string
+  label: string
+}
+
+export type ClarificationRequiredSlot = {
+  id: string
+  label: string
+  question: string
+  selection_mode: "single" | "multiple"
+  options: ClarificationPolicyOption[]
+  allow_custom: boolean
+}
+
+export type ClarificationPolicyRule = {
+  id: string
+  name: string
+  enabled: boolean
+  priority: number
+  request_examples: string[]
+  why_ask: string
+  document_refs: ClarificationPolicyDocumentRef[]
+  required_slots: ClarificationRequiredSlot[]
+  when_unknown: "ask" | "handoff" | "allow_answer"
+}
+
+export type ClarificationPolicy = {
+  enabled: boolean
+  rules: ClarificationPolicyRule[]
+}
+
+export type ClarificationPolicyTestResponse = {
+  status: "ask" | "ready" | "handoff"
+  applied_rule_name: string | null
+  matched: boolean
+  missing_slots: string[]
+  questions: ClarificationRequiredSlot[]
+  document_refs: ClarificationPolicyDocumentRef[]
+  message: string
+}
+
+export const DEFAULT_CLARIFICATION_POLICY: ClarificationPolicy = {
+  enabled: false,
+  rules: [],
+}
+
 // GET /api/v1/admin/bots, GET /api/v1/admin/bots/:id
 export type BotResponse = {
   id: number
@@ -21,6 +72,8 @@ export type BotResponse = {
   system_prompt: string
   history_window: number
   evidence_policy_mode: "legacy" | "strict"
+  clarify_enabled: boolean
+  clarification_policy: ClarificationPolicy
 }
 
 // GET /api/v1/admin/bots (목록)
@@ -41,6 +94,8 @@ export type BotCreateRequest = {
   system_prompt?: string
   llm_model?: string
   evidence_policy_mode?: "legacy" | "strict"
+  clarify_enabled?: boolean
+  clarification_policy?: ClarificationPolicy
 }
 
 // PUT /api/v1/admin/bots/:id — 봇 수정 요청 (부분 업데이트)
