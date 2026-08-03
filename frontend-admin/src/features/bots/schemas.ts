@@ -1,5 +1,36 @@
 import { z } from "zod/v4";
 
+export const clarificationPolicyOptionSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+});
+
+export const clarificationRequiredSlotSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  question: z.string(),
+  selection_mode: z.enum(["single", "multiple"]),
+  options: z.array(clarificationPolicyOptionSchema),
+  allow_custom: z.boolean(),
+});
+
+export const clarificationPolicySchema = z.object({
+  enabled: z.boolean(),
+  rules: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      enabled: z.boolean(),
+      priority: z.number(),
+      request_examples: z.array(z.string()),
+      why_ask: z.string(),
+      document_refs: z.array(z.object({ document_id: z.string(), label: z.string() })),
+      required_slots: z.array(clarificationRequiredSlotSchema),
+      when_unknown: z.enum(["ask", "handoff", "allow_answer"]),
+    })
+  ),
+});
+
 // --- Bot 도메인 타입 ---
 export type Bot = {
   id: string;
@@ -163,6 +194,8 @@ export const botEditFormSchema = z.object({
     .min(0, { message: "0 이상이어야 합니다." }),
   evidence_policy_mode: z.enum(["legacy", "strict"]),
   retrieval_mode: z.enum(["file_search", "lexical", "both"]),
+  clarify_enabled: z.boolean(),
+  clarification_policy: clarificationPolicySchema,
 });
 
 export type BotEditFormValues = z.infer<typeof botEditFormSchema>;

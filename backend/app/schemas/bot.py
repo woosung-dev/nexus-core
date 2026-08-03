@@ -4,9 +4,10 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.enums import PlanType
+from app.schemas.clarification_policy import ClarificationPolicy
 
 
 # --- 응답 ---
@@ -28,6 +29,8 @@ class BotResponse(BaseModel):
     history_window: int = 0
     evidence_policy_mode: Literal["legacy", "strict"] = "legacy"
     retrieval_mode: Literal["file_search", "lexical", "both"] = "file_search"
+    clarify_enabled: bool = False
+    clarification_policy: ClarificationPolicy = Field(default_factory=ClarificationPolicy)
 
 
 class BotListResponse(BaseModel):
@@ -56,6 +59,8 @@ class BotCreateRequest(BaseModel):
     llm_model: str = "gemini-2.5-flash"
     evidence_policy_mode: Literal["legacy", "strict"] = "legacy"
     retrieval_mode: Literal["file_search", "lexical", "both"] = "file_search"
+    clarify_enabled: bool = False
+    clarification_policy: ClarificationPolicy = Field(default_factory=ClarificationPolicy)
 
 
 class BotUpdateRequest(BaseModel):
@@ -73,3 +78,5 @@ class BotUpdateRequest(BaseModel):
     history_window: int | None = None
     evidence_policy_mode: Literal["legacy", "strict"] | None = None
     retrieval_mode: Literal["file_search", "lexical", "both"] | None = None
+    clarify_enabled: bool | None = None
+    clarification_policy: ClarificationPolicy | None = None

@@ -14,7 +14,8 @@ import { ImagePlus, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useUpdateBot } from "@/features/bots/hooks"
-import type { BotResponse } from "@/features/bots/types"
+import { updateBot as updateBotRequest } from "@/features/bots/api"
+import { DEFAULT_CLARIFICATION_POLICY, type BotResponse, type ClarificationPolicy } from "@/features/bots/types"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -56,8 +57,10 @@ import {
   type BotEditFormValues,
   PLAN_TYPE_OPTIONS,
 } from "../schemas"
+import { Separator } from "@/components/ui/separator"
 import { AnswerSettings } from "./answer-settings"
 import { KakaoChannelSection } from "./kakao-channel-section"
+import { ClarificationPolicySection } from "./clarification-policy-section"
 
 const TABS = [
   { key: "basic", label: "기본 정보" },
@@ -84,6 +87,8 @@ const TAB_FIELDS: Record<TabKey, (keyof BotEditFormValues)[]> = {
     "llm_model",
     "history_window",
     "system_prompt",
+    "clarify_enabled",
+    "clarification_policy",
   ],
   integration: [],
 }
@@ -130,6 +135,8 @@ export function BotEditForm({ bot }: BotEditFormProps) {
       history_window: bot.history_window ?? 0,
       evidence_policy_mode: bot.evidence_policy_mode ?? "legacy",
       retrieval_mode: bot.retrieval_mode ?? "file_search",
+      clarify_enabled: bot.clarify_enabled ?? false,
+      clarification_policy: bot.clarification_policy ?? DEFAULT_CLARIFICATION_POLICY,
     },
   })
 
@@ -243,6 +250,12 @@ export function BotEditForm({ bot }: BotEditFormProps) {
     e.preventDefault()
     setTab(TABS[next].key)
     tabRefs.current[next]?.focus()
+  }
+
+  // 정책은 폼 저장과 별개로 즉시 반영한다 — 카드 편집이 폼 제출과 독립이라서다.
+  async function persistClarificationPolicy(policy: ClarificationPolicy) {
+    const updated = await updateBotRequest(bot.id, { clarification_policy: policy })
+    form.setValue("clarification_policy", updated.clarification_policy)
   }
 
   return (
@@ -588,6 +601,37 @@ export function BotEditForm({ bot }: BotEditFormProps) {
                 initialModel={bot.llm_model}
                 retrievalMode={retrievalMode}
                 evidencePolicyMode={evidencePolicyMode}
+              />
+
+              <Separator className="my-6" />
+
+              {/* 맥락 보완 — 근거 조달 방식과 같은 「답변 설정」 축이라 이 탭에 둔다. */}
+              <FormField
+                control={form.control}
+                name="clarify_enabled"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <FormLabel className="text-base">맥락 보완 파일럿</FormLabel>
+                      <FormDescription>
+                        모호한 요청에 선택형 추가 질문을 생성하는 실제 LLM 테스트를 이 봇에서만 허용합니다.
+                      </FormDescription>
+                      <FormMessage />
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <ClarificationPolicySection
+                botId={bot.id}
+                initialPolicy={bot.clarification_policy ?? DEFAULT_CLARIFICATION_POLICY}
+                onPersist={persistClarificationPolicy}
               />
             </div>
 

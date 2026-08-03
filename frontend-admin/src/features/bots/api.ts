@@ -8,6 +8,8 @@ import type {
   BotImageUploadResponse,
   BotListResponse,
   BotResponse,
+  ClarificationPolicy,
+  ClarificationPolicyTestResponse,
   BotUpdateRequest,
   KakaoChannelListResponse,
   KakaoChannelResponse,
@@ -62,6 +64,20 @@ export async function updateBot(
 /** 봇 삭제 (소프트 삭제 — is_active=false) */
 export async function deleteBot(id: number): Promise<void> {
   await apiClient.delete(`/api/v1/admin/bots/${id}`)
+}
+
+/** 저장 전 추가 확인 질문 정책으로 현재 요청을 미리 평가한다. */
+export async function testClarificationPolicy(
+  botId: number,
+  clarificationPolicy: ClarificationPolicy,
+  message: string
+): Promise<ClarificationPolicyTestResponse> {
+  const { data } = await apiClient.post<ClarificationPolicyTestResponse>(
+    `/api/v1/admin/bots/${botId}/clarification-policy/test`,
+    { clarification_policy: clarificationPolicy, message },
+    { timeout: 180_000 }
+  )
+  return data
 }
 
 /** 봇 대표 이미지 업로드 (multipart/form-data) */

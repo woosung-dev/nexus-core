@@ -531,4 +531,3 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
   );
 }
 
-
