@@ -101,7 +101,7 @@ A(단독)  지어냄  8.2% · 모순 1건
 
 ## 3. 머지 가능한 것
 
-브랜치 `feat/answer-architecture` · 커밋 **`5f2f7a2`** (로컬만 · push·PR 안 함). 검증 전부 통과.
+브랜치 `feat/answer-architecture` · 구현 커밋 **`4bfd78c`** + 이 문서 정정 1건 (로컬만 · push·PR 안 함). 검증 전부 통과.
 
 | 항목 | 파일 | 상태 |
 |---|---|---|
@@ -110,7 +110,7 @@ A(단독)  지어냄  8.2% · 모순 1건
 | 봇별 조달 방식 | `models/bot.py` · `schemas/bot.py` · 마이그레이션 `e6f9b2d4a8c3` | 완료 |
 | 조달 분기 배선 | `services/chat_service.py` · `services/wiki/service.py:build_hybrid_turns` | 완료 |
 | 관리자 UI 탭 3개 + 프리셋 | `features/bots/components/{bot-edit-form,answer-settings}.tsx` · `schemas.ts` · `types.ts` | 완료 |
-| 테스트 | `tests/test_retrieval_mode.py`(11) · `tests/test_wiki_retrieval.py`(9) | **101/101 통과** |
+| 테스트 | `tests/test_retrieval_mode.py`(14) · `tests/test_wiki_retrieval.py`(9) | **104/104 통과** |
 | 근거 감사기 | `exports/wiki_eval/_audit.py` · `_audit_report.py` | 완료 |
 
 ### 검증 결과
@@ -123,7 +123,9 @@ V3b-1  기본값 봇의 generate_with_rag 인자 완전 동일             통�
 V3b-5  비스트리밍 강제가 클라이언트를 깨는가                     안 깬다 (§5)
 V3c-1  pnpm exec tsc --noEmit                                통과
 V3c-2  pnpm lint · pnpm build                                통과 (경고 0)
-pytest  101 passed                                           통과
+pytest  104 passed (기준선 81 + 신규 23)                       통과
+V3a-2b 적재 스크립트 재실행 안전 (2회차 신규 0건)             통과
+V3b-1b 기존 봇 21개 전부 retrieval_mode=file_search          통과 (DB 확인)
 ```
 
 ### 설계에서 지시서와 달라진 것 (근거 있음)
