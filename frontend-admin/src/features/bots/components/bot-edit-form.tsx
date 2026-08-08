@@ -1,15 +1,30 @@
 "use client"
 
+// 봇 수정 폼 — 기본 정보 / 답변 설정 / 연동 세 탭.
+//
+// Radix Tabs 를 쓰지 않는다. TabsContent 는 비활성 패널을 언마운트하는데 이 폼에는
+// 비제어 입력(이미지 파일 state, 태그 입력)이 섞여 있어 탭을 옮기면 값이 날아간다.
+// instructions/page.tsx 와 같은 CSS 숨김 방식으로 전부 마운트해 둔다.
+
 import * as React from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useWatch } from "react-hook-form"
 import { ImagePlus, X } from "lucide-react"
 
+import { cn } from "@/lib/utils"
 import { useUpdateBot } from "@/features/bots/hooks"
 import type { BotResponse } from "@/features/bots/types"
 
 import { Button } from "@/components/ui/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import {
   Form,
   FormControl,
@@ -20,7 +35,6 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import {
   Select,
   SelectContent,
@@ -37,27 +51,54 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
 import {
   botEditFormSchema,
   type BotEditFormValues,
-  LLM_MODEL_OPTIONS,
   PLAN_TYPE_OPTIONS,
-  getModelProvider,
 } from "../schemas"
+import { AnswerSettings } from "./answer-settings"
 import { KakaoChannelSection } from "./kakao-channel-section"
+
+const TABS = [
+  { key: "basic", label: "기본 정보" },
+  { key: "answer", label: "답변 설정" },
+  { key: "integration", label: "연동" },
+] as const
+
+type TabKey = (typeof TABS)[number]["key"]
+
+// 어느 탭에 어떤 필드가 있는지 — 검증 실패 시 그 탭으로 보내고 배지를 띄운다.
+const TAB_FIELDS: Record<TabKey, (keyof BotEditFormValues)[]> = {
+  basic: [
+    "name",
+    "description",
+    "tags",
+    "plan_required",
+    "is_active",
+    "is_verified",
+    "is_new",
+  ],
+  answer: [
+    "retrieval_mode",
+    "evidence_policy_mode",
+    "llm_model",
+    "history_window",
+    "system_prompt",
+  ],
+  integration: [],
+}
 
 interface BotEditFormProps {
   bot: BotResponse
 }
 
-// --- 봇 수정 폼 컴포넌트 ---
-// 기존 봇 데이터를 defaultValues로 주입받아 수정 처리
 export function BotEditForm({ bot }: BotEditFormProps) {
   const router = useRouter()
+  const [tab, setTab] = React.useState<TabKey>("basic")
   const [tagInput, setTagInput] = React.useState("")
   const [isComposing, setIsComposing] = React.useState(false)
   const [imageFile, setImageFile] = React.useState<File | null>(null)
+  const [confirmLeave, setConfirmLeave] = React.useState(false)
 
   // 상대 경로('/static/uploads/...')를 절대 URL로 변환하여 초기 미리보기 설정
   const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"
@@ -88,11 +129,37 @@ export function BotEditForm({ bot }: BotEditFormProps) {
       llm_model: bot.llm_model,
       history_window: bot.history_window ?? 0,
       evidence_policy_mode: bot.evidence_policy_mode ?? "legacy",
+      retrieval_mode: bot.retrieval_mode ?? "file_search",
     },
   })
 
-  // useWatch로 태그 값 구독 (React Compiler 호환)
+  // useWatch로 값 구독 (React Compiler 호환)
   const watchedTags = useWatch({ control: form.control, name: "tags" })
+  const retrievalMode = useWatch({ control: form.control, name: "retrieval_mode" })
+  const evidencePolicyMode = useWatch({
+    control: form.control,
+    name: "evidence_policy_mode",
+  })
+
+  const { errors, isDirty } = form.formState
+  const errorTabs = React.useMemo(() => {
+    const bad = new Set<TabKey>()
+    for (const [key, fields] of Object.entries(TAB_FIELDS) as [
+      TabKey,
+      (keyof BotEditFormValues)[],
+    ][]) {
+      if (fields.some((f) => errors[f])) bad.add(key)
+    }
+    return bad
+  }, [errors])
+
+  // 검증 실패 시 문제가 있는 첫 탭으로 옮긴다 — 접힌 탭에서 조용히 막히면 원인을 못 찾는다.
+  function onInvalid(fieldErrors: typeof errors) {
+    const target = TABS.find((t) =>
+      TAB_FIELDS[t.key].some((f) => fieldErrors[f])
+    )
+    if (target) setTab(target.key)
+  }
 
   // 태그 추가 (Enter 키)
   function handleTagKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -101,7 +168,9 @@ export function BotEditForm({ bot }: BotEditFormProps) {
       e.preventDefault()
       const value = tagInput.trim()
       if (value && !form.getValues("tags").includes(value)) {
-        form.setValue("tags", [...form.getValues("tags"), value])
+        form.setValue("tags", [...form.getValues("tags"), value], {
+          shouldDirty: true,
+        })
         setTagInput("")
       }
     }
@@ -111,7 +180,8 @@ export function BotEditForm({ bot }: BotEditFormProps) {
   function removeTag(tagToRemove: string) {
     form.setValue(
       "tags",
-      form.getValues("tags").filter((tag) => tag !== tagToRemove)
+      form.getValues("tags").filter((tag) => tag !== tagToRemove),
+      { shouldDirty: true }
     )
   }
 
@@ -135,6 +205,46 @@ export function BotEditForm({ bot }: BotEditFormProps) {
     updateBot({ request: values, imageFile })
   }
 
+  // 취소 — 저장하지 않은 변경이 있으면 확인한다. 시스템 프롬프트가 1,000자를 넘는 봇이 있어
+  // 실수로 날리면 복구가 안 된다.
+  const hasUnsaved = isDirty || imageFile !== null
+
+  function handleCancel() {
+    if (hasUnsaved) {
+      setConfirmLeave(true)
+      return
+    }
+    router.push("/bots")
+  }
+
+  // 취소 버튼 말고 새로고침·주소창·탭 닫기로 나가는 경로도 막는다.
+  // (Next.js 앱 라우터에는 내부 링크 이탈을 가로챌 공개 API 가 없어 사이드바 이동은 못 막는다.)
+  React.useEffect(() => {
+    if (!hasUnsaved) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", onBeforeUnload)
+    return () => window.removeEventListener("beforeunload", onBeforeUnload)
+  }, [hasUnsaved])
+
+  // 탭 목록 키보드 조작 — role=tablist 를 직접 만들었으므로 화살표·Home·End 도 직접 구현한다.
+  const tabRefs = React.useRef<(HTMLButtonElement | null)[]>([])
+
+  function handleTabKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, index: number) {
+    const last = TABS.length - 1
+    let next: number | null = null
+    if (e.key === "ArrowRight") next = index === last ? 0 : index + 1
+    else if (e.key === "ArrowLeft") next = index === 0 ? last : index - 1
+    else if (e.key === "Home") next = 0
+    else if (e.key === "End") next = last
+    if (next === null) return
+    e.preventDefault()
+    setTab(TABS[next].key)
+    tabRefs.current[next]?.focus()
+  }
+
   return (
     <Card className="max-w-2xl">
       <CardHeader>
@@ -145,431 +255,397 @@ export function BotEditForm({ bot }: BotEditFormProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* 봇 대표 이미지 */}
-            <div className="flex flex-col gap-3 pb-2">
-              <span className="text-sm font-medium leading-none">
-                대표 이미지 <span className="text-muted-foreground">(선택)</span>
-              </span>
-              <div className="flex items-start gap-6">
-                {/* 프리뷰 박스 */}
-                <div className="group relative h-40 w-40 shrink-0 overflow-hidden rounded-2xl border-2 border-dashed bg-muted transition-all hover:border-primary/50 flex flex-col items-center justify-center gap-2">
-                  {imagePreview ? (
-                    <>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={imagePreview}
-                        alt="봇 이미지 미리보기"
-                        className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center">
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          className="h-8 text-xs"
-                          onClick={handleImageRemove}
-                        >
-                          제거
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <ImagePlus className="h-10 w-10 text-muted-foreground/60" />
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                        Preview
-                      </span>
-                    </>
-                  )}
-                </div>
-
-                {/* 가이드 및 버튼 */}
-                <div className="flex flex-col gap-3 py-1">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-semibold text-foreground">
-                      Bot Avatar
-                    </h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      클라이언트 채팅 목록과 대화창 상단에
-                      <br />
-                      표시될 봇의 얼굴입니다.
-                      <br />
-                      <span className="font-medium text-primary/70">
-                        정사각형(1:1) 비율을 권장합니다.
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageChange}
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-fit"
-                      onClick={() => imageInputRef.current?.click()}
-                    >
-                      이미지 선택
-                    </Button>
-                    <p className="text-[11px] font-mono text-muted-foreground truncate max-w-[180px]">
-                      {imageFile ? imageFile.name : "선택된 파일 없음"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* 봇 이름 */}
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>봇 이름</FormLabel>
-                  <FormControl>
-                    <Input placeholder="예: 고객 상담 봇" {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    사용자에게 표시될 봇의 이름입니다.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* 설명 */}
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>설명</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="이 봇의 역할을 간단하게 설명해 주세요."
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* 태그 */}
-            <FormField
-              control={form.control}
-              name="tags"
-              render={() => (
-                <FormItem>
-                  <FormLabel>태그</FormLabel>
-                  <FormControl>
-                    <div>
-                      <Input
-                        placeholder="태그를 입력하고 Enter를 누르세요"
-                        value={tagInput}
-                        onChange={(e) => setTagInput(e.target.value)}
-                        onCompositionStart={() => setIsComposing(true)}
-                        onCompositionEnd={() => setIsComposing(false)}
-                        onKeyDown={handleTagKeyDown}
-                      />
-                      {watchedTags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {watchedTags.map((tag) => (
-                            <Badge
-                              key={tag}
-                              variant="secondary"
-                              className="gap-1"
-                            >
-                              {tag}
-                              <button
-                                type="button"
-                                onClick={() => removeTag(tag)}
-                                className="rounded-full hover:bg-muted-foreground/20 p-0.5"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </FormControl>
-                  <FormDescription>
-                    봇을 분류하기 위한 태그를 추가합니다.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* LLM 모델 — Provider 간 변경 제한 (RAG 문서 격리 이슈로 같은 Provider 내에서만 지원) */}
-            <FormField
-              control={form.control}
-              name="llm_model"
-              render={({ field }) => {
-                const initialProvider = getModelProvider(bot.llm_model)
-
-                return (
-                  <FormItem>
-                    <FormLabel>LLM 모델</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="모델을 선택해 주세요" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {LLM_MODEL_OPTIONS.map((option) => {
-                          const isDifferentProvider =
-                            initialProvider !== "unknown" &&
-                            option.provider !== initialProvider
-
-                          return (
-                            <SelectItem
-                              key={option.value}
-                              value={option.value}
-                              disabled={isDifferentProvider}
-                            >
-                              {option.label}
-                              {isDifferentProvider && " (다른 공급자 모델로 변경 불가)"}
-                            </SelectItem>
-                          )
-                        })}
-                      </SelectContent>
-                    </Select>
-                    <FormDescription>
-                      이 봇이 사용할 AI 모델을 선택합니다.
-                      {initialProvider !== "unknown" && (
-                        <span className="block mt-1 font-medium text-amber-600 dark:text-amber-400">
-                          (이미 등록된 문서와의 호환성을 위해{" "}
-                          {initialProvider === "openai" ? "OpenAI" : "Gemini"}{" "}
-                          계열의 모델만 선택 가능합니다.)
-                        </span>
-                      )}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )
+        {/* 탭 — 패널은 전부 마운트된 채 CSS 로만 감춘다 */}
+        <div
+          role="tablist"
+          aria-label="봇 설정 영역"
+          className="mb-6 flex gap-1 border-b"
+        >
+          {TABS.map((item, index) => (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              id={`bot-tab-${item.key}`}
+              ref={(el) => {
+                tabRefs.current[index] = el
               }}
-            />
-
-            {/* 플랜 */}
-            <FormField
-              control={form.control}
-              name="plan_required"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>요구 플랜</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="플랜을 선택해 주세요" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {PLAN_TYPE_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    이 봇을 사용하기 위해 필요한 구독 플랜을 설정합니다.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
+              aria-selected={tab === item.key}
+              aria-controls={`bot-panel-${item.key}`}
+              // roving tabIndex — 탭 목록 전체가 Tab 순서를 세 번 잡아먹지 않게 한다.
+              tabIndex={tab === item.key ? 0 : -1}
+              onKeyDown={(e) => handleTabKeyDown(e, index)}
+              onClick={() => setTab(item.key)}
+              className={cn(
+                "-mb-px flex min-h-11 items-center gap-1.5 border-b-2 px-4 text-sm font-medium transition-colors",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+                tab === item.key
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               )}
-            />
-
-            {/* 시스템 프롬프트 */}
-            <FormField
-              control={form.control}
-              name="system_prompt"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>시스템 프롬프트</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="봇의 페르소나와 행동 규칙을 정의하세요..."
-                      className="min-h-[200px] resize-y"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    봇의 성격, 말투, 답변 규칙 등을 상세히 기술합니다.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
+            >
+              {item.label}
+              {errorTabs.has(item.key) && (
+                <span
+                  className="size-1.5 rounded-full bg-destructive"
+                  aria-label="입력 오류 있음"
+                />
               )}
-            />
+            </button>
+          ))}
+        </div>
 
-            <Separator />
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit, onInvalid)}
+            className="space-y-6"
+          >
+            {/* ══ 기본 정보 ══ */}
+            <div
+              id="bot-panel-basic"
+              role="tabpanel"
+              aria-labelledby="bot-tab-basic"
+              className={cn("space-y-6", tab !== "basic" && "hidden")}
+            >
+              {/* 봇 대표 이미지 */}
+              <div className="flex flex-col gap-3 pb-2">
+                <span className="text-sm font-medium leading-none">
+                  대표 이미지 <span className="text-muted-foreground">(선택)</span>
+                </span>
+                <div className="flex items-start gap-6">
+                  {/* 프리뷰 박스 */}
+                  <div className="group relative h-40 w-40 shrink-0 overflow-hidden rounded-2xl border-2 border-dashed bg-muted transition-all hover:border-primary/50 flex flex-col items-center justify-center gap-2">
+                    {imagePreview ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imagePreview}
+                          alt="봇 이미지 미리보기"
+                          className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 flex items-center justify-center">
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            className="h-8 text-xs"
+                            onClick={handleImageRemove}
+                          >
+                            제거
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <ImagePlus className="h-10 w-10 text-muted-foreground/60" />
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                          Preview
+                        </span>
+                      </>
+                    )}
+                  </div>
 
-            {/* ── 운영 메타데이터 섹션 ── */}
-            <div className="space-y-4">
-              <div>
-                <h3 className="text-sm font-semibold">운영 설정</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  봇의 노출 상태 및 인증 여부를 관리합니다.
-                </p>
+                  {/* 가이드 및 버튼 */}
+                  <div className="flex flex-col gap-3 py-1">
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-semibold text-foreground">
+                        Bot Avatar
+                      </h4>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        클라이언트 채팅 목록과 대화창 상단에
+                        <br />
+                        표시될 봇의 얼굴입니다.
+                        <br />
+                        <span className="font-medium text-primary/70">
+                          정사각형(1:1) 비율을 권장합니다.
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageChange}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="w-fit"
+                        onClick={() => imageInputRef.current?.click()}
+                      >
+                        이미지 선택
+                      </Button>
+                      <p className="text-[11px] font-mono text-muted-foreground truncate max-w-[180px]">
+                        {imageFile ? imageFile.name : "선택된 파일 없음"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
+              {/* 봇 이름 */}
               <FormField
                 control={form.control}
-                name="evidence_policy_mode"
+                name="name"
                 render={({ field }) => (
-                  <FormItem className="rounded-lg border p-4">
-                    <FormLabel className="text-base">근거 검증 모드</FormLabel>
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <FormControl>
-                        <SelectTrigger className="mt-2">
-                          <SelectValue />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="legacy">기존 호환 모드</SelectItem>
-                        <SelectItem value="strict">직접 인용 필수 모드</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <FormItem>
+                    <FormLabel>봇 이름</FormLabel>
+                    <FormControl>
+                      <Input placeholder="예: 고객 상담 봇" {...field} />
+                    </FormControl>
                     <FormDescription>
-                      엄격 모드는 RAG가 이번 답변에 직접 인용을 남기지 못하면 답변을 차단합니다.
-                      FAQ는 “답변할 수 없습니다” 같은 거절 안내문으로만 등록해 주세요. 문서 최신성·용어
-                      검증은 이 모드의 범위에 포함되지 않습니다.
+                      사용자에게 표시될 봇의 이름입니다.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {/* 활성 상태 */}
+              {/* 설명 */}
               <FormField
                 control={form.control}
-                name="is_active"
+                name="description"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">활성 상태</FormLabel>
-                      <FormDescription>
-                        비활성화하면 이 봇은 사용자에게 노출되지 않습니다.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* 인증 여부 */}
-              <FormField
-                control={form.control}
-                name="is_verified"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">인증 여부</FormLabel>
-                      <FormDescription>
-                        활성화하면 사용자에게 &apos;인증된 봇&apos; 뱃지가
-                        표시됩니다.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* 신규 여부 */}
-              <FormField
-                control={form.control}
-                name="is_new"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">신규 뱃지</FormLabel>
-                      <FormDescription>
-                        활성화하면 봇 목록에서 &apos;NEW&apos; 뱃지가 표시됩니다.
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              {/* 대화 기억 윈도우 */}
-              <FormField
-                control={form.control}
-                name="history_window"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">대화 기억 윈도우</FormLabel>
-                      <FormDescription>
-                        LLM에 함께 보낼 최근 메시지 수입니다. 0이면 기억하지
-                        않습니다(기존 동작). 권장값 8. 카카오 연결 봇은 0을
-                        유지하세요.
-                      </FormDescription>
-                      <FormMessage />
-                    </div>
+                  <FormItem>
+                    <FormLabel>설명</FormLabel>
                     <FormControl>
                       <Input
-                        type="number"
-                        min={0}
-                        step={1}
-                        className="w-24 shrink-0"
+                        placeholder="이 봇의 역할을 간단하게 설명해 주세요."
                         {...field}
                       />
                     </FormControl>
+                    <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* 태그 */}
+              <FormField
+                control={form.control}
+                name="tags"
+                render={() => (
+                  <FormItem>
+                    <FormLabel>태그</FormLabel>
+                    <FormControl>
+                      <div>
+                        <Input
+                          placeholder="태그를 입력하고 Enter를 누르세요"
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onCompositionStart={() => setIsComposing(true)}
+                          onCompositionEnd={() => setIsComposing(false)}
+                          onKeyDown={handleTagKeyDown}
+                        />
+                        {watchedTags?.length > 0 && (
+                          <div className="flex flex-wrap gap-2 pt-3">
+                            {watchedTags.map((tag) => (
+                              <Badge
+                                key={tag}
+                                variant="secondary"
+                                className="gap-1 pr-1"
+                              >
+                                {tag}
+                                <button
+                                  type="button"
+                                  onClick={() => removeTag(tag)}
+                                  className="rounded-full p-0.5 hover:bg-muted-foreground/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                                  aria-label={`${tag} 태그 삭제`}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormDescription>
+                      봇을 분류하기 위한 태그를 추가합니다.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* 플랜 */}
+              <FormField
+                control={form.control}
+                name="plan_required"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>요구 플랜</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="플랜을 선택해 주세요" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {PLAN_TYPE_OPTIONS.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      이 봇을 사용하기 위해 필요한 구독 플랜을 설정합니다.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* 노출 설정 */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold">노출 설정</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    봇의 노출 상태 및 인증 여부를 관리합니다.
+                  </p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="is_active"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">활성 상태</FormLabel>
+                        <FormDescription>
+                          비활성화하면 이 봇은 사용자에게 노출되지 않습니다.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="is_verified"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">인증 여부</FormLabel>
+                        <FormDescription>
+                          활성화하면 사용자에게 &apos;인증된 봇&apos; 뱃지가
+                          표시됩니다.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="is_new"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-base">신규 뱃지</FormLabel>
+                        <FormDescription>
+                          활성화하면 봇 목록에서 &apos;NEW&apos; 뱃지가
+                          표시됩니다.
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
-            <KakaoChannelSection botId={bot.id} />
+            {/* ══ 답변 설정 ══ */}
+            <div
+              id="bot-panel-answer"
+              role="tabpanel"
+              aria-labelledby="bot-tab-answer"
+              className={cn(tab !== "answer" && "hidden")}
+            >
+              <AnswerSettings
+                form={form}
+                initialModel={bot.llm_model}
+                retrievalMode={retrievalMode}
+                evidencePolicyMode={evidencePolicyMode}
+              />
+            </div>
+
+            {/* ══ 연동 ══ */}
+            <div
+              id="bot-panel-integration"
+              role="tabpanel"
+              aria-labelledby="bot-tab-integration"
+              className={cn(tab !== "integration" && "hidden")}
+            >
+              <KakaoChannelSection botId={bot.id} />
+            </div>
 
             {/* 버튼 */}
-            <div className="flex gap-3 pt-4">
+            <div className="flex items-center gap-3 border-t pt-4">
               <Button type="submit" disabled={isPending}>
                 {isPending ? "저장 중..." : "저장"}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.push("/bots")}
-              >
+              <Button type="button" variant="outline" onClick={handleCancel}>
                 취소
               </Button>
+              {isDirty && (
+                <span className="text-xs text-muted-foreground">
+                  저장하지 않은 변경이 있습니다
+                </span>
+              )}
             </div>
           </form>
         </Form>
       </CardContent>
+
+      <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>저장하지 않은 변경사항</DialogTitle>
+            <DialogDescription>
+              이 페이지를 벗어나면 변경한 내용이 사라집니다. 시스템 프롬프트는
+              복구할 수 없습니다.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setConfirmLeave(false)}
+            >
+              계속 편집
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => router.push("/bots")}
+            >
+              버리고 이동
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

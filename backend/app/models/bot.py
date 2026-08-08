@@ -44,6 +44,13 @@ class Bot(SQLModel, table=True):
     # strict: 직접 RAG 인용이 없는 일반 답변을 차단한다.
     # legacy: 기존 응답 경로를 그대로 사용한다.
     evidence_policy_mode: str = Field(default="legacy", max_length=20)
+    # 근거를 무엇으로 조달할지. 45문항 실측(핸드오프 §2-2)이 프리셋 기본값의 근거다.
+    #   file_search  Gemini file_search 단독      57.9% · 7.0초   커버리지 최고 (기본값)
+    #   lexical      BM25 원문 주입 단독           40.2% · 1.6초   덜 맞히고 덜 틀린다
+    #   both         file_search + BM25 원문      50.4% · 6.1초   중간
+    # DB enum 이 아니라 String 이다 — 값 추가·롤백이 컬럼 변경 없이 되고, 열거는 스키마의
+    # Literal 이 강제한다. evidence_policy_mode 와 같은 규약.
+    retrieval_mode: str = Field(default="file_search", max_length=20)
     # 멀티턴 대화 기억 윈도우 — LLM 호출에 함께 보낼 최근 메시지 수. 0이면 기억 안 함(stateless).
     # 카카오 연결 봇은 영구 세션 1개에 메시지가 무한 누적되므로 0 유지 권장.
     history_window: int = Field(default=0, ge=0)

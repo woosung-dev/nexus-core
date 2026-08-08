@@ -53,6 +53,82 @@ export const PLAN_TYPE_OPTIONS = [
   { label: "프로 (Pro)", value: "PRO" },
 ] as const;
 
+// --- 근거 조달 방식 ---
+// 수치는 봇 11 · 45문항 실측이다. 커버리지·지연은 2026-08-09 측정,
+// 지어냄율은 같은 답변을 규정 원문 250건에 대고 잰 근거 감사 결과다.
+// (docs/architecture/handoff-overnight-2026-08-10.md)
+export const RETRIEVAL_MODE_OPTIONS = [
+  {
+    value: "file_search",
+    label: "의미 검색 (file_search)",
+    summary: "커버리지 57.9% · 7.0초 · 지어냄 8.2%",
+    detail:
+      "Gemini 가 스토어에서 직접 찾는다. 가장 많이 맞히지만 가장 많이 지어낸다.",
+  },
+  {
+    value: "lexical",
+    label: "어휘 검색 (규정 원문 주입)",
+    summary: "커버리지 40.2% · 1.6초 · 지어냄 2.7%",
+    detail:
+      "BM25 로 규정 원문을 뽑아 그것만 준다. 덜 맞히고 덜 틀린다. 가장 빠르다.",
+  },
+  {
+    value: "both",
+    label: "둘 다",
+    summary: "커버리지 50.4% · 6.1초 · 지어냄 11.2%",
+    detail:
+      "의미 검색에 규정 원문을 얹는다. 커버리지는 중간이지만 지어냄이 가장 많았다.",
+  },
+] as const;
+
+export type RetrievalMode = (typeof RETRIEVAL_MODE_OPTIONS)[number]["value"];
+
+// --- 답변 프리셋 ---
+// 두 축(조달 방식 · 근거 검증)을 함께 바꾼다. 관리자가 축을 따로 이해하지 않아도
+// 봇 성격만 고르면 되도록 한다. 축을 직접 건드리면 「사용자 지정」으로 표시된다.
+export const ANSWER_PRESETS = [
+  {
+    key: "accuracy",
+    label: "정확 우선",
+    for: "정보 안내형 봇",
+    retrieval_mode: "file_search",
+    evidence_policy_mode: "legacy",
+    note: "가장 많이 답한다. 대신 규정에 없는 말을 할 확률도 가장 높다.",
+  },
+  {
+    key: "safety",
+    label: "안전 우선",
+    for: "상담·위기 봇 · 카카오 채널",
+    retrieval_mode: "lexical",
+    evidence_policy_mode: "strict",
+    note: "지어냄이 1/3 로 줄고 응답이 4배 빠르다. 대신 답하지 못하는 질문이 늘어난다.",
+  },
+  {
+    key: "balanced",
+    label: "균형",
+    for: "커버리지를 우선하되 속도도 필요한 봇",
+    retrieval_mode: "both",
+    evidence_policy_mode: "legacy",
+    note: "커버리지는 중간이지만 근거 감사에서 지어냄이 가장 많았다 — 권장하지 않는다.",
+  },
+] as const;
+
+export type AnswerPresetKey = (typeof ANSWER_PRESETS)[number]["key"];
+
+/** 현재 두 축의 값에 해당하는 프리셋. 어디에도 맞지 않으면 null(= 사용자 지정). */
+export function matchPreset(
+  retrievalMode: string,
+  evidencePolicyMode: string
+): (typeof ANSWER_PRESETS)[number] | null {
+  return (
+    ANSWER_PRESETS.find(
+      (p) =>
+        p.retrieval_mode === retrievalMode &&
+        p.evidence_policy_mode === evidencePolicyMode
+    ) ?? null
+  );
+}
+
 // --- 봇 생성 폼 Zod 스키마 ---
 export const botFormSchema = z.object({
   name: z.string().min(2, { message: "봇 이름은 최소 2자 이상이어야 합니다." }),
@@ -86,6 +162,7 @@ export const botEditFormSchema = z.object({
     .int({ message: "정수를 입력해 주세요." })
     .min(0, { message: "0 이상이어야 합니다." }),
   evidence_policy_mode: z.enum(["legacy", "strict"]),
+  retrieval_mode: z.enum(["file_search", "lexical", "both"]),
 });
 
 export type BotEditFormValues = z.infer<typeof botEditFormSchema>;
