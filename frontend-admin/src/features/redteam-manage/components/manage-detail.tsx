@@ -13,6 +13,7 @@ import { meaningfulEtc, RISK_STYLE } from "../constants"
 import { useManageGroupDetail } from "../hooks"
 import type { ResponseItem } from "../types"
 import { FeedbackThread } from "./feedback-thread"
+import { GoldenCard } from "./golden-card"
 import { ManageFields } from "./manage-fields"
 import { ReferenceReviews } from "./reference-reviews"
 import { TestbotSection } from "./testbot-section"
@@ -172,6 +173,11 @@ export function ManageDetail({ groupId }: { groupId: number | null }) {
 
       {/* 입력관리 편집 (그룹 전환 시 remount) */}
       <ManageFields key={detail.id} detail={detail} />
+
+      {/* 정답지 검수 — 초안이 적재된 그룹에만 나온다 */}
+      {detail.golden && (
+        <GoldenCard key={`golden-${detail.id}`} golden={detail.golden} groupId={detail.id} />
+      )}
 
       {/* 담당자 피드백 (코멘트 스레드) */}
       <FeedbackThread groupId={detail.id} feedback={detail.feedback} />

@@ -12,14 +12,16 @@ import {
   fetchManageGroups,
   fetchManageReport,
   fetchManageStats,
+  fetchGoldenQueue,
   fetchManageTags,
   fetchUnmatched,
   linkCandidate,
   manageKeys,
+  updateGolden,
   updateGroupManage,
   type UnmatchedParams,
 } from "./api"
-import type { GroupManageUpdate, ManageGroupListParams } from "./types"
+import type { GoldenUpdate, GroupManageUpdate, ManageGroupListParams } from "./types"
 
 // ─── Query 훅 ─────────────────────────────────────────────────
 
@@ -67,6 +69,11 @@ export function useManageReport() {
   return useQuery({ queryKey: manageKeys.report(), queryFn: fetchManageReport })
 }
 
+/** 정답지 검수 큐 — 남은 건수·담당자별 진행률 */
+export function useGoldenQueue() {
+  return useQuery({ queryKey: manageKeys.goldenQueue(), queryFn: fetchGoldenQueue })
+}
+
 // ─── Mutation 훅 ──────────────────────────────────────────────
 
 export function useUpdateGroupManage(groupId: number | null) {
@@ -79,6 +86,18 @@ export function useUpdateGroupManage(groupId: number | null) {
       qc.invalidateQueries({ queryKey: manageKeys.lists() })
       qc.invalidateQueries({ queryKey: manageKeys.stats() })
       qc.invalidateQueries({ queryKey: manageKeys.tags() })
+    },
+  })
+}
+
+/** 정답지 판정 저장 — 상세 캐시 갱신 + 검수 큐 무효화 */
+export function useUpdateGolden(groupId: number | null) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (patch: GoldenUpdate) => updateGolden(groupId as number, patch),
+    onSuccess: (detail) => {
+      if (groupId !== null) qc.setQueryData(manageKeys.detail(groupId), detail)
+      qc.invalidateQueries({ queryKey: manageKeys.goldenQueue() })
     },
   })
 }

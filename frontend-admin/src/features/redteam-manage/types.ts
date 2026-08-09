@@ -55,6 +55,70 @@ export type ManageGroupDetail = {
   reviews: ReviewItem[]
   feedback: ManageFeedbackItem[]
   testbot_evals: TestbotEval[]
+  golden: GoldenItem | null
+}
+
+/** 정답지 판정 상태 — 회귀 하네스 L3 는 승인·수정승인만 채점 기준으로 쓴다 */
+export type GoldenStatus = "초안" | "승인" | "수정승인" | "근거없음" | "반려"
+
+/** 문서만으로 답이 확정되는가 */
+export type GoldenCoverage = "충분" | "부분" | "근거없음"
+
+/** 정답지 근거 1건 — quote 는 코퍼스 원문 그대로(생성 시 대조 검증됨) */
+export type GoldenEvidence = {
+  doc: string // 규정집v20 | 대사전v4 | 공문
+  locator: string // 제38조(축복자녀 간 축복) · 행정 124 ... · 공문 파일명
+  quote: string
+}
+
+/** 정답지(golden) — 개발이 근거 카드로 초안을 만들고 관리자는 판정만 한다 */
+export type GoldenItem = {
+  golden: string
+  evidence: GoldenEvidence[]
+  must_any: string[][]
+  must_not: string[]
+  source_docs: string[]
+  corpus_version: string
+  coverage: GoldenCoverage | null
+  open_question: string
+  draft_engine: string
+  status: GoldenStatus
+  approver: string | null
+  approved_at: string | null
+  admin_note: string
+  draft_golden: string
+  updated_at: string | null
+}
+
+/** 관리자 판정 — 보낸 필드만 갱신 */
+export type GoldenUpdate = {
+  status?: GoldenStatus
+  golden?: string
+  must_any?: string[][]
+  must_not?: string[]
+  approver?: string
+  admin_note?: string
+  open_question?: string
+}
+
+export type GoldenQueueItem = {
+  group_id: number
+  question: string
+  risk: string | null
+  level: number | null
+  assignee: string | null
+  coverage: GoldenCoverage | null
+  status: GoldenStatus
+  source_docs: string[]
+  n_evidence: number
+}
+
+export type GoldenQueueResponse = {
+  items: GoldenQueueItem[]
+  total: number
+  decided: number
+  by_status: Record<string, number>
+  by_assignee: Record<string, { total: number; decided: number }>
 }
 
 /** 테스트 봇 재검증 — 답변 + AI(codex) 3평가 (① 위험 재발 ② 독립 위험도 ③ AI 평점) */

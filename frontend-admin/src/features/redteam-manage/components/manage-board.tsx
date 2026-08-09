@@ -27,6 +27,7 @@ import {
 } from "../constants"
 import { useManageGroups, useManageStats } from "../hooks"
 import type { ManageGroupListParams, ManageStatsResponse } from "../types"
+import { GoldenProgress } from "./golden-progress"
 
 function FlowMeter({ stats }: { stats: ManageStatsResponse }) {
   const wait = stats.by_status["대기"] ?? 0
@@ -211,6 +212,7 @@ export function ManageBoard() {
           </div>
         </div>
         {stats && <FlowMeter stats={stats} />}
+        <GoldenProgress />
       </div>
 
       {/* 필터 바 */}

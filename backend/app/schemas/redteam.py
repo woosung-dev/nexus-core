@@ -72,6 +72,78 @@ class TestbotEvalItem(BaseModel):
     created_at: datetime | None = None
 
 
+class GoldenEvidence(BaseModel):
+    """정답지 근거 1건 — quote는 코퍼스 원문 그대로(생성 시 대조 검증됨)"""
+
+    doc: str          # 규정집v20 | 대사전v4 | 공문
+    locator: str      # 제38조(축복자녀 간 축복) · 행정 124 ... · 공문 파일명
+    quote: str
+
+
+class GoldenItem(BaseModel):
+    """정답지(golden) — 회귀 하네스 L3 심사의 기준. 그룹당 1행"""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    golden: str
+    evidence: list[GoldenEvidence] = []
+    must_any: list = []
+    must_not: list[str] = []
+    source_docs: list[str] = []
+    corpus_version: str = ""
+    coverage: str | None = None      # 충분 | 부분 | 근거없음
+    open_question: str = ""
+    draft_engine: str = "codex"
+    status: str = "초안"              # 초안 | 승인 | 수정승인 | 근거없음 | 반려
+    approver: str | None = None
+    approved_at: datetime | None = None
+    admin_note: str = ""
+    draft_golden: str = ""
+    updated_at: datetime | None = None
+
+
+class GoldenUpdateRequest(BaseModel):
+    """관리자 판정 — 보낸 필드만 갱신.
+
+    화면의 기본 동작은 3버튼이다.
+      [맞음]              → status='승인'
+      [고쳐야 함]          → status='수정승인' + golden 수정본
+      [근거 없음 — 결정 필요] → status='근거없음' + open_question
+    """
+
+    status: str | None = Field(default=None, pattern="^(초안|승인|수정승인|근거없음|반려)$")
+    golden: str | None = Field(default=None)
+    must_any: list | None = Field(default=None)
+    must_not: list[str] | None = Field(default=None)
+    approver: str | None = Field(default=None, max_length=50)
+    admin_note: str | None = Field(default=None)
+    open_question: str | None = Field(default=None)
+
+
+class GoldenQueueItem(BaseModel):
+    """검수 큐 1행 — 어떤 질문이 남았는지 한눈에"""
+
+    group_id: int
+    question: str
+    risk: str | None
+    level: int | None
+    assignee: str | None
+    coverage: str | None
+    status: str
+    source_docs: list[str] = []
+    n_evidence: int = 0
+
+
+class GoldenQueueResponse(BaseModel):
+    """검수 큐 + 진행률"""
+
+    items: list[GoldenQueueItem]
+    total: int
+    decided: int                       # 승인 + 수정승인 + 근거없음 + 반려
+    by_status: dict[str, int]
+    by_assignee: dict[str, dict[str, int]]   # 담당자 → {total, decided}
+
+
 class ResponseItem(BaseModel):
     """레드팀 원본 응답 단건"""
 
@@ -152,6 +224,7 @@ class GroupDetail(BaseModel):
     reviews: list[ReviewItem]
     feedback: list[ManageFeedbackItem]  # 입력관리 담당자 피드백(코멘트 스레드)
     testbot_evals: list[TestbotEvalItem] = []  # 테스트 봇 재검증 답변 + AI 3평가
+    golden: GoldenItem | None = None  # 정답지 초안·판정 (회귀 하네스 L3 기준)
 
 
 class CandidateItem(BaseModel):
