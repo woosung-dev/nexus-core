@@ -54,6 +54,13 @@ class Bot(SQLModel, table=True):
     # 멀티턴 대화 기억 윈도우 — LLM 호출에 함께 보낼 최근 메시지 수. 0이면 기억 안 함(stateless).
     # 카카오 연결 봇은 영구 세션 1개에 메시지가 무한 누적되므로 0 유지 권장.
     history_window: int = Field(default=0, ge=0)
+    # 선택형 맥락 보완 UX의 실제 LLM 판정은 파일럿 봇에서만 허용한다.
+    clarify_enabled: bool = Field(default=False)
+    # 관리자가 정의한 필수 추가 확인 질문. 비활성 기본값은 기존 질문 흐름을 보존한다.
+    clarification_policy: dict = Field(
+        default_factory=lambda: {"enabled": False, "rules": []},
+        sa_column=Column(JSON, nullable=False),
+    )
 
     # 활성화 여부
     is_active: bool = Field(default=True)

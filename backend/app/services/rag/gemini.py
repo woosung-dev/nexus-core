@@ -11,9 +11,11 @@ import logging
 import re
 import time
 from datetime import datetime
+from typing import TypeVar
 
 from google import genai
 from google.genai import types
+from pydantic import BaseModel
 
 from app.core.config import get_settings
 from app.schemas.rag import DocumentInfo, RAGCitation, RAGResponse
@@ -29,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 
 # RAG 응답 1회로 본문과 followup 을 같이 받기 위한 system_prompt suffix.
-# tools=[FileSearch] 와 response_schema 가 동시 사용 불가라 텍스트 마커로 분리한다.
+# 일반 답변은 JSON 스키마가 아니라 텍스트 마커로 followups 를 분리한다.
 # 모델이 포맷을 어겨 파싱이 실패해도 본문은 그대로 노출되고 followups 만 비어 나간다.
 _FOLLOWUPS_INSTRUCTION = """
 
@@ -71,6 +73,10 @@ _FOLLOWUPS_RESIDUE_RE = re.compile(
 # Gemini file_search grounding 이 본문에 자동 삽입하는 `[1.2, 1.5]` 같은 인용 마커.
 # 사용자에겐 의미 불명이라 시각 노이즈로 작용 → 본문에서 제거 (citations 배열은 보존).
 _CITATION_MARKER_RE = re.compile(r"\s*\[[\d.,\s]+\]")
+# JSON 응답이 코드 펜스로 감싸져도 스키마 검증 전에 본문만 꺼낸다.
+_JSON_FENCE_RE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL | re.IGNORECASE)
+# Interactions의 자연어 근거 블록 뒤에 붙는 기계 소비용 계획 JSON을 꺼낸다.
+_PLAN_ENVELOPE_RE = re.compile(r"\[PLAN\]\s*(.*)\Z", re.DOTALL | re.IGNORECASE)
 # followup 블록 앞쪽의 `---` 같은 구분자 잔여 제거용.
 _TRAILING_SEPARATOR_RE = re.compile(r"\n\s*-{3,}\s*$", re.MULTILINE)
 # 줄 앞의 list marker 만 잡는 패턴 — 숫자 뒤에 ".)" 같은 구분자가 따라와야 인정.
@@ -83,6 +89,8 @@ _CITATION_INSTRUCTION = (
     "\n\n[인용 지침] 답변에 사용한 모든 사실은 file_search로 검색한 문서에 근거해야 한다. "
     "각 핵심 주장이 어떤 문서에 근거하는지 반드시 file_citation 인용으로 표기하라."
 )
+
+StructuredResult = TypeVar("StructuredResult", bound=BaseModel)
 
 
 def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
@@ -195,6 +203,30 @@ def _citations_from_grounding(grounding) -> list[RAGCitation]:
     return _dedupe_citations([c for c in by_index if c is not None])
 
 
+def _citations_from_interaction(interaction, *, approximate: bool) -> list[RAGCitation]:
+    """Interactions의 같은 model_output annotations를 RAGCitation으로 변환한다."""
+    dump = interaction.model_dump(mode="json", exclude_none=True)
+    citations: list[RAGCitation] = []
+    for step in dump.get("steps") or []:
+        for content in step.get("content") or []:
+            for annotation in content.get("annotations") or []:
+                if annotation.get("type") != "file_citation":
+                    continue
+                source = annotation.get("source")
+                citations.append(
+                    RAGCitation(
+                        title=annotation.get("file_name"),
+                        content=source[:800] if source else None,
+                        uri=annotation.get("document_uri"),
+                        page_number=annotation.get("page_number"),
+                        approximate=approximate,
+                    )
+                )
+    citations = _dedupe_citations(citations)
+    citations.sort(key=lambda citation: citation.cite_count, reverse=True)
+    return citations
+
+
 class GeminiRAGService(BaseRAGService):
     """Gemini File Search 기반 RAG 응답 및 업로드 서비스"""
 
@@ -205,6 +237,7 @@ class GeminiRAGService(BaseRAGService):
         settings = get_settings()
         self._client = _get_genai_client()
         self._store_name = settings.FILE_SEARCH_STORE_NAME
+        self._store_read_only = settings.FILE_SEARCH_STORE_READ_ONLY
         self._store_resource_name: str | None = None
 
     async def ensure_store(self, bot_id: int | None = None) -> str:
@@ -236,6 +269,16 @@ class GeminiRAGService(BaseRAGService):
                     return self._store_resource_name
         except Exception as e:
             logger.warning(f"Store 목록 조회 실패: {e}")
+            if self._store_read_only:
+                raise RuntimeError(
+                    "읽기 전용 File Search Store를 조회하지 못했습니다. "
+                    "새 Store를 만들지 않습니다."
+                ) from e
+
+        if self._store_read_only:
+            raise RuntimeError(
+                f"읽기 전용 File Search Store를 찾지 못했습니다: {self._store_name}"
+            )
 
         # 새 Store 생성
         store = await self._client.aio.file_search_stores.create(
@@ -272,6 +315,8 @@ class GeminiRAGService(BaseRAGService):
         Returns:
             업로드된 파일의 리소스 이름
         """
+        if self._store_read_only:
+            raise PermissionError("읽기 전용 File Search Store에는 문서를 업로드할 수 없습니다.")
         store_name = await self.ensure_store()
 
         # 내용 해시 — 동일 문서 식별/dedup 근거. (display_name, bot_id) 만으로는
@@ -362,6 +407,8 @@ class GeminiRAGService(BaseRAGService):
             bot_id: 문서가 속한 봇 ID (검증용)
             file_id: 삭제할 문서의 짧은 ID (e.g., "2022ver-txt-e9u4ujeowola")
         """
+        if self._store_read_only:
+            raise PermissionError("읽기 전용 File Search Store에서는 문서를 삭제할 수 없습니다.")
         store_name = await self.ensure_store()
         # 짧은 ID를 전체 리소스 이름으로 복원
         full_doc_name = f"{store_name}/documents/{file_id}"
@@ -500,6 +547,80 @@ class GeminiRAGService(BaseRAGService):
             followups=followups,
         )
 
+    async def generate_structured_with_rag(
+        self,
+        *,
+        bot_id: int,
+        prompt: str,
+        system_prompt: str,
+        model_name: str,
+        response_schema: type[StructuredResult],
+        temperature: float = 0.0,
+        max_tokens: int = 1_200,
+    ) -> tuple[StructuredResult, list[RAGCitation]]:
+        """한 번의 Interactions File Search 호출에서 계획 JSON과 같은 호출 인용을 받는다.
+
+        D-1의 Gemini 3.5 Flash-Lite는 native ``response_format`` JSON과 File Search를
+        같이 쓰면 file_citation을 반환하지 않았다. 먼저 짧은 자연어 근거를 생성해
+        citation annotation을 붙이고, 뒤의 ``[PLAN]`` JSON만 Pydantic으로 검증한다.
+        """
+        store_name = await self.ensure_store()
+        tool = {
+            "type": "file_search",
+            "file_search_store_names": [store_name],
+            "metadata_filter": f"bot_id = {bot_id}",
+            "top_k": get_settings().RAG_TOP_K,
+        }
+
+        t_gen = time.perf_counter()
+        interaction = await self._client.aio.interactions.create(
+            model=model_name,
+            input=prompt,
+            system_instruction=(system_prompt or "")
+            + _CITATION_INSTRUCTION
+            + """
+
+[출력 형식]
+먼저 [EVIDENCE] 태그 안에 검색 문서에 근거한 한두 문장만 작성한다.
+그 다음 [PLAN] 태그 안에 기존 계약의 JSON 객체만 작성한다. JSON 외 설명은 EVIDENCE에만 둔다.
+""",
+            tools=[tool],
+            generation_config={
+                "temperature": temperature,
+                "max_output_tokens": max_tokens,
+            },
+            # D-1 프로토타입은 DB와 함께 Gemini의 서버 대화 상태도 남기지 않는다.
+            store=False,
+        )
+        gen_ms = (time.perf_counter() - t_gen) * 1000
+
+        output_text = getattr(interaction, "output_text", "") or ""
+        envelope_match = _PLAN_ENVELOPE_RE.search(output_text)
+        if not envelope_match:
+            raise RuntimeError("RAG 기반 맥락 보완 응답에 [PLAN] JSON이 없습니다.")
+        raw_json = _CITATION_MARKER_RE.sub("", envelope_match.group(1))
+        fence_match = _JSON_FENCE_RE.match(raw_json)
+        if fence_match:
+            raw_json = fence_match.group(1)
+        if not raw_json.strip():
+            raise RuntimeError("RAG 기반 맥락 보완 응답이 비어 있습니다.")
+        result = response_schema.model_validate_json(raw_json)
+
+        try:
+            citations = _citations_from_interaction(interaction, approximate=False)
+        except Exception as exc:
+            logger.debug("구조화 Interactions 인용 추출 실패: %s", exc)
+            citations = []
+
+        logger.info(
+            "gemini structured Interactions elapsed=%.1fms model=%s bot_id=%s citations=%d",
+            gen_ms,
+            model_name,
+            bot_id,
+            len(citations),
+        )
+        return result, citations
+
     async def generate_stream_with_rag(
         self,
         bot_id: int,
@@ -608,31 +729,12 @@ class GeminiRAGService(BaseRAGService):
                 system_instruction=instruction,
                 tools=[tool],
             )
-            dump = interaction.model_dump(mode="json", exclude_none=True)
         except Exception as e:
             logger.warning("search_citations 호출 실패 bot_id=%s: %s", bot_id, e)
             return []
 
-        citations: list[RAGCitation] = []
         try:
-            for step in dump.get("steps") or []:
-                for content in step.get("content") or []:
-                    for ann in content.get("annotations") or []:
-                        if ann.get("type") != "file_citation":
-                            continue
-                        source = ann.get("source")
-                        citations.append(
-                            RAGCitation(
-                                title=ann.get("file_name"),
-                                content=source[:800] if source else None,
-                                uri=ann.get("document_uri"),
-                                page_number=ann.get("page_number"),
-                                approximate=True,
-                            )
-                        )
-            # 같은 청크의 반복 인용을 합치고, 많이 참고한 청크가 앞에 오게 정렬한다.
-            citations = _dedupe_citations(citations)
-            citations.sort(key=lambda c: c.cite_count, reverse=True)
+            citations = _citations_from_interaction(interaction, approximate=True)
         except Exception as e:
             logger.warning("search_citations 파싱 실패 bot_id=%s: %s", bot_id, e)
             return []
