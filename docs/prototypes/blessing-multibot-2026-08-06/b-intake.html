@@ -1,0 +1,1719 @@
+<!DOCTYPE html>
+<html lang="ko" data-vp="desktop">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 멀티봇 · B안 접수</title>
+<meta name="description" content="묻기 전에 한 줄만 적어라. 그 한 줄이 담당을 정한다. 멀티봇 클라이언트 시안 B.">
+<!--
+  B안 「접수 (The Intake)」 · ui-ux-pro-max
+
+  Step 2 검색: search.py "search first navigation intake form" / "progressive disclosure
+  routing to the right agent" / "empty state permission gate" --design-system
+
+  채택 2건
+    1. Marketplace/Directory 패턴의 "Search bar is the CTA. Reduce friction to search."
+       이 안의 명제와 정확히 같다. 입력이 화면의 주인공이고 목록은 결과다.
+    2. accessibility-critical 활자 무드(Atkinson Hyperlegible 행). 대상에 부모 세대
+       실무자가 있다. 폰트는 브랜드 락이라 바꾸지 않고 기준 활자 크기를 A안보다 올렸다.
+       본문 15.5px, 입력 30px, 행간 1.9.
+
+  기각
+    Funnel 3단계 색(빨강 문제 / 주황 과정 / 초록 해결) · Parallax Storytelling ·
+    3D 하이퍼리얼 · Inter · #2563EB / #F97316. 팔레트 락과 모션 다이얼 위반이고
+    규정·상담 화면에서 스크롤 연출은 신뢰를 깎는다.
+
+  Dials: DESIGN_VARIANCE 4 / MOTION_INTENSITY 2 / VISUAL_DENSITY 2
+
+  명제
+    고르는 화면을 없앤다. 묻기 전에 한 줄만 적으면 그 한 줄이 담당을 정한다.
+
+  A안(권)과의 구조 차이
+    A  2단 · 좌 긴 색인 + 우 발췌 · 밀도 6 · 근거는 오른쪽 패널
+    B  1단 중앙 · 화면의 대부분이 여백 · 밀도 2 · 근거는 답변 바로 아래 인라인
+    사이드바를 한 곳도 쓰지 않는다.
+
+  화면의 봇 이름, 문서명, 규정 내용, 인용문, 계정 정보는 전부 UI 검토용 예시다.
+  실제 규정이나 승인 문서가 아니다.
+
+  해시: #home/n40/dark/mobile 처럼 순서 무관 다중 세그먼트.
+    화면   login home bot start thread mypage guide states
+    답변   admin context norag safety handoff
+    규모   n0 n3 n14 n40
+    테마   light dark auto      폭   desktop mobile
+-->
+<script>
+  try {
+    var t = localStorage.getItem('bm-b-theme');
+    if (t) document.documentElement.setAttribute('data-theme', t);
+    var m = localStorage.getItem('bm-b-motion');
+    if (m) document.documentElement.setAttribute('data-motion', m);
+  } catch (e) {}
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  color-scheme:light;
+  --motion:1;
+
+  --paper:#F8F5FA; --surface:#FFFFFF; --surface-2:#F1ECF6;
+  --ink:#3B2560; --ink-2:#5B4B78; --ink-3:#6F6285;
+  --rule:#E3DCEC; --rule-2:#CCC1DC;
+  --act:#523A82; --on-act:#FFFFFF; --act-soft:#EDE6F7;
+  --gold:#C9A227; --gold-ink:#6B5000; --gold-soft:#FBF3DC;
+  --mark:#F4E7BE;
+  --danger:#A3231B; --danger-soft:#FBEDEB;
+  --ok:#256B4B;
+  --chrome:#100C18; --chrome-2:#1B1526; --chrome-line:#2A2238;
+  --chrome-fg:#B7ABC9; --chrome-fg-2:#EDE7F5;
+
+  /* 라운드 규칙: 규칙선과 접수 행은 0, 버튼은 8, 칩은 full. 입력에는 박스가 없다. */
+  --r:8px; --r-pill:999px;
+
+  --f:'Pretendard Variable',Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --f-dsp:'Paperlogy','Pretendard Variable',Pretendard,'Apple SD Gothic Neo',sans-serif;
+  --f-mono:'Geist Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#15121B; --surface:#1E1926; --surface-2:#272031;
+  --ink:#EDEAF2; --ink-2:#A79FB4; --ink-3:#9C93AB;
+  --rule:#332C3E; --rule-2:#473F55;
+  --act:#C0AAE8; --on-act:#1A0F28; --act-soft:#241C33;
+  --gold:#D9B368; --gold-ink:#E4C688; --gold-soft:#2A2114;
+  --mark:#4C3D12;
+  --danger:#F2B8B5; --danger-soft:#2E1917;
+  --ok:#7FCBA4;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme]){
+    color-scheme:dark;
+    --paper:#15121B; --surface:#1E1926; --surface-2:#272031;
+    --ink:#EDEAF2; --ink-2:#A79FB4; --ink-3:#9C93AB;
+    --rule:#332C3E; --rule-2:#473F55;
+    --act:#C0AAE8; --on-act:#1A0F28; --act-soft:#241C33;
+    --gold:#D9B368; --gold-ink:#E4C688; --gold-soft:#2A2114;
+    --mark:#4C3D12;
+    --danger:#F2B8B5; --danger-soft:#2E1917;
+    --ok:#7FCBA4;
+  }
+}
+@media (prefers-reduced-motion:reduce){ :root:not([data-motion]){ --motion:0 } }
+:root[data-motion="off"]{ --motion:0 }
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:var(--f);background:var(--chrome);color:var(--ink);
+  -webkit-font-smoothing:antialiased;word-break:keep-all;
+  display:flex;min-height:100dvh;overflow:hidden
+}
+button,input,textarea{font:inherit;color:inherit}
+button{background:none;border:0;cursor:pointer}
+ol,ul{list-style:none}
+:focus-visible{outline:2px solid var(--act);outline-offset:2px;border-radius:3px}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ── 프로토타입 크롬 ─────────────────────────────────────────────────── */
+.pr{
+  width:188px;flex:0 0 188px;background:var(--chrome);color:var(--chrome-fg);
+  border-right:1px solid var(--chrome-line);padding:16px 13px;overflow-y:auto;
+  display:flex;flex-direction:column;gap:15px
+}
+.pr-h{font-size:12px;color:var(--chrome-fg-2);letter-spacing:.02em}
+.pr-h b{font-family:var(--f-mono);color:var(--gold);margin-right:5px}
+.pr-warn{font-size:10.5px;line-height:1.55;color:var(--chrome-fg);
+         border-left:2px solid var(--gold);padding-left:8px}
+.pr-g{display:flex;flex-direction:column;gap:5px}
+.pr-l{font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#6C6180}
+.pr-row{display:flex;flex-wrap:wrap;gap:3px}
+.pr button{
+  font-size:11.5px;color:var(--chrome-fg);background:var(--chrome-2);
+  border:1px solid transparent;border-radius:6px;padding:5px 8px;min-height:29px;
+  text-align:left;transition:background calc(.13s * var(--motion)) ease
+}
+.pr button:hover{background:#241C33}
+.pr button[aria-pressed="true"]{background:#2E2440;border-color:#4A3D63;color:#fff;font-weight:600}
+.pr-hash{font-family:var(--f-mono);font-size:10px;color:#6C6180;margin-top:auto;word-break:break-all}
+.pr-open{
+  position:fixed;right:13px;bottom:13px;z-index:40;display:none;
+  width:42px;height:42px;border-radius:var(--r-pill);background:var(--chrome);
+  color:var(--chrome-fg-2);border:1px solid var(--chrome-line);
+  align-items:center;justify-content:center
+}
+@media (max-width:1099px){
+  .pr{position:fixed;inset:0 auto 0 0;z-index:41;transform:translateX(-100%);
+      transition:transform calc(.18s * var(--motion)) ease}
+  body[data-pr="open"] .pr{transform:none}
+  .pr-open{display:flex}
+}
+
+.stage{flex:1;min-width:0;display:flex;align-items:stretch;justify-content:center}
+@media (min-width:1100px){ .stage{padding:22px} }
+.app{
+  container-type:inline-size;container-name:app;
+  width:100%;max-width:1420px;background:var(--paper);color:var(--ink);
+  display:flex;flex-direction:column;overflow:hidden;position:relative
+}
+@media (min-width:1100px){
+  .app{border-radius:var(--r);box-shadow:0 24px 70px -28px rgba(0,0,0,.65)}
+}
+html[data-vp="mobile"] .app{max-width:390px}
+
+.screen{display:none;flex:1;min-height:0;flex-direction:column}
+.screen[data-on]{display:flex}
+.scroll{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+
+/* B안의 본문은 한 단이고 가운데에 선다. 사이드바를 한 곳도 쓰지 않는다. */
+.mid{width:100%;max-width:684px;margin:0 auto;padding:0 20px}
+@container app (min-width:700px){ .mid{padding:0 28px} }
+
+/* ── 앱바 ─────────────────────────────────────────────────────────── */
+.bar{
+  flex:0 0 auto;display:flex;align-items:center;gap:9px;
+  padding:12px 16px;border-bottom:1px solid var(--rule);background:var(--surface)
+}
+.bar .sp{margin-left:auto}
+.em{width:26px;height:26px;flex:0 0 auto}
+.wm{font-family:var(--f-dsp);font-size:14.5px;font-weight:700;letter-spacing:-.3px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.barbtn{font-size:13px;color:var(--ink-2);padding:6px 10px;border-radius:var(--r);
+        min-height:34px;transition:background calc(.13s * var(--motion)) ease}
+.barbtn:hover{background:var(--surface-2)}
+.iconbtn{
+  width:34px;height:34px;border-radius:var(--r);color:var(--ink-2);
+  display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;
+  transition:background calc(.13s * var(--motion)) ease
+}
+.iconbtn:hover{background:var(--surface-2)}
+.ico{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.6;
+     stroke-linecap:round;stroke-linejoin:round}
+.ico-sm{width:15px;height:15px}
+
+/* ── 활자 (A안보다 한 단계 크다) ──────────────────────────────────── */
+.dsp{font-family:var(--f-dsp);font-weight:900;font-size:clamp(22px,3.4cqw,31px);
+     line-height:1.2;letter-spacing:-1px;text-wrap:balance}
+.lede{font-size:17px;line-height:1.85;letter-spacing:-.2px;color:var(--ink-2);max-width:58ch}
+.body{font-size:15.5px;line-height:1.9;color:var(--ink-2);max-width:58ch}
+.gloss{font-size:13px;line-height:1.7;color:var(--ink-3)}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  min-height:44px;padding:0 18px;border-radius:var(--r);font-size:14.5px;font-weight:600;
+  transition:background calc(.14s * var(--motion)) ease, transform calc(.08s * var(--motion)) ease
+}
+.btn:active{transform:translateY(1px)}
+.btn-act{background:var(--act);color:var(--on-act)}
+.btn-act:hover{background:#452F70}
+:root[data-theme="dark"] .btn-act:hover{background:#CDBBEE}
+.btn-line{border:1px solid var(--rule-2);color:var(--ink-2)}
+.btn-line:hover{background:var(--surface-2)}
+.btn-sm{min-height:36px;padding:0 13px;font-size:13px}
+.tag{display:inline-flex;align-items:center;font-size:11px;font-weight:600;
+     padding:3px 8px;border-radius:var(--r-pill);white-space:nowrap}
+.tag-act{background:var(--act-soft);color:var(--act)}
+.tag-mute{background:var(--surface-2);color:var(--ink-3)}
+.tag-gold{background:var(--gold-soft);color:var(--gold-ink)}
+
+/* 능력 표기 */
+.caps{display:flex;flex-direction:column;gap:5px}
+.cap{font-size:12.5px;line-height:1.6;color:var(--ink-2);padding-left:10px;
+     border-left:2px solid var(--rule-2)}
+.cap[data-k="strict"]{border-left-color:var(--gold)}
+.cap[data-k="off"]{border-left-color:var(--danger);color:var(--danger)}
+
+/* ── 접수 (메인) ─────────────────────────────────────────────────────
+   화면에 있는 것은 입력 한 줄과 그 아래 결과뿐이다. 나머지는 여백이다.  */
+.intake{padding:clamp(34px,7cqh,72px) 0 28px}
+.fact{
+  font-family:var(--f-mono);font-size:11.5px;letter-spacing:.02em;color:var(--ink-3);
+  margin-bottom:13px;font-variant-numeric:tabular-nums
+}
+.fact b{color:var(--ink-2);font-weight:500}
+.ask{position:relative}
+.ask label{display:block}
+.ask input{
+  width:100%;border:0;border-bottom:2px solid var(--ink);background:none;
+  font-family:var(--f-dsp);font-weight:700;letter-spacing:-.9px;
+  font-size:clamp(21px,3.4cqw,30px);line-height:1.35;
+  padding:8px 0 13px;color:var(--ink)
+}
+.ask input::placeholder{color:var(--ink-3);font-weight:400;letter-spacing:-.4px}
+.ask input:focus{outline:0;border-bottom-color:var(--act)}
+.ask input:focus + .ask-go{border-color:var(--act);color:var(--act)}
+.ask-row{display:flex;gap:12px;align-items:flex-end}
+.ask-go{
+  flex:0 0 auto;width:48px;height:48px;border:1px solid var(--rule-2);border-radius:var(--r);
+  color:var(--ink-2);display:inline-flex;align-items:center;justify-content:center;
+  transition:background calc(.13s * var(--motion)) ease, border-color calc(.13s * var(--motion)) ease
+}
+.ask-go:hover{background:var(--act);border-color:var(--act);color:var(--on-act)}
+.ask-note{font-size:14.5px;line-height:1.85;color:var(--ink-2);margin-top:18px;max-width:54ch}
+.ask-note b{color:var(--ink);font-weight:600}
+
+.res{margin-top:38px}
+.res-h{
+  display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;
+  border-top:1px solid var(--ink);padding-top:12px
+}
+.res-h h2{font-family:var(--f-dsp);font-size:15px;font-weight:700;letter-spacing:-.3px}
+.res-h .k{font-family:var(--f-mono);font-size:11px;color:var(--ink-3);margin-left:auto}
+.res-why{font-size:13px;line-height:1.7;color:var(--ink-3);margin-top:6px;max-width:54ch}
+.res-why b{color:var(--ink-2);font-weight:600}
+
+.desks{margin-top:6px}
+.desks li{border-bottom:1px solid var(--rule)}
+.desk{
+  width:100%;text-align:left;display:grid;grid-template-columns:minmax(0,1fr);gap:5px;
+  padding:15px 12px 16px 0;transition:background calc(.12s * var(--motion)) ease
+}
+.desk:hover{background:var(--surface-2)}
+.desk .n{font-family:var(--f-dsp);font-size:16.5px;font-weight:700;letter-spacing:-.4px;
+         display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.desk .hit{font-size:14px;line-height:1.7;color:var(--ink-2)}
+.desk .hit b{color:var(--ink);font-weight:600}
+.desk .hit mark{background:var(--mark);color:inherit;padding:1px 2px}
+.desk .d{font-family:var(--f-mono);font-size:11px;color:var(--ink-3)}
+.desk .caps{margin-top:2px}
+@container app (min-width:600px){
+  .desk{grid-template-columns:minmax(0,1fr) auto;column-gap:20px}
+  .desk .n{grid-column:1;grid-row:1}
+  .desk .hit{grid-column:1;grid-row:2}
+  .desk .caps{grid-column:1;grid-row:3}
+  .desk .d{grid-column:2;grid-row:1;text-align:right;padding-top:5px}
+}
+.desk-rank{
+  font-family:var(--f-mono);font-size:11px;color:var(--gold-ink);
+  border-left:2px solid var(--gold);padding-left:8px;margin-right:2px
+}
+
+.rest{
+  margin-top:18px;border-top:1px solid var(--rule);padding-top:13px
+}
+.rest summary{
+  font-size:13.5px;color:var(--ink-2);cursor:pointer;list-style:none;
+  display:flex;align-items:center;gap:8px;min-height:32px
+}
+.rest summary::-webkit-details-marker{display:none}
+.rest summary::before{content:"+";font-family:var(--f-mono);color:var(--ink-3);width:12px}
+.rest[open] summary::before{content:"-"}
+.rest ul{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.rest li{}
+.rest .r{
+  font-size:12.5px;padding:6px 11px;border-radius:var(--r-pill);
+  border:1px solid var(--rule);color:var(--ink-3);min-height:32px;
+  display:inline-flex;align-items:center;
+  transition:border-color calc(.13s * var(--motion)) ease
+}
+.rest .r:hover{border-color:var(--rule-2);color:var(--ink-2)}
+
+.seeds{margin-top:30px;border-top:1px solid var(--rule);padding-top:14px}
+.seeds p{font-size:13px;color:var(--ink-3);margin-bottom:4px}
+.seeds li{border-bottom:1px solid var(--rule)}
+.seeds button{
+  width:100%;text-align:left;padding:12px 10px 12px 0;font-size:15px;line-height:1.6;
+  display:flex;justify-content:space-between;gap:16px;align-items:baseline;
+  transition:background calc(.12s * var(--motion)) ease
+}
+.seeds button:hover{background:var(--surface-2)}
+.seeds .s{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);flex:0 0 auto}
+
+.blank{border:1px dashed var(--rule-2);border-radius:var(--r);padding:24px 20px;margin-top:22px}
+.blank h3{font-family:var(--f-dsp);font-size:16px;font-weight:700;letter-spacing:-.3px}
+.blank p{font-size:14px;line-height:1.8;color:var(--ink-2);margin-top:8px;max-width:50ch}
+.blank .cta{margin-top:17px}
+.cta{display:flex;flex-wrap:wrap;gap:9px}
+
+.narrow{
+  margin-top:18px;border-left:2px solid var(--act);padding:2px 0 2px 13px
+}
+.narrow p{font-size:14.5px;line-height:1.8;color:var(--ink-2)}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.chip{
+  font-size:13px;padding:8px 13px;border-radius:var(--r-pill);
+  border:1px solid var(--rule-2);color:var(--ink-2);min-height:36px;
+  display:inline-flex;align-items:center;
+  transition:background calc(.13s * var(--motion)) ease
+}
+.chip:hover{background:var(--surface-2)}
+
+/* ── 창구 상세 ────────────────────────────────────────────────────── */
+.sec{margin-top:30px}
+.sec h2{font-family:var(--f-dsp);font-size:15px;font-weight:700;letter-spacing:-.3px;
+        border-top:1px solid var(--ink);padding-top:12px}
+.sec .n{font-size:13px;line-height:1.7;color:var(--ink-3);margin-top:6px;max-width:54ch}
+.meta{border-top:1px solid var(--ink);margin-top:26px}
+.meta > div{display:grid;grid-template-columns:minmax(0,1fr);gap:2px;
+            padding:11px 0;border-bottom:1px solid var(--rule)}
+@container app (min-width:600px){
+  .meta > div{grid-template-columns:132px minmax(0,1fr);column-gap:18px;align-items:baseline}
+}
+.meta dt{font-size:12px;font-weight:700;color:var(--ink-3)}
+.meta dd{font-size:14.5px;line-height:1.7;color:var(--ink-2)}
+
+/* 대조 블록 */
+.diff{margin-top:26px;border-top:1px solid var(--ink);padding-top:12px}
+.diff h2{font-family:var(--f-dsp);font-size:15px;font-weight:700;letter-spacing:-.3px}
+.diff > p{font-size:13px;line-height:1.7;color:var(--ink-3);margin-top:6px;max-width:54ch}
+.diff-l{margin-top:14px}
+.diff-l > div{padding:13px 0;border-bottom:1px solid var(--rule)}
+.diff-l h3{font-size:12px;font-weight:700;color:var(--ink-2);
+           display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.diff-l h3 span{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);font-weight:400}
+.diff-l ul{margin-top:8px;display:flex;flex-direction:column;gap:7px}
+.diff-l li{font-size:14px;line-height:1.65;color:var(--ink-2);padding-left:11px;position:relative}
+.diff-l li::before{content:"";position:absolute;left:0;top:10px;width:6px;height:1px;background:var(--rule-2)}
+.diff-l > div[data-only] li::before{background:var(--gold);height:2px;top:9px}
+.diff-l li em{font-style:normal;color:var(--act);font-weight:600}
+.diff-l .none{font-size:13px;color:var(--ink-3);margin-top:8px;line-height:1.7}
+
+.qlist{margin-top:12px;border-top:1px solid var(--rule)}
+.qlist li{border-bottom:1px solid var(--rule)}
+.qlist button{
+  width:100%;text-align:left;padding:12px 10px 12px 0;font-size:14.5px;line-height:1.6;
+  display:flex;justify-content:space-between;gap:16px;align-items:baseline;
+  transition:background calc(.12s * var(--motion)) ease
+}
+.qlist button:hover{background:var(--surface-2)}
+.qlist .c{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);flex:0 0 auto}
+.docs{margin-top:12px;border-top:1px solid var(--rule)}
+.docs > div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:baseline;
+            padding:10px 0;border-bottom:1px solid var(--rule)}
+.docs .t{font-size:14px;color:var(--ink-2)}
+.docs .v{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3)}
+.nolist{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.nolist li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.7;color:var(--ink-2)}
+.nolist .ico{color:var(--ink-3);margin-top:3px;flex:0 0 auto}
+
+/* ── 대화 (근거가 답변 바로 아래 인라인. 사이드바 없음) ──────────── */
+.chat-bar{
+  flex:0 0 auto;border-bottom:1px solid var(--rule);background:var(--surface);
+  padding:10px 16px 11px;display:flex;align-items:flex-start;gap:10px
+}
+.chat-bar .who{min-width:0;flex:1}
+.chat-bar .who .n{display:block;font-family:var(--f-dsp);font-size:14.5px;font-weight:700;letter-spacing:-.3px}
+.chat-bar .who .c{display:block;font-size:11.5px;color:var(--ink-3);margin-top:2px;line-height:1.5}
+.chat-bar .who .c[data-k="strict"]{color:var(--gold-ink)}
+.chat-bar .em{width:25px;height:25px;margin-top:2px}
+
+.msgs{padding:24px 0 40px;display:flex;flex-direction:column;gap:26px}
+.mine{align-self:flex-end;max-width:86%;background:var(--act-soft);color:var(--ink);
+      border-radius:var(--r);padding:12px 15px;font-size:15.5px;line-height:1.75}
+.nomem{font-size:12.5px;line-height:1.7;color:var(--ink-3);
+       border-top:1px solid var(--rule);padding-top:10px}
+.ans .lead{font-size:17.5px;line-height:1.78;letter-spacing:-.2px}
+.ans .part{margin-top:18px}
+.ans .part-l{font-size:11.5px;font-weight:700;color:var(--ink-3);letter-spacing:.02em}
+.ans .part-b{font-size:15.5px;line-height:1.9;color:var(--ink-2);margin-top:6px}
+.ans .part-b strong{color:var(--ink);font-weight:600}
+.ans sup{font-family:var(--f-mono);font-size:9.5px;color:var(--act);font-weight:500;
+         padding:0 1px 0 2px;vertical-align:super}
+.ans sup::before{content:"[" attr(data-cite) "]"}
+.steps{counter-reset:s;margin-top:6px;display:flex;flex-direction:column;gap:9px}
+.steps li{counter-increment:s;display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;
+          font-size:15.5px;line-height:1.8;color:var(--ink-2)}
+.steps li::before{content:counter(s,decimal-leading-zero);font-family:var(--f-mono);
+                  font-size:11.5px;color:var(--gold-ink);padding-top:5px}
+.adults{counter-reset:a;margin-top:8px;display:flex;flex-direction:column;gap:8px}
+.adults li{counter-increment:a;display:grid;grid-template-columns:22px minmax(0,1fr);gap:9px;
+           font-size:15px;line-height:1.75;color:var(--ink-2)}
+.adults li::before{content:counter(a);font-family:var(--f-mono);font-size:11.5px;
+                   color:var(--ink-3);padding-top:5px}
+.safety{border-left:2px solid var(--danger);padding-left:14px}
+.safety .lead{color:var(--danger)}
+.hotline{margin-top:15px;border:1px solid var(--danger);border-radius:var(--r);
+         padding:13px 15px;background:var(--danger-soft)}
+.hotline b{font-size:15px;color:var(--danger)}
+.hotline p{font-size:13px;line-height:1.7;color:var(--ink-2);margin-top:5px}
+
+/* 이관 = 접수를 다시 하는 것이다. 이 안의 이관은 접수 행을 대화 안에 그대로 되민다. */
+.pass{border-left:2px solid var(--act);padding-left:14px}
+.pass-in{margin-top:16px;border-top:1px solid var(--ink);padding-top:12px}
+.pass-in .l{font-size:11.5px;font-weight:700;color:var(--ink-3)}
+.pass-warn{font-size:13px;line-height:1.7;color:var(--ink-3);margin-top:13px;
+           border-top:1px solid var(--rule);padding-top:10px}
+
+/* 근거 인라인 */
+.evid{margin-top:20px;border-top:1px solid var(--rule);padding-top:13px}
+.evid-state{font-size:12px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:7px}
+.evid-state .dot{width:6px;height:6px;border-radius:var(--r-pill);background:var(--gold);flex:0 0 auto}
+.evid-state[data-state="wait"] .dot{background:var(--rule-2);
+  animation:pulse 1.4s calc(var(--motion) * 1s) infinite steps(1,end)}
+.evid-state[data-state="none"] .dot{background:var(--rule-2)}
+@keyframes pulse{0%,49%{opacity:1}50%,100%{opacity:.28}}
+:root[data-motion="off"] .evid-state[data-state="wait"] .dot{animation:none}
+.sk{background:var(--surface-2);border-radius:4px;height:11px;margin-top:9px}
+.sk.w1{width:80%} .sk.w2{width:62%} .sk.w3{width:71%}
+.cites{display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin-top:4px}
+@container app (min-width:640px){ .cites{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 22px} }
+.cite{border-top:1px solid var(--rule);padding-top:11px;margin-top:11px}
+.cite .h{display:flex;gap:8px;align-items:baseline}
+.cite .num{font-family:var(--f-mono);font-size:11px;color:var(--act);flex:0 0 auto;padding-top:1px}
+.cite .t{font-size:13.5px;font-weight:600;line-height:1.45}
+.cite .v{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);margin-top:2px;display:block}
+.cite .x{font-size:13px;line-height:1.8;color:var(--ink-2);margin-top:8px;
+         border-left:2px solid var(--gold);padding-left:11px}
+.cite .x mark{background:var(--mark);color:inherit;padding:1px 0}
+.approx{font-size:12.5px;line-height:1.7;color:var(--ink-3);background:var(--surface-2);
+        border-radius:var(--r);padding:10px 12px;margin-top:10px}
+.found{margin-top:14px;border-top:1px solid var(--rule);padding-top:11px}
+.found summary{font-size:12.5px;color:var(--ink-3);cursor:pointer;list-style:none;
+               display:flex;align-items:center;gap:7px;min-height:28px}
+.found summary::-webkit-details-marker{display:none}
+.found summary::before{content:"+";font-family:var(--f-mono);color:var(--ink-3)}
+.found[open] summary::before{content:"-"}
+.found ul{margin-top:9px;display:flex;flex-direction:column;gap:6px}
+.found li{font-size:12.5px;color:var(--ink-3);line-height:1.6}
+
+.fups{margin-top:22px;border-top:1px solid var(--rule);padding-top:13px}
+.fups-l{font-size:11.5px;font-weight:700;color:var(--ink-3)}
+.fb{display:flex;align-items:center;gap:5px;margin-top:20px;
+    border-top:1px solid var(--rule);padding-top:12px}
+.fb button{font-size:12.5px;color:var(--ink-3);padding:7px 11px;border-radius:var(--r-pill);
+           border:1px solid transparent;min-height:34px;
+           transition:background calc(.13s * var(--motion)) ease}
+.fb button:hover{background:var(--surface-2);color:var(--ink-2)}
+.fb button[aria-pressed="true"]{background:var(--act-soft);border-color:var(--rule-2);color:var(--act)}
+
+.composer{flex:0 0 auto;border-top:1px solid var(--rule);background:var(--surface);padding:12px 0 16px}
+.composer-in{display:flex;gap:9px;align-items:flex-end}
+.composer textarea{
+  flex:1;min-height:46px;max-height:132px;resize:none;padding:12px 14px;
+  border:1px solid var(--rule-2);border-radius:var(--r);background:var(--paper);
+  color:var(--ink);font-size:15.5px;line-height:1.6
+}
+.composer textarea::placeholder{color:var(--ink-3)}
+.composer textarea:focus{outline:2px solid var(--act);outline-offset:-1px;border-color:var(--act)}
+.composer .send{width:46px;height:46px;border-radius:var(--r);background:var(--act);
+                color:var(--on-act);display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto}
+.composer .hint{font-size:12px;color:var(--ink-3);margin-top:8px;line-height:1.6}
+
+/* ── 로그인 ───────────────────────────────────────────────────────── */
+.login-wrap{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;
+            overflow-y:auto;padding:34px 20px}
+.login-form{width:100%;max-width:392px;display:flex;flex-direction:column;gap:17px}
+.login-form .em{width:42px;height:42px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:12px;font-weight:600;color:var(--ink-2)}
+.field .ctrl input{
+  width:100%;min-height:46px;padding:0 14px;border:1px solid var(--rule-2);
+  border-radius:var(--r);background:var(--surface);color:var(--ink);font-size:15.5px
+}
+.field .ctrl input::placeholder{color:var(--ink-3)}
+.field .ctrl input:focus{outline:2px solid var(--act);outline-offset:-1px;border-color:var(--act)}
+.field .help{font-size:12.5px;color:var(--ink-3);line-height:1.6}
+.field .err{font-size:12.5px;color:var(--danger);line-height:1.6}
+.field[data-bad] .ctrl input{border-color:var(--danger)}
+.form-note{font-size:12.5px;line-height:1.8;color:var(--ink-3)}
+
+/* ── 마이페이지 · 읽는 법 · 상태 ──────────────────────────────────── */
+.rows{border-top:1px solid var(--ink);margin-top:12px}
+.rows li{border-bottom:1px solid var(--rule)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;
+     width:100%;text-align:left;padding:13px 0}
+.row .t{font-size:14.5px;font-weight:600}
+.row .g{font-size:12.5px;color:var(--ink-3);line-height:1.6;margin-top:2px}
+.row .v{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3)}
+.sw{width:44px;height:25px;border-radius:var(--r-pill);background:var(--rule-2);
+    position:relative;flex:0 0 auto;transition:background calc(.14s * var(--motion)) ease}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:19px;height:19px;
+           border-radius:var(--r-pill);background:var(--surface);
+           transition:transform calc(.14s * var(--motion)) ease}
+.sw[aria-pressed="true"]{background:var(--act)}
+.sw[aria-pressed="true"]::after{transform:translateX(19px)}
+
+.guide-steps{counter-reset:g;margin-top:16px;display:flex;flex-direction:column;gap:22px}
+.guide-steps li{counter-increment:g;display:grid;grid-template-columns:32px minmax(0,1fr);gap:14px}
+.guide-steps li::before{content:counter(g,decimal-leading-zero);font-family:var(--f-mono);
+                        font-size:12.5px;color:var(--gold-ink);padding-top:4px}
+.guide-steps h3{font-size:15.5px;font-weight:700;letter-spacing:-.2px}
+.guide-steps p{font-size:14.5px;line-height:1.85;color:var(--ink-2);margin-top:6px}
+
+.gal{display:flex;flex-direction:column;gap:36px}
+.gal-h{border-top:1px solid var(--ink);padding-top:12px}
+.gal-h h2{font-family:var(--f-dsp);font-size:15.5px;font-weight:700;letter-spacing:-.3px}
+.gal-h p{font-size:13px;line-height:1.7;color:var(--ink-3);margin-top:6px;max-width:54ch}
+.demo{border:1px solid var(--rule);border-radius:var(--r);padding:16px 17px;
+      margin-top:13px;background:var(--surface)}
+.demo + .demo{margin-top:10px}
+.demo-l{font-family:var(--f-mono);font-size:10px;color:var(--ink-3);margin-bottom:10px;display:block}
+</style>
+</head>
+<body>
+
+<nav class="pr" id="pr" aria-label="프로토타입 컨트롤">
+  <p class="pr-h"><b>B</b> 접수</p>
+  <p class="pr-warn">예시 데이터입니다. 실제 규정이나 승인 문서가 아닙니다.</p>
+  <div class="pr-g" id="pr-screen"><span class="pr-l">화면</span></div>
+  <div class="pr-g" id="pr-answer"><span class="pr-l">답변 유형</span></div>
+  <div class="pr-g" id="pr-scale"><span class="pr-l">창구 수</span></div>
+  <div class="pr-g"><span class="pr-l">폭</span>
+    <div class="pr-row">
+      <button type="button" data-vp-set="desktop">넓게</button>
+      <button type="button" data-vp-set="mobile">좁게</button>
+    </div>
+  </div>
+  <div class="pr-g"><span class="pr-l">테마</span>
+    <div class="pr-row">
+      <button type="button" data-theme-set="light">라이트</button>
+      <button type="button" data-theme-set="dark">다크</button>
+      <button type="button" data-theme-set="auto">자동</button>
+    </div>
+  </div>
+  <div class="pr-g"><span class="pr-l">모션</span>
+    <div class="pr-row">
+      <button type="button" data-motion-set="on">켬</button>
+      <button type="button" data-motion-set="off">끔</button>
+    </div>
+  </div>
+  <code class="pr-hash" id="pr-hash">#home</code>
+</nav>
+<button class="pr-open" id="pr-open" type="button" aria-label="프로토타입 컨트롤 열기">
+  <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+</button>
+
+<div class="stage">
+<div class="app" id="app">
+
+<!-- ═══ 로그인 ═════════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="login" aria-label="로그인">
+  <div class="login-wrap">
+    <form class="login-form" id="login-form" novalidate>
+      <svg class="em" aria-hidden="true"><use href="#em"/></svg>
+      <div>
+        <h1 class="dsp" style="font-size:clamp(21px,3.2cqw,27px)">축복 문서 접수</h1>
+        <p class="lede" style="font-size:15px;margin-top:10px">승인된 문서 13종을 14곳이 나누어 봅니다. 어디에 물어야 하는지는 적어 주시면 찾아 드립니다.</p>
+      </div>
+      <div class="field" id="f-uid">
+        <label for="uid">하나로 계정 아이디</label>
+        <div class="ctrl"><input id="uid" name="userid" type="text" autocomplete="username" placeholder="교회에서 받은 아이디"></div>
+        <p class="help">이메일이나 소셜 계정은 사용하지 않습니다.</p>
+      </div>
+      <div class="field">
+        <label for="pw">비밀번호</label>
+        <div class="ctrl"><input id="pw" name="password" type="password" autocomplete="current-password" placeholder="비밀번호"></div>
+      </div>
+      <button class="btn btn-act" type="submit" style="width:100%">로그인</button>
+      <p class="form-note">로그인하면 대화 기록이 계정에 남습니다. 기록은 답변 품질을 확인하는 데에만 씁니다.</p>
+    </form>
+  </div>
+</section>
+
+<!-- ═══ 접수 (메인) ════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="home" aria-label="접수">
+  <div class="bar">
+    <svg class="em" aria-hidden="true"><use href="#em"/></svg>
+    <span class="wm">축복 문서 접수</span>
+    <span class="sp"></span>
+    <button class="barbtn" type="button" data-go="guide">읽는 법</button>
+    <button class="iconbtn" type="button" aria-label="내 정보" data-go="mypage">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.6 4-5 7-5s5.8 1.4 7 5"/></svg>
+    </button>
+  </div>
+  <div class="scroll">
+    <div class="mid">
+      <div class="intake">
+        <label class="sr" for="line">궁금한 것을 한 줄로 적어 주세요</label>
+        <!-- 가장 큰 활자에는 사실이 들어가야 한다. 입력이 이 화면의 주인공이므로
+             placeholder 를 안내문이 아니라 실제 표제어에서 온 문장으로 쓴다.
+             그 위 한 줄은 문서 수와 갱신일을 적는다. -->
+        <p class="fact" id="fact"></p>
+        <div class="ask">
+          <div class="ask-row">
+            <input id="line" type="search" autocomplete="off" placeholder="축복후보자 서류는 무엇이 필요한가요">
+            <button class="ask-go" type="button" aria-label="찾기" id="go">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+            </button>
+          </div>
+        </div>
+        <p class="ask-note" id="ask-note"></p>
+      </div>
+
+      <div id="res"></div>
+
+      <div class="seeds" id="seeds">
+        <p>이렇게 적으신 분들이 있습니다</p>
+        <ul id="seed-list"></ul>
+      </div>
+
+      <p class="gloss" style="margin:30px 0 48px;border-top:1px solid var(--rule);padding-top:14px;max-width:54ch">
+        어디에 물어야 할지 모르셔도 됩니다. 적어 주시면 찾고, 승인된 자료에 없으면 그렇게 말씀드리고
+        부모님이나 가정부장님께 여쭐 내용을 대신 정리해 드립니다.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 창구 상세 ══════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="bot" aria-label="창구 상세">
+  <div class="bar">
+    <button class="iconbtn" type="button" aria-label="접수로" data-go="home">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <span class="wm">창구 안내</span>
+    <span class="sp"></span>
+  </div>
+  <div class="scroll"><div class="mid" style="padding-top:26px;padding-bottom:56px"><div id="detail"></div></div></div>
+</section>
+
+<!-- ═══ 대화 시작 ══════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="start" aria-label="대화 시작">
+  <div class="chat-bar" id="start-bar"></div>
+  <div class="scroll"><div class="mid" style="padding-top:30px;padding-bottom:20px">
+    <h1 class="dsp">무엇부터 여쭤볼까요</h1>
+    <p class="lede" id="start-lede" style="margin-top:13px"></p>
+    <ul class="qlist" id="sugg" style="margin-top:24px;border-top:1px solid var(--ink)"></ul>
+    <div class="sec">
+      <h2>이 창구가 보는 문서</h2>
+      <div id="start-docs"></div>
+    </div>
+  </div></div>
+  <div class="composer"><div class="mid">
+    <div class="composer-in">
+      <textarea data-composer rows="1" placeholder="궁금한 것을 그대로 적어 주세요" aria-label="질문 입력"></textarea>
+      <button class="send" type="button" aria-label="보내기" data-go="thread">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <p class="hint" id="start-hint"></p>
+  </div></div>
+</section>
+
+<!-- ═══ 대화 ═══════════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="thread" aria-label="대화">
+  <div class="chat-bar" id="thread-bar"></div>
+  <div class="scroll"><div class="mid"><div class="msgs" id="msgs"></div></div></div>
+  <div class="composer"><div class="mid">
+    <div class="composer-in">
+      <textarea data-composer rows="1" placeholder="이어서 물어보세요" aria-label="질문 입력"></textarea>
+      <button class="send" type="button" aria-label="보내기">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6"/></svg>
+      </button>
+    </div>
+    <p class="hint" id="thread-hint"></p>
+  </div></div>
+</section>
+
+<!-- ═══ 마이페이지 ═════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="mypage" aria-label="내 정보">
+  <div class="bar">
+    <button class="iconbtn" type="button" aria-label="접수로" data-go="home">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <span class="wm">내 정보</span>
+    <span class="sp"></span>
+  </div>
+  <div class="scroll"><div class="mid" style="padding-top:26px;padding-bottom:56px">
+    <h1 class="dsp" style="font-size:clamp(20px,3cqw,26px)">한서진 님</h1>
+    <p class="gloss" style="margin-top:8px">하나로 계정 <span class="mono">hsj.2026</span> · 성남교구</p>
+
+    <div class="sec">
+      <h2>지난 접수</h2>
+      <p class="n">적으신 한 줄과 어느 창구로 갔는지가 함께 남습니다.</p>
+      <ul class="rows">
+        <li><button class="row" type="button" data-go="thread"><div><p class="t">축복후보자 서류는 무엇이 필요한가요</p><p class="g">블레싱 네비게이션으로 접수</p></div><span class="v">07.30</span></button></li>
+        <li><button class="row" type="button" data-go="thread"><div><p class="t">성물은 어떻게 보관하나요</p><p class="g">블레싱 네비게이션에서 가정 정책 길잡이로 옮김</p></div><span class="v">07.28</span></button></li>
+        <li><button class="row" type="button" data-go="thread"><div><p class="t">매칭이 늦어져서 마음이 무겁습니다</p><p class="g">마음 나누기로 접수</p></div><span class="v">07.21</span></button></li>
+      </ul>
+    </div>
+
+    <div class="sec">
+      <h2>화면 설정</h2>
+      <ul class="rows">
+        <li><div class="row"><div><p class="t">어두운 화면</p><p class="g">기기 설정을 따릅니다.</p></div><button class="sw" type="button" aria-pressed="false" aria-label="어두운 화면" data-my-theme></button></div></li>
+        <li><div class="row"><div><p class="t">동작 줄이기</p><p class="g">화면 전환과 깜빡임을 멈춥니다.</p></div><button class="sw" type="button" aria-pressed="false" aria-label="동작 줄이기" data-my-motion></button></div></li>
+      </ul>
+    </div>
+
+    <div class="sec">
+      <h2>대화 기록</h2>
+      <p class="n">기록은 답변 품질을 확인하는 데에만 씁니다. 언제든 지울 수 있습니다.</p>
+      <div class="cta" style="margin-top:14px"><button class="btn btn-line btn-sm" type="button">전체 대화 내려받기</button><button class="btn btn-line btn-sm" type="button">전체 대화 지우기</button></div>
+    </div>
+  </div></div>
+</section>
+
+<!-- ═══ 읽는 법 ════════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="guide" aria-label="읽는 법">
+  <div class="bar">
+    <button class="iconbtn" type="button" aria-label="뒤로" data-go="home">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <span class="wm">읽는 법</span>
+    <span class="sp"></span>
+  </div>
+  <div class="scroll"><div class="mid" style="padding-top:26px;padding-bottom:56px">
+    <h1 class="dsp">접수하면 이렇게 됩니다</h1>
+    <p class="lede" style="margin-top:13px">적으신 한 줄이 어느 문서에 있는지 먼저 찾습니다. 창구를 고르는 것은 그다음이고, 고르지 않으셔도 됩니다.</p>
+
+    <ol class="guide-steps">
+      <li><div>
+        <h3>한 줄을 적습니다</h3>
+        <p>완성된 문장이 아니어도 됩니다. 낱말 하나여도 됩니다. 어느 창구에 물어야 하는지 모르셔도 됩니다.</p>
+      </div></li>
+      <li><div>
+        <h3>담당하는 곳을 알려 드립니다</h3>
+        <p>적으신 낱말이 어느 문서에 있는지 찾고, 그 문서를 보는 창구를 순서대로 보여 드립니다. 왜 그 창구인지를 문서 이름으로 함께 적습니다.</p>
+      </div></li>
+      <li><div>
+        <h3>답이 옵니다</h3>
+        <p>질문의 성격에 따라 답의 모양이 넷으로 나뉩니다. 행정 확답, 맥락 확인, 근거 없음, 안전 우선입니다. 근거가 된 문서와 대목은 답변 바로 아래에 붙습니다.</p>
+      </div></li>
+      <li><div>
+        <h3>담당이 아니면 옮겨 드립니다</h3>
+        <p>물으신 창구가 그 문서를 보지 않으면 답을 지어내지 않습니다. 어느 창구가 보는지 알려 드리고, 옮기시면 적으신 한 줄이 그대로 넘어갑니다. 지금까지의 대화와 근거는 넘어가지 않습니다.</p>
+      </div></li>
+    </ol>
+
+    <div class="sec">
+      <h2>답변 상태는 세 가지로만 말합니다</h2>
+      <ul class="nolist">
+        <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg><span><b>근거 있음</b> 문서의 해당 대목을 함께 보여 드립니다.</span></li>
+        <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16v.5"/></svg><span><b>근거 불충분</b> 관련 문서는 있으나 그 질문에 바로 답하는 대목이 없습니다.</span></li>
+        <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span><b>문서에 없음</b> 승인된 자료에 없습니다. 지어내지 않습니다.</span></li>
+      </ul>
+    </div>
+
+    <div class="sec">
+      <h2>확인이 필요할 때 찾아갈 순서</h2>
+      <ol class="adults">
+        <li>부모님</li>
+        <li>믿을 수 있는 가정부장님</li>
+        <li>공직자, 목회자, 사모님</li>
+        <li>신뢰하는 가까운 어른</li>
+      </ol>
+    </div>
+  </div></div>
+</section>
+
+<!-- ═══ 상태 갤러리 ════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="states" aria-label="상태 갤러리">
+  <div class="bar">
+    <button class="iconbtn" type="button" aria-label="뒤로" data-go="home">
+      <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+    </button>
+    <span class="wm">상태 갤러리</span>
+    <span class="sp"></span>
+  </div>
+  <div class="scroll"><div class="mid" style="padding-top:26px;padding-bottom:56px">
+    <div class="gal">
+
+      <div>
+        <div class="gal-h">
+          <h2>창구가 1곳, 3곳, 40곳일 때</h2>
+          <p>이 안은 고르는 화면이 없어서 창구가 많을수록 강해집니다. 무너지는 쪽은 반대편입니다. 창구가 1곳이면 접수 자체가 군더더기입니다.</p>
+        </div>
+        <div class="demo">
+          <span class="demo-l">창구 1곳</span>
+          <p class="body" style="font-size:14px">접수를 건너뜁니다. 적으신 한 줄이 그대로 첫 질문이 되어 대화가 시작됩니다. 이 안의 명제가 성립하지 않는 유일한 규모입니다.</p>
+        </div>
+        <div class="demo">
+          <span class="demo-l">창구 3곳</span>
+          <p class="body" style="font-size:14px">배정이 시시해집니다. 세 곳을 다 보여 주는 편이 빠르므로 접수 아래에 세 창구를 항상 펼쳐 둡니다. 적으면 순서만 바뀝니다.</p>
+        </div>
+        <div class="demo">
+          <span class="demo-l">창구 40곳</span>
+          <p class="body" style="font-size:14px">가장 잘 맞습니다. 40곳을 고르는 것은 불가능하므로 접수가 유일한 진입로가 됩니다. 후보가 4곳을 넘으면 좁히는 질문을 하나 드립니다.</p>
+        </div>
+        <p class="gloss" style="margin-top:12px">해시로 직접 볼 수 있습니다. <code class="mono">#home/n3</code> <code class="mono">#home/n14</code> <code class="mono">#home/n40</code> <code class="mono">#home/n0</code></p>
+      </div>
+
+      <div>
+        <div class="gal-h">
+          <h2>능력 표기 네 가지</h2>
+          <p>사용자의 기대와 어긋나는 쪽만 적습니다. 기대대로 움직이는 창구에는 아무것도 안 적습니다. 그래서 14곳 중 4곳은 표기가 없습니다.</p>
+        </div>
+        <div id="cap-gal"></div>
+      </div>
+
+      <div>
+        <div class="gal-h">
+          <h2>근거의 네 가지 상태</h2>
+          <p>인용 0건과 검색 실패는 다른 상태입니다. 대기도 없는 상태가 아니라 그려야 하는 상태입니다.</p>
+        </div>
+        <div class="demo">
+          <span class="demo-l">확인 중</span>
+          <p class="evid-state" data-state="wait"><span class="dot"></span> 확인 중</p>
+          <div class="sk w1"></div><div class="sk w2"></div><div class="sk w3"></div>
+          <p class="gloss" style="margin-top:11px">대기가 자리를 잡아 늦게 온 카드가 레이아웃을 밀지 않습니다.</p>
+        </div>
+        <div class="demo">
+          <span class="demo-l">참고한 자료 있음</span>
+          <p class="evid-state" data-state="done"><span class="dot"></span> 참고한 자료 1건</p>
+          <div class="cite">
+            <div class="h"><span class="num">1</span><div><span class="t">『축복 행정 규정집』</span><span class="v">2026 개정 · 38쪽</span></div></div>
+            <p class="x">축복후보자 등록 시 <mark>공통으로 제출하는 서류는 등록신청서, 신앙생활 확인서, 보호자 동의서</mark> 세 가지로 한다.</p>
+          </div>
+        </div>
+        <div class="demo">
+          <span class="demo-l">근사 인용</span>
+          <p class="evid-state" data-state="done"><span class="dot"></span> 참고 가능한 자료 2건</p>
+          <p class="approx">표시된 답변이 직접 인용한 자료가 아니라, 같은 질문으로 다시 찾은 자료입니다. 하나라도 근사면 목록 전체를 근사로 봅니다. 각주 번호와 형광펜을 어느 카드에도 붙이지 않습니다.</p>
+        </div>
+        <div class="demo">
+          <span class="demo-l">인용 없음</span>
+          <p class="evid-state" data-state="none"><span class="dot"></span> 인용된 자료 없음</p>
+          <details class="found" open>
+            <summary>검색되었지만 인용되지 않은 자료 3건</summary>
+            <ul><li>『승인 FAQ 모음』</li><li>『교류 기간 운영 지침』 v1.2</li><li>『가정 생활 규정』 v2.0</li></ul>
+          </details>
+          <p class="gloss" style="margin-top:10px">검색이 빈손이었던 것과 다릅니다.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="gal-h">
+          <h2>빈 상태 세 가지</h2>
+          <p>목록이 비어 있을 때, 부딪혔을 때, 링크가 죽었을 때. 셋 다 다음 행동을 함께 적습니다.</p>
+        </div>
+        <div class="demo">
+          <span class="demo-l">볼 창구가 0곳</span>
+          <div class="blank" style="margin-top:0">
+            <h3>아직 열린 창구가 없습니다</h3>
+            <p>계정에 배정된 창구가 없습니다. 소속 교구 가정부에 문의하시면 열어 드립니다. 그동안에도 한 줄은 적어 두실 수 있고, 열리는 대로 답해 드립니다.</p>
+            <div class="cta"><button class="btn btn-line btn-sm" type="button">문의 방법 보기</button></div>
+          </div>
+        </div>
+        <div class="demo">
+          <span class="demo-l">열리지 않는 창구로 배정됨</span>
+          <div class="blank" style="margin-top:0;border-style:solid;border-color:var(--rule)">
+            <h3>『규정 원문 찾기』는 아직 열려 있지 않습니다</h3>
+            <p>적으신 한 줄에 가장 가까운 창구지만 이 계정으로는 열리지 않습니다. 조항 단위 원문 대조를 하는 실무자용 창구입니다. 같은 내용을 『블레싱 네비게이션』이 요약해 답할 수 있습니다.</p>
+            <div class="cta">
+              <button class="btn btn-act btn-sm" type="button" data-bot-go="1">『블레싱 네비게이션』으로 접수</button>
+              <button class="btn btn-line btn-sm" type="button">열어 달라고 요청하기</button>
+            </div>
+          </div>
+        </div>
+        <div class="demo">
+          <span class="demo-l">닫힌 창구 링크</span>
+          <div class="blank" style="margin-top:0;border-style:solid;border-color:var(--rule)">
+            <h3>『2022 규정 안내』는 지금은 답하지 않습니다</h3>
+            <p>2022 승인본은 2026 개정판으로 대체되었습니다. 같은 내용을 『블레싱 네비게이션』이 이어받았습니다. 이전 대화는 내 정보에 그대로 남아 있습니다.</p>
+            <div class="cta">
+              <button class="btn btn-act btn-sm" type="button" data-bot-go="1">『블레싱 네비게이션』으로 가기</button>
+              <button class="btn btn-line btn-sm" type="button" data-go="mypage">지난 접수 보기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="gal-h">
+          <h2>이관은 답변 유형이 아닙니다</h2>
+          <p>답변 네 유형은 질문의 성격이 가릅니다. 이관은 창구의 담당 범위가 가릅니다. 같은 질문도 어느 창구에 했느냐에 따라 이관이 되기도 안 되기도 합니다. 그래서 「근거 없음」의 하위 갈래로 둡니다. 이 안에서는 이관이 접수를 한 번 더 하는 것과 같습니다.</p>
+        </div>
+        <div class="demo">
+          <span class="demo-l">근거 없음 · 어느 창구도 안 봄</span>
+          <p class="body" style="font-size:14px">고정 거절 문장 다음에 부모님께 여쭐 질문 3개와 짧은 정서 지지가 옵니다. 다른 창구를 지목하지 않습니다.</p>
+          <div class="cta" style="margin-top:13px"><button class="btn btn-line btn-sm" type="button" data-go="thread" data-answer="norag">그 화면 보기</button></div>
+        </div>
+        <div class="demo">
+          <span class="demo-l">근거 없음 · 다른 창구가 그 문서를 봄</span>
+          <p class="body" style="font-size:14px">접수 행을 대화 안에 그대로 되밉니다. 메인에서 보던 것과 같은 모양이라 무엇을 고르는지가 분명합니다.</p>
+          <div class="cta" style="margin-top:13px"><button class="btn btn-line btn-sm" type="button" data-go="thread" data-answer="handoff">그 화면 보기</button></div>
+        </div>
+      </div>
+
+      <div>
+        <div class="gal-h">
+          <h2>로그인 오류</h2>
+          <p>인라인으로 알립니다. 무엇이 틀렸는지, 다음에 무엇을 하면 되는지 함께 적습니다.</p>
+        </div>
+        <div class="demo">
+          <div class="field" data-bad>
+            <label for="demo-uid">하나로 계정 아이디</label>
+            <div class="ctrl"><input id="demo-uid" type="text" value="hsj2026" aria-invalid="true" aria-describedby="demo-err"></div>
+            <p class="err" id="demo-err">아이디 또는 비밀번호가 맞지 않습니다. 두 번 더 틀리면 10분 동안 잠깁니다.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div></div>
+</section>
+
+</div>
+</div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><symbol id="em" viewBox="0 0 512 512"><path fill="var(--em-field,#F8C800)" fill-rule="evenodd" d="M239 455C183 448 135 410 109 350C103 338 94 313 94 309C94 308 93 304 92 299C66 195 132 72 226 52C239 49 242 49 256 49C263 49 272 49 275 50C278 51 283 52 286 52C335 62 381 103 406 161C458 281 396 430 284 453C265 457 255 457 239 455Z"/><path fill="var(--em-mark,#003D84)" fill-rule="evenodd" d="M239 455C229 455 204 448 204 446C204 445 203 445 202 445C200 445 199 445 198 444C197 443 196 442 193 442C192 442 191 441 189 439C187 438 185 437 185 437C184 436 182 435 180 434C178 433 176 432 176 432C175 431 168 427 168 425C167 425 167 424 166 424C165 425 139 399 139 398C139 398 138 396 137 395C135 394 134 393 135 393C135 392 134 392 133 391C132 390 131 389 131 388C131 388 130 386 129 385C127 383 126 382 126 381C126 379 122 374 120 372C119 371 118 369 118 368C118 368 117 366 116 365C115 363 114 362 115 362C115 362 114 361 114 360C113 359 112 358 112 358C113 358 113 357 112 356C111 355 111 354 111 354C111 353 108 347 105 340C103 332 99 323 98 319C97 315 95 311 95 311C94 310 93 305 92 296C92 293 91 291 91 291C90 292 89 280 90 278C90 277 90 276 89 276C85 276 88 265 93 261C99 255 99 255 105 259C111 263 110 262 112 276C113 289 116 304 119 313C124 329 126 331 128 325C129 323 132 317 134 312C136 307 140 299 143 294L148 285L145 282C140 278 120 258 119 256C118 254 118 253 121 250L125 247L131 251C152 267 161 270 181 270L194 270L194 273C195 282 194 284 186 287C181 288 178 289 177 289C172 289 171 295 166 330C162 358 161 385 163 386C166 387 186 347 186 341C186 338 189 339 193 343C196 345 199 347 200 348C202 350 202 350 201 354C200 358 189 383 184 393C180 401 180 401 193 409C207 417 235 428 237 425C238 424 238 421 236 415C231 394 224 352 225 350C225 349 228 347 232 345C238 342 247 334 253 326L256 322L260 327C267 336 282 347 286 347C291 347 290 364 285 386C283 393 281 402 281 405C280 408 279 413 278 416C275 424 276 425 281 425C288 423 288 422 293 407C302 375 303 375 304 378C305 382 308 390 311 402C314 412 316 413 321 409C325 406 325 407 315 364C311 347 310 349 325 338C327 337 327 337 329 342C339 369 348 385 352 383C357 380 352 336 343 300C341 289 342 290 330 287L320 284L320 277C319 268 319 269 331 270C348 271 359 267 376 254C382 250 387 247 388 247C390 247 393 250 393 251C393 254 372 279 367 281C364 282 365 285 368 292C372 300 383 326 383 327C383 329 386 330 387 329C388 327 392 316 394 306C396 299 400 276 400 270C400 258 401 256 407 261C412 265 413 265 418 261C420 259 422 258 423 258C424 258 424 277 423 278C422 278 422 282 422 286C422 290 421 293 421 293C420 293 420 294 420 295C420 296 418 303 416 312C413 327 410 335 404 346C403 349 401 355 399 359C397 363 395 367 394 369C393 370 392 371 393 371C393 372 393 372 392 372C391 372 386 379 386 382C386 382 385 383 384 383C384 384 383 384 383 385C384 385 383 387 381 389C379 391 378 393 378 393C378 393 377 395 375 396C373 397 372 399 372 399C372 400 356 417 354 417C354 417 352 418 352 419C350 421 340 429 340 428C340 428 339 429 337 430C336 432 334 433 334 432C333 432 333 433 332 434C332 435 331 435 331 435C331 434 319 440 318 441C318 442 316 442 315 442C311 443 302 447 301 448C301 449 299 449 298 449C297 449 295 450 295 450C293 453 257 457 239 455ZM374 354L377 347L376 342C373 334 367 323 366 323C365 323 365 324 366 342C368 364 368 365 374 354ZM182 330C177 323 175 318 175 315C175 311 177 310 180 314C182 316 185 319 186 321C190 324 190 325 188 329C187 335 185 335 182 330ZM206 332C203 331 199 329 196 327L192 324L192 317C192 313 193 308 193 306C194 303 194 299 194 295C194 287 194 287 204 281C219 272 225 264 222 258C221 255 219 255 214 258C210 261 199 266 197 266C196 266 196 264 196 261C196 248 190 237 182 234C175 232 158 238 148 247L143 251L138 246C132 240 132 240 143 233C164 218 190 210 230 204C275 197 333 210 370 234C378 239 378 238 374 244C370 249 369 249 363 245C338 226 319 231 318 256L317 264L314 264C312 264 307 262 302 260C292 255 291 255 289 259C287 264 295 274 311 282L318 286L319 292C319 298 323 320 324 321C324 322 321 324 314 328C296 337 281 333 264 315C257 307 255 307 252 312C242 327 219 337 206 332ZM328 332C327 331 327 329 326 327L325 323L332 316C340 309 340 309 340 315C339 323 329 336 328 332ZM222 325C228 319 227 308 220 304C211 298 201 311 207 322C210 328 218 330 222 325ZM305 323C312 316 308 302 298 302C288 302 284 320 293 326C297 329 301 328 305 323ZM265 279C283 260 289 245 283 233C277 223 265 222 258 231L256 233L252 229C246 224 242 223 236 226C221 235 226 259 247 279C257 289 256 289 265 279ZM165 263C161 260 159 255 161 248C166 234 182 238 182 253C182 264 173 270 165 263ZM334 262C327 254 331 239 340 239C351 239 356 255 348 262C343 266 337 266 334 262ZM406 245L400 240L400 231C393 129 301 54 218 83C157 105 111 173 111 243C111 249 111 249 106 244C101 240 98 240 93 245C88 251 87 250 88 237C88 231 89 226 89 227C90 227 90 224 90 220C90 216 90 213 91 213C92 213 92 210 92 207C92 203 92 201 93 201C94 201 94 201 94 200C93 199 93 198 94 198C95 196 95 195 96 191C96 189 97 187 97 186C97 186 98 184 99 182C103 169 111 150 118 138C120 135 121 132 120 132C120 132 127 121 131 117C133 115 134 113 133 113C133 113 134 112 135 111C136 111 137 110 137 109C137 108 142 102 155 90C161 84 168 79 168 80C169 80 169 79 170 78C171 77 172 76 172 77C173 77 174 76 175 75C177 74 178 72 179 72C180 72 181 71 183 70C184 69 185 68 186 68C187 68 188 68 188 67C189 67 193 65 198 62C204 60 208 58 208 58C208 57 209 57 211 57C213 57 214 57 214 56C214 55 215 55 216 55C219 55 221 55 220 54C220 53 223 53 226 53C227 53 229 53 229 52C229 51 232 51 237 51C241 51 244 50 244 50C244 49 249 49 256 49C263 49 268 49 268 50C267 50 270 51 273 51C280 51 293 53 293 54C293 55 294 55 295 55C298 55 304 57 306 59C306 60 307 60 308 60C309 59 310 59 310 60C309 60 311 61 314 62C317 63 319 64 319 64C319 65 319 65 320 65C320 64 322 65 322 66C323 66 324 67 324 66C324 66 325 66 325 67C326 67 328 69 330 70C342 76 370 100 368 102C368 103 369 104 371 105C374 107 382 117 382 119C382 119 383 121 384 122C386 123 387 125 387 125C386 125 387 127 389 128C390 130 392 132 392 133C393 135 393 136 394 137C396 140 404 157 407 166C409 170 411 174 411 174C412 175 412 176 412 178C412 179 412 181 413 182C415 186 420 213 422 225C422 229 423 232 423 232C424 232 424 234 424 236C424 238 424 240 424 240C426 240 414 250 412 250C411 250 408 248 406 245ZM197 197C184 190 185 170 198 163C213 155 226 178 215 193C210 199 204 201 197 197ZM309 198C289 194 293 159 313 161C321 162 327 170 327 180C327 192 319 200 309 198ZM255 155C254 147 253 144 250 144C249 144 248 144 247 143C245 141 245 141 241 145C236 150 236 150 240 144C244 138 244 134 239 135C236 135 236 134 238 133C242 129 240 127 234 126C221 126 220 125 230 124C239 123 240 122 240 120C240 118 239 118 237 117C233 115 233 114 238 114C244 115 244 112 240 107C238 105 237 103 237 102C238 102 239 104 241 106C245 111 248 110 247 103C247 99 247 99 248 101C250 107 254 107 254 102C254 88 257 83 257 97C257 102 259 106 261 105C262 104 263 105 263 106C265 110 267 109 271 105C276 100 277 101 273 106C269 111 269 114 273 115C274 116 275 117 274 119C272 122 275 124 283 124C292 124 288 126 279 126C273 126 270 128 273 130C274 132 274 133 272 133C269 135 269 138 272 143C276 148 276 149 271 145C266 140 265 140 264 143C263 144 262 145 261 144C259 143 257 146 257 151C257 161 255 164 255 155ZM260 141C271 138 273 116 263 110C248 101 235 124 247 138C251 142 254 143 260 141Z"/></symbol></svg>
+
+<script>
+(function(){
+'use strict';
+
+/* BOTS 의 필드는 실제 Bot 모델과 1:1 이다.
+     mem ← history_window > 0 · strict ← evidence_policy_mode === 'strict'
+     rag ← use_rag · plan ← plan_required · active ← is_active
+   docs 와 kw 는 API 에 없다. 봇과 문서를 잇는 값, 그리고 어느 질문이 어느 창구 담당인지의
+   판단 근거가 클라이언트로 오지 않는다(README 선행 과제 1, 2). 이 안이 성립하려면 반드시
+   필요한 값이라 예시로 채웠다. 지금 실제로 그릴 수 있는 최대치는 낱말 대조이며 그것은
+   근거가 아니다. */
+
+var BOTS = [
+  { id:1,  n:'블레싱 네비게이션', t:'축복식 절차와 서류를 규정집 기준으로 안내합니다',
+    docs:['축복 행정 규정집 2026 개정','축복후보자 등록 안내 v2.1','봉헌식 시행 안내 v1.0','교류 기간 운영 지침 v1.2','가정 정책 해설 v1.4','승인 FAQ 모음','축복 용어집 v1.1'],
+    mem:true, strict:true, rag:true, plan:'FREE', active:true, up:'2026.07.14' },
+  { id:2,  n:'가정 행정 안내', t:'등록 신청, 양식, 교구 일정을 안내합니다',
+    docs:['축복후보자 등록 안내 v2.1','양식 모음 v3.0','교구 일정 안내 2026','축복 행정 규정집 2026 개정','승인 FAQ 모음'],
+    mem:true, strict:false, rag:true, plan:'FREE', active:true, up:'2026.07.02' },
+  { id:3,  n:'가정 정책 길잡이', t:'가정 정책과 생활 규정을 안내합니다',
+    docs:['가정 정책 해설 v1.4','가정 생활 규정 v2.0','축복 행정 규정집 2026 개정','승인 FAQ 모음'],
+    mem:true, strict:true, rag:true, plan:'FREE', active:true, up:'2026.06.28' },
+  { id:4,  n:'청년 안내', t:'2세 청년의 축복 준비 과정을 안내합니다',
+    docs:['2세 축복 준비 안내 v1.3','축복 행정 규정집 2026 개정','축복 용어집 v1.1','승인 FAQ 모음'],
+    mem:true, strict:false, rag:true, plan:'FREE', active:true, up:'2026.06.11' },
+  { id:5,  n:'日本語 안내', t:'일본어로 축복 안내를 받습니다',
+    docs:['일본어 안내 모음 2022 승인','축복후보자 등록 안내 v2.1'],
+    mem:false, strict:false, rag:true, plan:'FREE', active:true, up:'2026.03.09' },
+  { id:6,  n:'축복 용어 사전', t:'축복 용어의 뜻을 한 낱말씩 찾아 줍니다',
+    docs:['축복 용어집 v1.1'],
+    mem:false, strict:true, rag:true, plan:'FREE', active:true, up:'2026.05.30' },
+  { id:7,  n:'마음 나누기', t:'결론을 내리지 않고 함께 정리합니다',
+    docs:[],
+    mem:true, strict:false, rag:false, plan:'FREE', active:true, up:'2026.07.20' },
+  { id:8,  n:'봉헌식·의례 안내', t:'봉헌식과 탕감봉 시행을 안내합니다',
+    docs:['봉헌식 시행 안내 v1.0','축복 행정 규정집 2026 개정','축복 용어집 v1.1'],
+    mem:true, strict:true, rag:true, plan:'FREE', active:true, up:'2026.04.17' },
+  { id:9,  n:'교류 기간 도우미', t:'매칭 이후 교류 기간의 진행을 안내합니다',
+    docs:['교류 기간 운영 지침 v1.2','승인 FAQ 모음'],
+    mem:true, strict:false, rag:true, plan:'FREE', active:true, up:'2026.05.06' },
+  { id:10, n:'카카오 채널 창구', t:'카카오톡 채널에서 같은 규정집을 안내합니다',
+    docs:['축복 행정 규정집 2026 개정','승인 FAQ 모음','축복후보자 등록 안내 v2.1'],
+    mem:false, strict:false, rag:true, plan:'FREE', active:true, up:'2026.07.11' },
+  { id:11, n:'규정 원문 찾기', t:'규정집 원문을 조항 단위로 대조합니다',
+    docs:['축복 행정 규정집 2026 개정','가정 생활 규정 v2.0','일본어 안내 모음 2022 승인'],
+    mem:false, strict:true, rag:true, plan:'PRO', active:true, up:'2026.07.14' },
+  { id:12, n:'문서 변경 이력', t:'어느 문서가 언제 무엇으로 바뀌었는지 찾아 줍니다',
+    docs:['문서 개정 이력'],
+    mem:true, strict:false, rag:true, plan:'PRO', active:true, up:'2026.07.30' },
+  { id:13, n:'축복 FAQ', t:'검수를 마친 자주 묻는 질문 35건을 답합니다',
+    docs:['승인 FAQ 모음'],
+    mem:true, strict:true, rag:true, plan:'FREE', active:true, up:'2026.07.30' },
+  { id:14, n:'2022 규정 안내', t:'2022 승인본을 안내하던 창구입니다',
+    docs:['축복 행정 규정집 2022 승인'],
+    mem:true, strict:false, rag:true, plan:'FREE', active:false, up:'2025.11.02', succ:1 }
+];
+
+var ENTRIES = [
+  { t:'축복후보자 등록 서류', kw:['서류','등록','신청','제출'], by:[1,2], src:'축복 행정 규정집 2026 · 38', q:'축복후보자 서류는 무엇이 필요한가요?' },
+  { t:'축복식 준비 절차', kw:['절차','준비','축복식','순서'], by:[1], src:'축복 행정 규정집 2026 · 12', q:'축복식 준비 절차가 궁금해요' },
+  { t:'40일 정성', kw:['정성','40일','기간'], by:[1,4], src:'축복 행정 규정집 2026 · 51', q:'40일 정성은 언제부터 시작하나요?' },
+  { t:'봉헌식과 탕감봉', kw:['봉헌식','탕감봉','의례'], by:[8,1], src:'봉헌식 시행 안내 v1.0 · 4', q:'봉헌식은 언제 하나요?' },
+  { t:'매칭 이후 교류 기간', kw:['교류','매칭','연락'], by:[9,1], src:'교류 기간 운영 지침 v1.2 · 7', q:'교류 기간은 얼마나 되나요?' },
+  { t:'보호자 동의서 양식', kw:['양식','동의서','보호자','서류'], by:[2], src:'양식 모음 v3.0 · 22', q:'보호자 동의서 양식은 어디서 받나요?' },
+  { t:'재혼 축복 서류', kw:['재혼','서류'], by:[1,2], src:'축복후보자 등록 안내 v2.1 · 6', q:'재혼 축복은 서류가 어떻게 다른가요?' },
+  { t:'국제 축복 추가 서류', kw:['국제','서류','해외'], by:[1,2], src:'축복후보자 등록 안내 v2.1 · 9', q:'국제 축복은 서류가 더 필요한가요?' },
+  { t:'성물 관리', kw:['성물','보관','관리'], by:[3,8], src:'가정 생활 규정 v2.0 · 15', q:'성물은 어떻게 보관하나요?' },
+  { t:'가정 예배 순서', kw:['예배','가정','순서'], by:[3], src:'가정 정책 해설 v1.4 · 30', q:'가정 예배는 어떤 순서로 하나요?' },
+  { t:'축복 가정의 헌금', kw:['헌금','가정'], by:[3], src:'가정 생활 규정 v2.0 · 41', q:'축복 가정의 헌금은 어떻게 하나요?' },
+  { t:'2세 축복 준비 단계', kw:['2세','청년','준비','나이'], by:[4], src:'2세 축복 준비 안내 v1.3 · 5', q:'2세는 언제부터 축복을 준비하나요?' },
+  { t:'교구 등록 일정', kw:['일정','교구','접수','등록'], by:[2], src:'교구 일정 안내 2026 · 3', q:'올해 등록 접수는 언제인가요?' },
+  { t:'탕감봉 시행 방법', kw:['탕감봉','시행'], by:[8], src:'봉헌식 시행 안내 v1.0 · 11', q:'탕감봉은 어떻게 하나요?' },
+  { t:'축복 용어 뜻풀이', kw:['용어','뜻','정성','탕감','봉헌'], by:[6,1,4], src:'축복 용어집 v1.1', q:'정성이 무슨 뜻인가요?' },
+  { t:'일본어 안내 자료', kw:['일본어','일본','자료'], by:[5], src:'일본어 안내 모음 2022 승인', q:'일본어 자료는 어디서 보나요?' },
+  { t:'규정 개정 이력', kw:['개정','이력','변경','언제'], by:[12], src:'문서 개정 이력', q:'규정집은 언제 개정되었나요?' },
+  { t:'규정 원문 대조', kw:['원문','조항','대조'], by:[11], src:'축복 행정 규정집 2026 전권', q:'제4장 원문을 그대로 보고 싶습니다' },
+  { t:'축복식 복장', kw:['복장','옷','예복','축복식'], by:[1,8], src:'축복 행정 규정집 2026 · 62', q:'축복식 복장은 어떻게 하나요?' },
+  { t:'축복 이후 신고 절차', kw:['신고','이후','등록','절차'], by:[1,2], src:'축복 행정 규정집 2026 · 74', q:'축복식 이후에 무엇을 신고하나요?' },
+
+  { t:'매칭이 늦어져 불안할 때', kw:['불안','늦','매칭','마음'], by:[7], src:'', q:'매칭이 늦어져서 마음이 무겁습니다' },
+  { t:'부모님과 의견이 다를 때', kw:['부모님','의견','갈등','마음'], by:[7], src:'', q:'부모님과 생각이 달라 어렵습니다' },
+  { t:'교류 중 마음이 흔들릴 때', kw:['흔들','교류','마음'], by:[7,9], src:'', q:'교류 중인데 마음이 흔들립니다' },
+  { t:'과거의 일이 걸릴 때', kw:['과거','걱정','마음'], by:[7], src:'', q:'과거의 일 때문에 축복을 받을 수 있을지 걱정됩니다' },
+  { t:'신앙에 확신이 없을 때', kw:['신앙','확신','마음'], by:[7], src:'', q:'신앙에 확신이 없는데 준비해도 될까요' },
+  { t:'축복을 미루고 싶을 때', kw:['미루','연기','마음'], by:[7], src:'', q:'축복을 조금 미루고 싶은 마음이 있습니다' },
+
+  { t:'참가비 환불', kw:['환불','참가비','돈'], by:[], src:'', q:'참가비 환불은 어떻게 하나요?' },
+  { t:'앱 결제와 구독', kw:['결제','구독','앱'], by:[], src:'', q:'앱 결제는 어디서 하나요?' },
+  { t:'현장 운영 문의', kw:['현장','운영','다르게'], by:[], src:'', q:'현장에서는 다르게 안내받았습니다' }
+];
+
+function CAP(b){
+  var o = [];
+  if(!b.active) o.push({ k:'off', s:'지금은 답하지 않습니다',
+    l:'지금은 답하지 않습니다. 같은 내용을 『' + ((BOT(b.succ)||{}).n || '다른 창구') + '』가 이어받았습니다.' });
+  if(!b.rag)    o.push({ k:'norag', s:'문서를 근거로 답하지 않습니다',
+    l:'문서를 근거로 답하지 않습니다. 결론을 대신 내리지 않고 함께 정리하는 쪽입니다.' });
+  if(!b.mem)    o.push({ k:'nomem', s:'앞 대화를 기억하지 않습니다',
+    l:'앞 대화를 이어서 기억하지 않습니다. 질문 하나에 답 하나씩 드립니다.' });
+  if(b.strict)  o.push({ k:'strict', s:'근거를 못 찾으면 답하지 않습니다',
+    l:'문서에서 근거를 찾지 못하면 답하지 않습니다. 지어내는 대신 어디에 물어야 하는지 알려 드립니다.' });
+  return o;
+}
+function BOT(id){ for(var i=0;i<BOTS.length;i++){ if(BOTS[i].id===id) return BOTS[i]; } return null; }
+
+var SUFFIX = ['서울','부산','대구','광주','대전','인천','경기북부','경기남부','강원','충북',
+              '충남','전북','전남','경북','경남','제주','일본 관동','일본 관서','미주 동부',
+              '미주 서부','유럽','대양주','아프리카','중남미','동남아','중동'];
+var DERIVED = SUFFIX.map(function(s, i){
+  var base = BOTS[i % 6];
+  return { id:100+i, n:base.n + ' ' + s, t:s + ' 교구의 ' + base.t, docs:base.docs.slice(0,2),
+           mem:base.mem, strict:base.strict, rag:base.rag, plan:'FREE', active:true,
+           up:base.up, derived:true, from:base.id };
+});
+
+var ANSWERS = {
+  admin: {
+    bot:1,
+    q:'축복후보자 서류는 무엇이 필요한가요?',
+    lead:'축복후보자 서류는 공통 3종이 기본이고, 재혼 축복이나 국제 축복처럼 유형에 따라 서류가 더 붙습니다.',
+    parts:[
+      { label:'근거', html:'<strong>『축복 행정 규정집』 2026 개정판</strong> 4장과 <strong>『축복후보자 등록 안내』 v2.1</strong>에 공통 서류와 유형별 추가 서류가 나뉘어 있습니다.<sup data-cite="1"></sup>' },
+      { label:'절차', steps:[
+        '소속 교구 가정부에 등록 의사를 전합니다.',
+        '공통 서류 3종을 준비합니다. 등록신청서, 신앙생활 확인서, 보호자 동의서입니다.<sup data-cite="1"></sup>',
+        '본인 유형에 해당하는 추가 서류가 있는지 확인합니다.<sup data-cite="2"></sup>',
+        '담당자 검토를 거쳐 접수합니다.'
+      ]},
+      { label:'다음', html:'어떤 유형에 해당하는지는 개인 사정에 따라 달라집니다. 소속 교구 가정부나 부모님과 함께 확인해 보세요.' }
+    ],
+    fups:['공통 서류 3종을 자세히 알려주세요','재혼 축복은 서류가 어떻게 다른가요','보호자 동의서 양식은 어디서 받나요'],
+    found:['『가정 정책 해설』 v1.4','『봉헌식 시행 안내』 v1.0','『교류 기간 운영 지침』 v1.2','『승인 FAQ 모음』'],
+    cites:[
+      { n:'1', title:'『축복 행정 규정집』', meta:'2026 개정 · 4장 · 38쪽',
+        text:'축복후보자 등록 시 공통으로 제출하는 서류는 등록신청서, 신앙생활 확인서, 보호자 동의서 세 가지로 한다. 서류는 소속 교구 가정부를 통해 접수한다.',
+        ev:'공통으로 제출하는 서류는 등록신청서, 신앙생활 확인서, 보호자 동의서' },
+      { n:'2', title:'『축복후보자 등록 안내』', meta:'v2.1 · 6쪽',
+        text:'재혼 축복 및 국제 축복의 경우 유형별 추가 서류가 있으며, 해당 여부는 소속 교구 가정부를 통해 확인한다.',
+        ev:'유형별 추가 서류가 있으며' }
+    ]
+  },
+  context: {
+    bot:7,
+    q:'과거의 일 때문에 축복을 받을 수 있을지 걱정됩니다',
+    lead:'그 걱정을 혼자 오래 안고 계셨겠습니다. 먼저 마음을 받고 시작하겠습니다.',
+    parts:[
+      { label:'', html:'자세한 개인 정보나 구체적인 내용은 말씀하지 않으셔도 괜찮습니다. 답을 드리기 전에 한 가지만 여쭙겠습니다.' },
+      { label:'', html:'<strong>지금 어느 준비 단계에 계신지</strong>만 알려 주실 수 있을까요. 아직 준비 전인지, 등록을 마치셨는지 정도면 충분합니다.' }
+    ],
+    chips:['아직 준비 전입니다','등록을 마쳤습니다','매칭 이후입니다','말하기 어렵습니다'],
+    fups:[]
+  },
+  norag: {
+    bot:1,
+    q:'참가비 환불은 어떻게 하나요?',
+    lead:'승인된 자료에서 확인되지 않습니다. 확실하지 않은 내용을 지어내지 않겠습니다.',
+    parts:[
+      { label:'', html:'환불과 참가비는 어느 창구의 문서에도 실려 있지 않습니다. 현장 운영에 관한 사항이라 문서로 정리되어 있지 않은 것으로 보입니다.' },
+      { label:'부모님께 여쭐 질문', steps:[
+        '이번 일정의 참가비가 어떤 항목으로 되어 있는지 여쭤 보세요.',
+        '사정이 생겼을 때 어떻게 처리해 왔는지 여쭤 보세요.',
+        '누구에게 먼저 말씀드리면 되는지 여쭤 보세요.'
+      ]},
+      { label:'', html:'답이 바로 나오지 않아도 괜찮습니다. 확인해야 할 것이 무엇인지 정리되어 있으면 절반은 풀린 셈입니다.' }
+    ],
+    fups:['가정부장님께 여쭐 문장을 만들어 주세요','다른 궁금한 것을 물어볼게요'],
+    found:['『승인 FAQ 모음』','『교류 기간 운영 지침』 v1.2','『가정 생활 규정』 v2.0'],
+    cites:[]
+  },
+  handoff: {
+    bot:1,
+    q:'성물은 어떻게 보관하나요?',
+    lead:'이 창구는 그 문서를 보지 않습니다. 지어내는 대신 접수를 한 번 더 하겠습니다.',
+    parts:[
+      { label:'', html:'성물 관리는 <strong>『가정 생활 규정』 v2.0</strong> 15쪽에 실려 있습니다. 이 창구가 보는 문서 7종에는 그 문서가 없습니다.' }
+    ],
+    reAsk:'성물은 어떻게 보관하나요?',
+    fups:[],
+    found:['『축복 행정 규정집』 2026 개정','『승인 FAQ 모음』'],
+    cites:[]
+  },
+  safety: {
+    bot:7,
+    q:'요즘은 그냥 사라지고 싶다는 생각이 듭니다',
+    lead:'그 말씀을 해 주셔서 고맙습니다. 지금은 다른 이야기보다 안전이 먼저입니다.',
+    parts:[
+      { label:'', html:'지금 혼자 계신가요. 가까이에 위험할 수 있는 물건이나 장소가 있다면 잠시 떨어져 주실 수 있을까요.' },
+      { label:'지금 곁에 있어 줄 수 있는 분', adults:['부모님','믿을 수 있는 가정부장님','공직자, 목회자, 사모님','신뢰하는 가까운 어른'] },
+      { label:'', html:'지금 이야기할 수 있는 분이 떠오르지 않으셔도 괜찮습니다. 아래 번호는 24시간 연결됩니다.' }
+    ],
+    hotline:{ n:'109', t:'자살예방 상담전화', d:'24시간 · 통화료 무료. 문자 상담도 됩니다.' },
+    fups:[]
+  }
+};
+
+/* ══ 라우터 ══════════════════════════════════════════════════════════ */
+var SCREENS = ['login','home','bot','start','thread','mypage','guide','states'];
+var TYPES   = ['admin','context','norag','safety','handoff'];
+var SCALES  = { n0:0, n3:3, n14:14, n40:40 };
+var THEMES  = ['light','dark','auto'];
+var VPS     = ['desktop','mobile'];
+
+var state = { screen:'home', answer:'admin', scale:14, bot:1, line:'' };
+var screens = Array.prototype.slice.call(document.querySelectorAll('[data-screen]'));
+
+function parseHash(){
+  var raw = (location.hash || '').replace(/^#/, '');
+  if(!raw) return {};
+  var out = {};
+  raw.split('/').forEach(function(tok){
+    if(!tok) return;
+    if(SCREENS.indexOf(tok) > -1){ out.screen = tok; return; }
+    if(TYPES.indexOf(tok) > -1){ out.answer = tok; return; }
+    if(Object.prototype.hasOwnProperty.call(SCALES, tok)){ out.scale = SCALES[tok]; return; }
+    if(THEMES.indexOf(tok) > -1){ out.theme = tok; return; }
+    if(VPS.indexOf(tok) > -1){ out.vp = tok; return; }
+    /* 접수 결과 상태를 해시로 직접 볼 수 있어야 대조판에서 나란히 세울 수 있다. */
+    if(tok === 'asked'){ out.line = '축복후보자 서류'; return; }
+    if(tok === 'asked2'){ out.line = '성물 보관'; return; }
+    if(tok === 'asked0'){ out.line = '환불'; return; }
+    var m = /^b(\d+)$/.exec(tok);
+    if(m){ out.bot = +m[1]; return; }
+  });
+  return out;
+}
+function scaleToken(n){ for(var k in SCALES){ if(SCALES[k] === n) return k; } return 'n14'; }
+function writeHash(){
+  var parts = [state.screen];
+  if(state.screen === 'thread') parts.push(state.answer);
+  if(state.screen === 'home' && state.scale !== 14) parts.push(scaleToken(state.scale));
+  if(state.screen === 'bot' || state.screen === 'start') parts.push('b' + state.bot);
+  var h = '#' + parts.join('/');
+  if(location.hash !== h) history.replaceState(null, '', h);
+  document.getElementById('pr-hash').textContent = h;
+}
+function go(patch){ Object.assign(state, patch || {}); render(); writeHash(); }
+function applyHash(){
+  var h = parseHash();
+  if(h.theme) setTheme(h.theme);
+  if(h.vp) document.documentElement.setAttribute('data-vp', h.vp);
+  Object.assign(state, {
+    screen: h.screen || state.screen,
+    answer: h.answer || state.answer,
+    scale:  (typeof h.scale === 'number') ? h.scale : state.scale,
+    bot:    h.bot || state.bot,
+    line:   (typeof h.line === 'string') ? h.line : state.line
+  });
+  render();
+  var inp = document.getElementById('line');
+  if(inp) inp.value = state.line;
+  document.getElementById('pr-hash').textContent = location.hash || '#home';
+}
+
+function visibleBots(){
+  if(state.scale === 0)  return [];
+  if(state.scale === 3)  return [BOT(1), BOT(3), BOT(7)];
+  if(state.scale === 40) return BOTS.concat(DERIVED);
+  return BOTS;
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+  return ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[c]; }); }
+
+/* ── 접수 ─────────────────────────────────────────────────────────────
+   지금 그릴 수 있는 배정 근거는 낱말 대조뿐이다. 그것을 화면에 그대로 밝힌다.
+   실제 판단 근거는 API 에 없다(README 선행 과제 2).                          */
+function matchEntries(line){
+  var q = (line || '').trim();
+  if(!q) return [];
+  var hits = [];
+  ENTRIES.forEach(function(e){
+    var score = 0, word = '';
+    if(q.indexOf(e.t) > -1 || e.t.indexOf(q) > -1){ score = 3; word = e.t; }
+    e.kw.forEach(function(k){ if(q.indexOf(k) > -1 && score < 2){ score = 2; word = k; } });
+    if(score) hits.push({ e:e, score:score, word:word });
+  });
+  return hits.sort(function(a, b){ return b.score - a.score; });
+}
+function matchDesks(line){
+  /* 파생 창구(교구본)도 원본과 같은 표제어를 담당한다. b.from 으로 상속시킨다.
+     그래서 40곳일 때 후보가 실제로 늘고, 좁히는 질문이 필요한 상태가 재현된다. */
+  var hits = matchEntries(line), vb = visibleBots(), seen = {}, out = [];
+  hits.forEach(function(h){
+    vb.forEach(function(b){
+      if(h.e.by.indexOf(b.from || b.id) < 0 || seen[b.id]) return;
+      seen[b.id] = 1;
+      out.push({ bot:b, entry:h.e, word:h.word });
+    });
+  });
+  return { desks:out, hits:hits };
+}
+
+function renderIntake(){
+  var vb = visibleBots(), line = state.line.trim();
+  var note = document.getElementById('ask-note');
+  var res = document.getElementById('res');
+  var seeds = document.getElementById('seeds');
+  var fact = document.getElementById('fact');
+  fact.innerHTML = vb.length
+    ? '문서 <b>13</b>종 · 창구 <b>' + vb.length + '</b>곳 · 갱신 <b>2026.07.30</b> · 폐기 문서 없음'
+    : '열린 창구 <b>0</b>곳';
+
+  if(vb.length === 0){
+    note.innerHTML = '아직 열린 창구가 없습니다.';
+    seeds.style.display = 'none';
+    res.innerHTML = '<div class="blank"><h3>적어 두시면 열리는 대로 답해 드립니다</h3>' +
+      '<p>계정에 배정된 창구가 없습니다. 소속 교구 가정부에 문의하시면 열어 드립니다. 적으신 한 줄은 남겨 두었다가 창구가 열리면 그대로 접수합니다.</p>' +
+      '<div class="cta"><button class="btn btn-line btn-sm" type="button">문의 방법 보기</button></div></div>';
+    return;
+  }
+
+  note.innerHTML = '승인된 문서 <b>13종</b>을 <b>' + vb.length + '곳</b>이 나누어 봅니다. ' +
+    '적으신 낱말이 어느 문서에 있는지 찾아 담당하는 곳을 먼저 알려 드립니다. 고르는 것은 그다음입니다.';
+
+  if(!line){
+    res.innerHTML = '';
+    seeds.style.display = '';
+    /* 창구가 3곳이면 배정이 시시하다. 세 곳을 항상 펼쳐 둔다. */
+    if(vb.length <= 3){
+      res.innerHTML = '<div class="res"><div class="res-h"><h2>열려 있는 창구 ' + vb.length + '곳</h2></div>' +
+        '<p class="res-why">이 규모에서는 다 보여 드리는 편이 빠릅니다. 적으시면 순서만 바뀝니다.</p>' +
+        '<ul class="desks">' + vb.map(function(b){ return deskRow(b, null, ''); }).join('') + '</ul></div>';
+    }
+    return;
+  }
+
+  seeds.style.display = 'none';
+  var m = matchDesks(line);
+  var desks = m.desks;
+
+  if(desks.length === 0){
+    var anyEntry = m.hits.length > 0;
+    res.innerHTML = '<div class="res"><div class="res-h"><h2>담당하는 곳이 없습니다</h2>' +
+      '<span class="k">' + vb.length + '곳 중 0곳</span></div>' +
+      '<p class="res-why">' + (anyEntry
+        ? '이 낱말이 실린 문서를 지금 열려 있는 창구가 보지 않습니다.'
+        : '적으신 낱말이 승인된 문서 어디에도 없습니다.') + '</p>' +
+      '<div class="blank"><h3>그래도 접수하실 수 있습니다</h3>' +
+      '<p>답을 지어내지 않습니다. 대신 부모님이나 가정부장님께 여쭐 질문을 대신 정리해 드리고, 문서가 생기면 알려 드립니다.</p>' +
+      '<div class="cta"><button class="btn btn-act btn-sm" type="button" data-bot-go="1">그래도 접수하기</button>' +
+      '<button class="btn btn-line btn-sm" type="button" data-clear>다시 적기</button></div></div></div>';
+    return;
+  }
+
+  var top = desks.slice(0, 4), rest = desks.slice(4);
+  var h = '<div class="res"><div class="res-h"><h2>담당하는 곳</h2>' +
+    '<span class="k">' + vb.length + '곳 중 ' + desks.length + '곳</span></div>' +
+    '<p class="res-why">적으신 낱말 <b>' + esc(top[0].word) + '</b>이 실린 문서를 보는 곳입니다. ' +
+    '이 순서는 문서에 그 낱말이 있는지로만 정했습니다. 원하시는 곳을 고르시면 적으신 한 줄이 그대로 넘어갑니다.</p>' +
+    '<ul class="desks">' + top.map(function(d, i){ return deskRow(d.bot, d.entry, d.word, i); }).join('') + '</ul>';
+
+  if(desks.length > 4){
+    h += '<div class="narrow"><p>담당하는 곳이 ' + desks.length + '곳입니다. 한 가지만 더 알려 주시면 좁혀 드리겠습니다. 어느 쪽에 가까우신가요.</p>' +
+      '<div class="chips">' +
+      ['소속 교구 일로 여쭙습니다','제 개인 준비 과정입니다','문서 자체를 찾고 있습니다','아직 모르겠습니다']
+        .map(function(c){ return '<button class="chip" type="button">' + c + '</button>'; }).join('') +
+      '</div></div>';
+    h += '<details class="rest"><summary>나머지 ' + rest.length + '곳도 이 낱말이 실린 문서를 봅니다</summary><ul>' +
+      rest.map(function(d){ return '<li><button class="r" type="button" data-bot-go="' + d.bot.id + '">' + esc(d.bot.n) + '</button></li>'; }).join('') +
+      '</ul></details>';
+  }
+
+  var notSeen = visibleBots().filter(function(b){ return !desks.some(function(d){ return d.bot.id === b.id; }); });
+  if(notSeen.length){
+    h += '<details class="rest"><summary>이 낱말을 보지 않는 곳 ' + notSeen.length + '곳</summary><ul>' +
+      notSeen.slice(0, 20).map(function(b){ return '<li><span class="r">' + esc(b.n) + '</span></li>'; }).join('') +
+      (notSeen.length > 20 ? '<li><span class="r">외 ' + (notSeen.length - 20) + '곳</span></li>' : '') +
+      '</ul></details>';
+  }
+  h += '</div>';
+  res.innerHTML = h;
+}
+
+function deskRow(b, entry, word, rank){
+  var caps = CAP(b);
+  var hit = entry
+    ? (entry.src
+        ? '『' + esc(entry.src.split(' · ')[0]) + '』' + (entry.src.split(' · ')[1] ? ' ' + esc(entry.src.split(' · ')[1]) + '쪽' : '') +
+          ' 에서 <mark>' + esc(word) + '</mark> 을 찾았습니다'
+        : '<mark>' + esc(word) + '</mark> 은 규정으로 답을 내지 않는 표제어입니다. 이 곳은 결론을 대신 내리지 않고 함께 정리합니다.')
+    : esc(b.t);
+  return '<li><button class="desk" type="button" data-bot-go="' + b.id + '">' +
+    '<span class="n">' + (typeof rank === 'number' ? '<span class="desk-rank">' + (rank + 1) + '</span>' : '') +
+      esc(b.n) + (b.plan === 'PRO' ? ' <span class="tag tag-mute">실무자용</span>' : '') +
+      (b.derived ? ' <span class="tag tag-mute">교구</span>' : '') + '</span>' +
+    '<span class="hit">' + hit + '</span>' +
+    (caps.length ? '<span class="caps">' + caps.map(function(c){
+      return '<span class="cap" data-k="' + c.k + '">' + esc(c.s) + '</span>'; }).join('') + '</span>' : '') +
+    '<span class="d">' + (b.docs.length ? '문서 ' + b.docs.length + '종' : '문서 없음') + '</span>' +
+    '</button></li>';
+}
+
+function renderSeeds(){
+  var vb = visibleBots();
+  var pick = ENTRIES.filter(function(e){
+    return vb.some(function(b){ return e.by.indexOf(b.from || b.id) > -1; }); }).slice(0, 5);
+  document.getElementById('seed-list').innerHTML = pick.map(function(e){
+    return '<li><button type="button" data-seed="' + esc(e.q) + '">' + esc(e.q) +
+      '<span class="s">' + esc(e.src || '함께 정리') + '</span></button></li>'; }).join('');
+}
+
+function renderDetail(){
+  var b = BOT(state.bot) || BOTS[0];
+  var caps = CAP(b);
+  var others = BOTS.filter(function(o){ return o.id !== b.id && o.active; });
+  var only = b.docs.filter(function(d){ return !others.some(function(o){ return o.docs.indexOf(d) > -1; }); });
+  var shared = b.docs.filter(function(d){ return others.some(function(o){ return o.docs.indexOf(d) > -1; }); });
+  var missing = [];
+  others.forEach(function(o){ o.docs.forEach(function(d){
+    if(b.docs.indexOf(d) > -1) return;
+    if(missing.some(function(m){ return m.d === d; })) return;
+    missing.push({ d:d, by:o }); }); });
+  missing = missing.slice(0, 5);
+  var mine = ENTRIES.filter(function(e){ return e.by.indexOf(b.id) > -1; });
+
+  var h = '<h1 class="dsp">' + esc(b.n) + '</h1>' +
+    '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">' +
+      (b.active ? '<span class="tag tag-act">현행</span>' : '<span class="tag tag-mute">닫힘</span>') +
+      (b.docs.length ? '<span class="tag tag-gold">문서 ' + b.docs.length + '종</span>' : '<span class="tag tag-mute">문서 없음</span>') +
+      (b.plan === 'PRO' ? '<span class="tag tag-mute">실무자용</span>' : '') +
+    '</div>' +
+    '<p class="lede" style="margin-top:18px">' + esc(b.t) + '</p>';
+
+  if(caps.length){
+    h += '<div class="sec"><h2>쓰시기 전에 알려 드리는 것</h2>' +
+      '<p class="n">여기 없는 동작은 다른 창구와 같습니다.</p>' +
+      '<div class="caps" style="margin-top:13px">' + caps.map(function(c){
+        return '<span class="cap" data-k="' + c.k + '">' + esc(c.l) + '</span>'; }).join('') + '</div></div>';
+  }
+
+  h += '<div class="diff"><h2>옆 창구와 무엇이 다른가</h2>' +
+    '<p>이 창구가 무엇인지가 아니라, 같은 한 줄을 다른 창구에 접수했을 때 무엇이 달라지는지를 적었습니다.</p>' +
+    '<div class="diff-l">' +
+    '<div data-only><h3>이 창구만 보는 문서<span>' + only.length + '종</span></h3>' +
+      (only.length ? '<ul>' + only.map(function(d){ return '<li>' + esc(d) + '</li>'; }).join('') + '</ul>'
+                   : '<p class="none">이 창구만 가진 문서는 없습니다. 아래 두 칸이 이 창구의 자리를 설명합니다.</p>') + '</div>' +
+    '<div><h3>다른 창구와 함께 보는 문서<span>' + shared.length + '종</span></h3>' +
+      (shared.length ? '<ul>' + shared.map(function(d){
+          var who = others.filter(function(o){ return o.docs.indexOf(d) > -1; })[0];
+          return '<li>' + esc(d) + ' · <em>' + esc(who ? who.n : '') + '</em>도 봅니다</li>'; }).join('') + '</ul>'
+                     : '<p class="none">겹치는 문서가 없습니다. 이 창구에 접수하면 이 창구의 문서만 봅니다.</p>') + '</div>' +
+    '<div><h3>이 창구가 보지 않는 문서<span>' + missing.length + '종 외</span></h3>' +
+      (missing.length ? '<ul>' + missing.map(function(m){
+          return '<li>' + esc(m.d) + ' · <em>' + esc(m.by.n) + '</em>가 봅니다</li>'; }).join('') + '</ul>'
+                      : '<p class="none">승인된 문서를 모두 봅니다.</p>') + '</div>' +
+    '</div></div>';
+
+  h += '<dl class="meta">' +
+    '<div><dt>담당 표제어</dt><dd>' + mine.length + '개</dd></div>' +
+    '<div><dt>답변 상태 표기</dt><dd>근거 있음 · 근거 불충분 · 문서에 없음</dd></div>' +
+    '<div><dt>담당 밖일 때</dt><dd>답을 지어내지 않고 접수를 한 번 더 해 어느 창구가 보는지 알려 드립니다</dd></div>' +
+    '<div><dt>확인이 필요할 때</dt><dd>부모님 → 가정부장님 → 공직자·목회자·사모님 → 신뢰하는 가까운 어른</dd></div>' +
+    '<div><dt>수정일</dt><dd class="mono">' + esc(b.up) + '</dd></div></dl>';
+
+  if(mine.length){
+    h += '<div class="sec"><h2>이렇게 접수하신 분들이 있습니다</h2>' +
+      '<p class="n">누르면 접수 칸에 채워집니다. 바로 보내지 않습니다.</p><ul class="qlist">' +
+      mine.slice(0, 5).map(function(e){
+        return '<li><button type="button" data-seed="' + esc(e.q) + '">' + esc(e.q) +
+          '<span class="c">' + esc(e.src ? e.src.split(' · ')[0] : '함께 정리') + '</span></button></li>'; }).join('') +
+      '</ul></div>';
+  }
+
+  h += '<div class="sec"><h2>보고 있는 문서</h2>';
+  if(b.docs.length){
+    h += '<p class="n">현행으로 승인된 문서만 검색합니다. 폐기된 문서는 대상에서 빠집니다.</p><div class="docs">' +
+      b.docs.map(function(d){ var p = d.split(/\s(?=v[\d.]+|20\d\d|전권)/);
+        return '<div><span class="t">『' + esc(p[0]) + '』</span><span class="v">' + esc(p[1] || '현행') + '</span></div>'; }).join('') + '</div>';
+  } else {
+    h += '<p class="n">이 창구는 문서를 근거로 답하지 않습니다. 결론을 대신 내리지 않고 함께 정리하는 쪽입니다. 그래서 답변에 인용이 붙지 않습니다.</p>';
+  }
+  h += '</div>';
+
+  h += '<div class="sec"><h2>이런 판단은 하지 않습니다</h2><ul class="nolist">' +
+    ['개인의 축복 자격 여부를 판정하지 않습니다.',
+     '관계를 유지할지 정리할지 대신 결정하지 않습니다.',
+     '승인된 자료에 없는 내용은 추측해서 말하지 않습니다.',
+     '현행 문서끼리 충돌하면 임의로 섞지 않고 확답을 보류합니다.'].map(function(t){
+      return '<li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span>' + t + '</span></li>'; }).join('') + '</ul></div>';
+
+  if(!b.active){
+    var s = BOT(b.succ);
+    h += '<div class="sec"><h2>지금은 답하지 않습니다</h2>' +
+      '<p class="n">' + esc(b.up) + ' 이후 새 문서로 대체되었습니다. 같은 내용을 『' + esc(s ? s.n : '') + '』가 이어받았습니다. 이전 대화는 내 정보에 그대로 남아 있습니다.</p>' +
+      '<div class="cta" style="margin-top:14px"><button class="btn btn-act" type="button" data-bot-go="' + (s ? s.id : 1) + '">『' + esc(s ? s.n : '') + '』으로 가기</button>' +
+      '<button class="btn btn-line" type="button" data-go="mypage">지난 접수 보기</button></div></div>';
+  } else {
+    h += '<div class="cta" style="margin-top:32px"><button class="btn btn-act" type="button" data-go="start">여기에 접수하기</button>' +
+      '<button class="btn btn-line" type="button" data-go="home">접수로 돌아가기</button></div>';
+  }
+  document.getElementById('detail').innerHTML = h;
+}
+
+function chatBar(b){
+  var caps = CAP(b);
+  return '<button class="iconbtn" type="button" aria-label="접수로" data-go="home">' +
+    '<svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>' +
+    '<svg class="em" aria-hidden="true"><use href="#em"/></svg>' +
+    '<span class="who"><span class="n">' + esc(b.n) + '</span>' +
+      '<span class="c"' + (caps.length ? ' data-k="' + caps[0].k + '"' : '') + '>' +
+        (caps.length ? esc(caps.map(function(c){ return c.s; }).join(' · '))
+                     : '문서 ' + b.docs.length + '종을 봅니다') + '</span></span>' +
+    '<button class="barbtn" type="button" data-bot-detail="' + b.id + '">이 창구</button>';
+}
+
+function renderStart(){
+  var b = BOT(state.bot) || BOTS[0];
+  document.getElementById('start-bar').innerHTML = chatBar(b);
+  document.getElementById('start-lede').textContent = b.rag
+    ? '접수하신 한 줄로 시작하셔도 되고, 아래에서 고르셔도 됩니다. 답변에는 근거가 된 문서와 대목이 바로 아래에 붙습니다.'
+    : '마음이 복잡한 이야기도 괜찮습니다. 이 창구는 문서를 근거로 답하지 않고, 결론을 대신 내리지 않습니다.';
+  document.getElementById('start-hint').textContent = b.mem
+    ? '보내기 전에 내용을 한 번 더 확인해 주세요.'
+    : '이 창구는 앞 대화를 이어서 기억하지 않습니다. 질문 하나에 답 하나씩 드립니다.';
+  var mine = ENTRIES.filter(function(e){ return e.by.indexOf(b.id) > -1; }).slice(0, 5);
+  document.getElementById('sugg').innerHTML = mine.map(function(e){
+    return '<li><button type="button" data-ask="' + esc(e.q) + '">' + esc(e.q) +
+      '<span class="c">' + esc(e.src || '함께 정리') + '</span></button></li>'; }).join('');
+  document.getElementById('start-docs').innerHTML = b.docs.length
+    ? '<div class="docs">' + b.docs.map(function(d){ var p = d.split(/\s(?=v[\d.]+|20\d\d|전권)/);
+        return '<div><span class="t">『' + esc(p[0]) + '』</span><span class="v">' + esc(p[1] || '현행') + '</span></div>'; }).join('') + '</div>'
+    : '<p class="n">이 창구는 문서를 근거로 답하지 않습니다. 그래서 인용이 붙지 않습니다.</p>';
+  var c = document.querySelector('[data-screen="start"] [data-composer]');
+  if(c && state.line) c.value = state.line;
+}
+
+function renderThread(){
+  var a = ANSWERS[state.answer] || ANSWERS.admin;
+  var b = BOT(a.bot) || BOTS[0];
+  document.getElementById('thread-bar').innerHTML = chatBar(b);
+  document.getElementById('thread-hint').textContent = b.mem
+    ? '보내기 전에 내용을 한 번 더 확인해 주세요.'
+    : '이 창구는 앞 대화를 이어서 기억하지 않습니다. 이어서 물으셔도 앞의 답을 참고하지 않습니다.';
+
+  var h = '<div class="mine">' + esc(a.q) + '</div>';
+  if(!b.mem){
+    h += '<p class="nomem">이 창구는 앞 대화를 이어서 기억하지 않습니다. 아래 답은 위 질문 하나만 보고 드립니다.</p>';
+  }
+
+  var cls = 'ans';
+  if(state.answer === 'safety')  cls += ' safety';
+  if(state.answer === 'handoff') cls += ' pass';
+  h += '<div class="' + cls + '"><p class="lead">' + esc(a.lead) + '</p>';
+
+  (a.parts || []).forEach(function(p){
+    h += '<div class="part">';
+    if(p.label)  h += '<p class="part-l">' + esc(p.label) + '</p>';
+    if(p.html)   h += '<div class="part-b">' + p.html + '</div>';
+    if(p.steps)  h += '<ol class="steps">' + p.steps.map(function(s){ return '<li>' + s + '</li>'; }).join('') + '</ol>';
+    if(p.adults) h += '<ol class="adults">' + p.adults.map(function(s){ return '<li>' + esc(s) + '</li>'; }).join('') + '</ol>';
+    h += '</div>';
+  });
+
+  /* 이관은 접수를 한 번 더 하는 것이다. 메인에서 보던 접수 행을 대화 안에 그대로 되민다. */
+  if(state.answer === 'handoff'){
+    var m = matchDesks(a.reAsk);
+    var desks = m.desks.filter(function(d){ return d.bot.id !== b.id; }).slice(0, 2);
+    h += '<div class="pass-in"><p class="l">이 한 줄로 다시 접수했습니다</p>' +
+      '<ul class="desks">' + desks.map(function(d, i){ return deskRow(d.bot, d.entry, d.word, i); }).join('') + '</ul>' +
+      '<div class="cta" style="margin-top:14px"><button class="btn btn-line btn-sm" type="button">여기서 계속하기</button></div>' +
+      '<p class="pass-warn">고르시면 적으신 한 줄이 그대로 넘어갑니다. 지금까지의 대화와 근거는 넘어가지 않습니다. 옮기고 나면 새 대화로 시작합니다.</p></div>';
+  }
+
+  if(a.hotline){
+    h += '<div class="hotline"><b class="mono">' + a.hotline.n + '</b> <b>' + esc(a.hotline.t) + '</b><p>' + esc(a.hotline.d) + '</p></div>';
+  }
+  if(a.chips){
+    h += '<div class="chips">' + a.chips.map(function(c){ return '<button class="chip" type="button">' + esc(c) + '</button>'; }).join('') + '</div>';
+  }
+  h += evidenceHtml(a, b);
+  h += '</div>';
+
+  if(a.fups && a.fups.length){
+    h += '<div class="fups"><p class="fups-l">이어서 물어볼 만한 것</p><div class="chips">' +
+      a.fups.map(function(f){ return '<button class="chip" type="button" data-fill="' + esc(f) + '">' + esc(f) + '</button>'; }).join('') + '</div></div>';
+  }
+  if(state.answer !== 'safety'){
+    h += '<div class="fb"><button type="button" aria-pressed="false">도움 됨</button>' +
+      '<button type="button" aria-pressed="false">아쉬움</button>' +
+      '<button type="button" style="margin-left:auto">복사</button></div>';
+  }
+  document.getElementById('msgs').innerHTML = h;
+}
+
+/* 근거는 오른쪽 패널이 아니라 답변 바로 아래에 인라인으로 붙는다. A안과의 구조 차이다. */
+function evidenceHtml(a, b){
+  if(state.answer === 'context' || state.answer === 'safety' || !b.rag) return '';
+  var cites = a.cites || [];
+  var h = '<div class="evid">';
+  if(cites.length){
+    h += '<p class="evid-state" data-state="done"><span class="dot"></span> 참고한 자료 ' + cites.length + '건</p>' +
+      '<div class="cites">' + cites.map(function(c){
+        var t = esc(c.text);
+        if(c.ev) t = t.replace(esc(c.ev), '<mark>' + esc(c.ev) + '</mark>');
+        return '<div class="cite"><div class="h"><span class="num">' + c.n + '</span>' +
+          '<div><span class="t">' + esc(c.title) + '</span><span class="v">' + esc(c.meta) + '</span></div></div>' +
+          '<p class="x">' + t + '</p></div>'; }).join('') + '</div>';
+  } else {
+    h += '<p class="evid-state" data-state="none"><span class="dot"></span> 인용된 자료 없음</p>' +
+      '<p class="approx">' + (state.answer === 'handoff'
+        ? '이 창구가 보는 문서에는 그 대목이 없습니다. 담당하는 곳을 위에 적었습니다.'
+        : '승인된 자료에서 확인되지 않았습니다. 문서명이나 쪽수를 지어내지 않습니다.') + '</p>';
+  }
+  if(a.found && a.found.length){
+    h += '<details class="found"><summary>검색되었지만 인용되지 않은 자료 ' + a.found.length + '건</summary><ul>' +
+      a.found.map(function(f){ return '<li>' + esc(f) + '</li>'; }).join('') + '</ul></details>';
+  }
+  return h + '</div>';
+}
+
+function renderCapGallery(){
+  var box = document.getElementById('cap-gal');
+  if(!box || box.getAttribute('data-done')) return;
+  box.innerHTML = [BOT(6), BOT(7), BOT(1), BOT(2)].map(function(b){
+    var caps = CAP(b);
+    return '<div class="demo"><span class="demo-l">' + esc(b.n) + '</span>' +
+      (caps.length ? '<div class="caps">' + caps.map(function(c){
+          return '<span class="cap" data-k="' + c.k + '">' + esc(c.l) + '</span>'; }).join('') + '</div>'
+                   : '<p class="gloss">표기가 없습니다. 기대대로 움직이는 창구에는 아무것도 적지 않습니다.</p>') + '</div>';
+  }).join('');
+  box.setAttribute('data-done', '1');
+}
+
+function render(){
+  screens.forEach(function(s){
+    if(s.getAttribute('data-screen') === state.screen) s.setAttribute('data-on','');
+    else s.removeAttribute('data-on');
+  });
+  if(state.screen === 'home')   { renderSeeds(); renderIntake(); }
+  if(state.screen === 'bot')    { renderDetail(); }
+  if(state.screen === 'start')  { renderStart(); }
+  if(state.screen === 'thread') { renderThread(); }
+  if(state.screen === 'states') { renderCapGallery(); }
+  syncChrome();
+  var sc = document.querySelector('[data-screen="' + state.screen + '"] .scroll');
+  if(sc) sc.scrollTop = 0;
+}
+
+/* ── 크롬 · 이벤트 ────────────────────────────────────────────────────── */
+function syncChrome(){
+  document.querySelectorAll('[data-screen-set]').forEach(function(b){
+    b.setAttribute('aria-pressed', String(b.getAttribute('data-screen-set') === state.screen)); });
+  document.querySelectorAll('[data-answer-set]').forEach(function(b){
+    b.setAttribute('aria-pressed', String(b.getAttribute('data-answer-set') === state.answer)); });
+  document.querySelectorAll('[data-scale-set]').forEach(function(b){
+    b.setAttribute('aria-pressed', String(+b.getAttribute('data-scale-set') === state.scale)); });
+  document.querySelectorAll('[data-vp-set]').forEach(function(b){
+    b.setAttribute('aria-pressed', String(b.getAttribute('data-vp-set') === document.documentElement.getAttribute('data-vp'))); });
+  var th = document.documentElement.getAttribute('data-theme') || 'auto';
+  document.querySelectorAll('[data-theme-set]').forEach(function(b){
+    b.setAttribute('aria-pressed', String(b.getAttribute('data-theme-set') === th)); });
+  var mo = document.documentElement.getAttribute('data-motion') || 'on';
+  document.querySelectorAll('[data-motion-set]').forEach(function(b){
+    b.setAttribute('aria-pressed', String(b.getAttribute('data-motion-set') === mo)); });
+  var mt = document.querySelector('[data-my-theme]'); if(mt) mt.setAttribute('aria-pressed', String(th === 'dark'));
+  var mm = document.querySelector('[data-my-motion]'); if(mm) mm.setAttribute('aria-pressed', String(mo === 'off'));
+}
+function setTheme(v){
+  if(v === 'auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', v);
+  try { v === 'auto' ? localStorage.removeItem('bm-b-theme') : localStorage.setItem('bm-b-theme', v); } catch(e){}
+  syncChrome();
+}
+function setMotion(v){
+  document.documentElement.setAttribute('data-motion', v);
+  try { localStorage.setItem('bm-b-motion', v); } catch(e){}
+  syncChrome();
+}
+
+var LBL = { login:'로그인', home:'접수', bot:'창구 상세', start:'대화 시작', thread:'대화',
+            mypage:'내 정보', guide:'읽는 법', states:'상태' };
+var ALBL = { admin:'행정 확답', context:'맥락 확인', norag:'근거 없음', handoff:'이관', safety:'안전 우선' };
+(function buildChrome(){
+  var s = document.getElementById('pr-screen'), r1 = document.createElement('div'); r1.className = 'pr-row';
+  SCREENS.forEach(function(k){ var b = document.createElement('button'); b.type = 'button';
+    b.textContent = LBL[k]; b.setAttribute('data-screen-set', k); r1.appendChild(b); });
+  s.appendChild(r1);
+  var a = document.getElementById('pr-answer'), r2 = document.createElement('div'); r2.className = 'pr-row';
+  TYPES.forEach(function(k){ var b = document.createElement('button'); b.type = 'button';
+    b.textContent = ALBL[k]; b.setAttribute('data-answer-set', k); r2.appendChild(b); });
+  a.appendChild(r2);
+  var c = document.getElementById('pr-scale'), r3 = document.createElement('div'); r3.className = 'pr-row';
+  [['n0','0곳'],['n3','3곳'],['n14','14곳'],['n40','40곳']].forEach(function(p){
+    var b = document.createElement('button'); b.type = 'button'; b.textContent = p[1];
+    b.setAttribute('data-scale-set', String(SCALES[p[0]])); r3.appendChild(b); });
+  c.appendChild(r3);
+})();
+
+document.addEventListener('click', function(ev){
+  var t = ev.target.closest('[data-screen-set],[data-answer-set],[data-scale-set],[data-vp-set],' +
+    '[data-theme-set],[data-motion-set],[data-go],[data-bot-go],[data-bot-detail],[data-seed],' +
+    '[data-ask],[data-fill],[data-clear],[data-my-theme],[data-my-motion],#go,.fb button,.sw');
+  if(!t) return;
+
+  if(t.hasAttribute('data-screen-set')) return go({ screen:t.getAttribute('data-screen-set') });
+  if(t.hasAttribute('data-answer-set')) return go({ screen:'thread', answer:t.getAttribute('data-answer-set') });
+  if(t.hasAttribute('data-scale-set'))  return go({ screen:'home', scale:+t.getAttribute('data-scale-set') });
+  if(t.hasAttribute('data-vp-set')){
+    document.documentElement.setAttribute('data-vp', t.getAttribute('data-vp-set')); return syncChrome(); }
+  if(t.hasAttribute('data-theme-set'))  return setTheme(t.getAttribute('data-theme-set'));
+  if(t.hasAttribute('data-motion-set')) return setMotion(t.getAttribute('data-motion-set'));
+  if(t.hasAttribute('data-my-theme'))   return setTheme(t.getAttribute('aria-pressed') === 'true' ? 'auto' : 'dark');
+  if(t.hasAttribute('data-my-motion'))  return setMotion(t.getAttribute('aria-pressed') === 'true' ? 'on' : 'off');
+
+  if(t.id === 'go'){ state.line = document.getElementById('line').value; return renderIntake(); }
+  if(t.hasAttribute('data-clear')){
+    state.line = ''; document.getElementById('line').value = ''; document.getElementById('line').focus();
+    return renderIntake(); }
+  if(t.hasAttribute('data-seed')){
+    state.line = t.getAttribute('data-seed');
+    if(state.screen !== 'home') return go({ screen:'home' });
+    document.getElementById('line').value = state.line;
+    return renderIntake(); }
+  if(t.hasAttribute('data-ask')){ return fill(t.getAttribute('data-ask')); }
+  if(t.hasAttribute('data-fill')){ return fill(t.getAttribute('data-fill')); }
+  if(t.hasAttribute('data-bot-go'))     return go({ screen:'start', bot:+t.getAttribute('data-bot-go') });
+  if(t.hasAttribute('data-bot-detail')) return go({ screen:'bot', bot:+t.getAttribute('data-bot-detail') });
+  if(t.hasAttribute('data-go')){
+    var p = { screen:t.getAttribute('data-go') };
+    if(t.hasAttribute('data-answer')) p.answer = t.getAttribute('data-answer');
+    return go(p); }
+  if(t.classList.contains('sw')){
+    t.setAttribute('aria-pressed', String(t.getAttribute('aria-pressed') !== 'true')); return; }
+  if(t.closest('.fb')){
+    var on = t.getAttribute('aria-pressed') === 'true';
+    t.parentNode.querySelectorAll('[aria-pressed]').forEach(function(x){ x.setAttribute('aria-pressed','false'); });
+    t.setAttribute('aria-pressed', String(!on)); return; }
+});
+
+/* 후속질문은 입력창에 채우기만 한다. 자동으로 보내지 않는다. */
+function fill(text){
+  if(state.screen !== 'start' && state.screen !== 'thread') go({ screen:'start' });
+  var here = document.querySelector('[data-screen="' + state.screen + '"] [data-composer]');
+  if(!here){ go({ screen:'start' }); here = document.querySelector('[data-screen="start"] [data-composer]'); }
+  here.value = text; here.focus();
+  here.style.height = 'auto'; here.style.height = Math.min(here.scrollHeight, 132) + 'px';
+}
+
+document.addEventListener('input', function(ev){
+  if(ev.target.id === 'line'){ state.line = ev.target.value; renderIntake(); return; }
+  if(ev.target.hasAttribute && ev.target.hasAttribute('data-composer')){
+    ev.target.style.height = 'auto';
+    ev.target.style.height = Math.min(ev.target.scrollHeight, 132) + 'px'; }
+});
+document.addEventListener('keydown', function(ev){
+  if(ev.target.id === 'line' && ev.key === 'Enter'){ ev.preventDefault();
+    state.line = ev.target.value; renderIntake(); }
+});
+
+document.getElementById('login-form').addEventListener('submit', function(ev){
+  ev.preventDefault();
+  var uid = document.getElementById('uid'), f = document.getElementById('f-uid');
+  if(!uid.value.trim()){
+    f.setAttribute('data-bad','');
+    uid.setAttribute('aria-invalid','true');
+    if(!f.querySelector('.err')){
+      var p = document.createElement('p'); p.className = 'err'; p.id = 'uid-err';
+      p.textContent = '아이디를 입력해 주세요.';
+      f.appendChild(p); uid.setAttribute('aria-describedby','uid-err');
+    }
+    uid.focus(); return;
+  }
+  f.removeAttribute('data-bad');
+  go({ screen:'home' });
+});
+
+document.getElementById('pr-open').addEventListener('click', function(){
+  document.body.setAttribute('data-pr', document.body.getAttribute('data-pr') === 'open' ? '' : 'open');
+});
+window.addEventListener('hashchange', applyHash);
+
+applyHash();
+writeHash();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 — 문서 근거 안내</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@700&family=IBM+Plex+Mono&display=swap" rel="stylesheet">
+<style>
+/* ---------- tokens ---------- */
+:root{
+  --ink-1:#1b1d22;          /* 제목 최암부 */
+  --ink-2:#32353b;          /* 본문 */
+  --ink-3:#565b64;          /* 보조 */
+  --ink-4:#7b818c;          /* 메타 */
+  --line:rgba(27,29,34,.09);
+  --line-soft:rgba(27,29,34,.06);
+  --bg:#f7f8f9;
+  --card:#ffffff;
+  --blue:#3182F6;
+  --blue-ink:#2264c7;
+  --blue-wash:rgba(49,130,246,.08);
+  --blue-mark:rgba(49,130,246,.20);
+  --r-s:8px;                /* radius ① 면 */
+  --r-av:32%;               /* radius ② 아바타 스퀴클 */
+  --r-pill:999px;           /* radius ③ 칩·배지 */
+  --sh-rest:0 1px 2px rgba(27,29,34,.05);
+  --sh-lift:0 8px 24px rgba(27,29,34,.10);
+  --font-body:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  --font-display:"Hahmlet","Pretendard Variable",serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,monospace;
+}
+
+/* ---------- base ---------- */
+*{margin:0;padding:0;box-sizing:border-box}
+html{word-break:keep-all;overflow-wrap:break-word}
+body{
+  font-family:var(--font-body);
+  font-size:15px;line-height:1.6;letter-spacing:0;
+  color:var(--ink-2);background:var(--bg);
+  -webkit-font-smoothing:antialiased;
+}
+img,svg{max-width:100%}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:var(--ink-2)}
+a{color:inherit;text-decoration:none}
+mark{
+  color:inherit;
+  background:linear-gradient(transparent 45%,var(--blue-mark) 45%);
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;
+  padding:0 .06em;
+}
+.mono{font-family:var(--font-mono);letter-spacing:0}
+:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.skip{
+  position:absolute;left:-9999px;top:0;z-index:99;
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
+  padding:8px 14px;font-size:13px;line-height:1.5;
+}
+.skip:focus{left:16px;top:12px}
+
+.wrap{max-width:1120px;margin:0 auto;padding:0 32px}
+
+/* ---------- top nav ---------- */
+.topnav{
+  position:sticky;top:0;z-index:40;
+  background:var(--bg);
+  border-bottom:1px solid var(--line-soft);
+}
+.topnav .wrap{
+  display:flex;align-items:center;gap:28px;height:60px;
+}
+.wordmark{
+  font-family:var(--font-display);font-weight:700;font-size:19px;line-height:1.3;
+  color:var(--ink-1);letter-spacing:-.02em;margin-right:auto;
+}
+nav{display:flex;align-items:center;gap:24px}
+nav a{
+  font-size:14px;line-height:1.5;color:var(--ink-3);
+  transition:color 140ms ease-out;
+}
+nav a:hover{color:var(--ink-1)}
+nav a[aria-current="page"]{color:var(--ink-1);font-weight:700}
+nav a.btn-primary{
+  background:var(--blue);color:#fff;font-weight:700;font-size:14px;line-height:1.5;
+  padding:9px 18px;border-radius:var(--r-s);
+  transition:background-color 140ms ease-out;
+}
+nav a.btn-primary:hover{background:var(--blue-ink);color:#fff}
+
+/* ---------- views ---------- */
+.view{display:none}
+.view.active{display:block;animation:viewIn 400ms ease-out both}
+@keyframes viewIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+/* ---------- landing ---------- */
+.hero{
+  display:grid;grid-template-columns:1.15fr .85fr;gap:56px;align-items:center;
+  padding:76px 0 68px;
+}
+.hero h1{
+  font-family:var(--font-display);font-weight:700;
+  font-size:clamp(34px,4.2vw,50px);line-height:1.3;letter-spacing:-.03em;
+  color:var(--ink-1);white-space:pre-wrap;margin-bottom:20px;
+}
+.hero-sub{
+  font-size:16px;line-height:1.62;color:var(--ink-3);max-width:44ch;margin-bottom:24px;
+}
+.link-plain{
+  font-size:14px;line-height:1.5;color:var(--blue-ink);font-weight:700;
+  transition:color 140ms ease-out;
+}
+.link-plain:hover{color:var(--blue)}
+
+/* SSO card */
+.sso-card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
+  box-shadow:var(--sh-rest);padding:28px;max-width:380px;justify-self:end;width:100%;
+}
+.sso-card h2{font-size:17px;font-weight:700;line-height:1.4;color:var(--ink-1);margin-bottom:4px}
+.sso-cap{font-size:13px;line-height:1.55;color:var(--ink-4);margin-bottom:20px}
+.sso-card label{
+  display:block;font-size:12px;line-height:1.5;font-weight:700;color:var(--ink-3);margin-bottom:6px;
+}
+.sso-card input{
+  width:100%;border:1px solid var(--line);border-radius:var(--r-s);background:var(--card);
+  padding:10px 12px;font-size:14px;line-height:1.5;margin-bottom:14px;
+  transition:border-color 140ms ease-out;
+}
+.sso-card input:hover{border-color:rgba(27,29,34,.18)}
+.sso-card input:focus{outline:none;border-color:var(--blue)}
+.btn-primary{
+  display:inline-block;background:var(--blue);color:#fff;font-weight:700;
+  font-size:14px;line-height:1.5;padding:11px 18px;border-radius:var(--r-s);
+  transition:background-color 140ms ease-out;text-align:center;
+}
+.btn-primary:hover{background:var(--blue-ink)}
+.sso-card .btn-primary{width:100%;margin-top:4px}
+.sso-note{font-size:12px;line-height:1.55;color:var(--ink-4);margin-top:14px}
+
+/* specimen band */
+.specimen-band{
+  background:var(--card);
+  border-top:1px solid var(--line-soft);border-bottom:1px solid var(--line-soft);
+  padding:72px 0;
+}
+.sec-title{
+  font-family:var(--font-display);font-weight:700;font-size:24px;line-height:1.35;
+  letter-spacing:-.02em;color:var(--ink-1);margin-bottom:8px;
+}
+.sec-sub{font-size:15px;line-height:1.6;color:var(--ink-3);margin-bottom:36px;max-width:52ch}
+.specimen-grid{
+  display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:48px;align-items:start;
+}
+.specimen{
+  background:var(--bg);border:1px solid var(--line-soft);border-radius:var(--r-s);
+  padding:24px;
+}
+.specimen .answer-body{font-size:15px;line-height:1.62;color:var(--ink-2)}
+.callout{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;border:1px dashed var(--ink-4);border-radius:var(--r-pill);
+  font-family:var(--font-mono);font-size:10px;line-height:1;font-style:normal;
+  color:var(--ink-4);vertical-align:middle;margin:0 4px;flex:none;
+}
+.legend{list-style:none}
+.legend li{
+  display:flex;gap:10px;align-items:flex-start;
+  font-size:13px;line-height:1.6;color:var(--ink-3);
+  padding:12px 0;border-bottom:1px solid var(--line-soft);
+}
+.legend li:last-child{border-bottom:0}
+.legend .callout{margin:3px 0 0}
+
+/* landing preview */
+.preview-sec{padding:72px 0 80px}
+.preview-more{margin-top:20px;text-align:right}
+
+/* ---------- footer ---------- */
+footer{border-top:1px solid var(--line-soft);padding:36px 0 48px}
+.foot-brand{
+  font-family:var(--font-display);font-weight:700;font-size:15px;line-height:1.4;
+  color:var(--ink-3);margin-bottom:8px;
+}
+.foot-note{font-size:13px;line-height:1.6;color:var(--ink-4)}
+body[data-view="chat"] footer{display:none}
+
+/* ---------- home (roster) ---------- */
+.home-head{
+  display:flex;align-items:flex-end;justify-content:space-between;gap:24px;
+  padding:52px 0 8px;flex-wrap:wrap;
+}
+.home-head h1{
+  font-family:var(--font-display);font-weight:700;font-size:28px;line-height:1.35;
+  letter-spacing:-.02em;color:var(--ink-1);margin-bottom:6px;
+}
+.home-head .sec-sub{margin-bottom:0}
+.demo-ctl{display:flex;align-items:center;gap:10px}
+.demo-label{font-size:12px;line-height:1.5;color:var(--ink-4)}
+.seg{
+  display:inline-flex;border:1px solid var(--line);border-radius:var(--r-pill);
+  background:var(--card);padding:2px;
+}
+.seg button{
+  font-family:var(--font-mono);font-size:13px;line-height:1;color:var(--ink-3);
+  padding:7px 14px;border-radius:var(--r-pill);
+  transition:background-color 140ms ease-out,color 140ms ease-out;
+}
+.seg button:hover{color:var(--ink-1)}
+.seg button[aria-pressed="true"]{background:var(--blue-wash);color:var(--blue-ink);font-weight:700}
+
+.roster-tools{padding:20px 0 16px}
+.search-box{position:relative;max-width:420px;margin-bottom:14px}
+.search-box svg{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  width:16px;height:16px;stroke:var(--ink-4);fill:none;stroke-width:1.6;
+  stroke-linecap:round;
+}
+.search-box input{
+  width:100%;border:1px solid var(--line);border-radius:var(--r-s);background:var(--card);
+  padding:10px 14px 10px 36px;font-size:14px;line-height:1.5;
+  transition:border-color 140ms ease-out;
+}
+.search-box input:hover{border-color:rgba(27,29,34,.18)}
+.search-box input:focus{outline:none;border-color:var(--blue)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{
+  border:1px solid var(--line);border-radius:var(--r-pill);background:var(--card);
+  font-size:13px;line-height:1.5;color:var(--ink-3);padding:5px 13px;
+  transition:border-color 140ms ease-out,color 140ms ease-out,background-color 140ms ease-out;
+}
+.chip:hover{border-color:rgba(27,29,34,.22);color:var(--ink-1)}
+.chip[aria-pressed="true"]{
+  background:var(--blue-wash);border-color:rgba(49,130,246,.45);
+  color:var(--blue-ink);font-weight:700;
+}
+.roster-count{font-size:13px;line-height:1.5;color:var(--ink-4);margin:4px 0 12px}
+
+.bot-list{
+  list-style:none;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-s);box-shadow:var(--sh-rest);overflow:hidden;
+  margin-bottom:64px;
+}
+.bot-list li + li{border-top:1px solid var(--line-soft)}
+.bot-row{
+  display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:16px;align-items:start;
+  padding:16px 20px;
+  transition:background-color 140ms ease-out;
+}
+.bot-row:hover{background:#fafbfc}
+.row-in{animation:rowIn 400ms ease-out both}
+@keyframes rowIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.avatar{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  width:44px;height:44px;border-radius:var(--r-av);
+  font-size:17px;font-weight:700;line-height:1;
+}
+.bot-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+.bot-name{
+  font-size:15px;font-weight:700;line-height:1.45;color:var(--ink-1);
+  display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+}
+.check{width:15px;height:15px;flex:none}
+.bot-desc{
+  font-size:13.5px;line-height:1.55;color:var(--ink-3);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.bot-meta{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:3px;
+  font-size:12px;line-height:1.5;color:var(--ink-4);
+}
+.quirk{
+  border:1px solid var(--line);border-radius:var(--r-pill);
+  font-size:11px;line-height:1.5;color:var(--ink-3);padding:1px 9px;
+}
+.docs{
+  align-self:center;flex:none;white-space:nowrap;
+  background:var(--bg);border:1px solid var(--line-soft);border-radius:var(--r-pill);
+  font-size:12px;line-height:1.5;color:var(--ink-2);padding:3px 11px;
+}
+.docs-none{color:var(--ink-4)}
+
+/* skeleton */
+.skeleton{list-style:none;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--r-s);overflow:hidden;margin-bottom:64px}
+.skeleton li{display:grid;grid-template-columns:44px 1fr;gap:16px;padding:16px 20px}
+.skeleton li + li{border-top:1px solid var(--line-soft)}
+.sk{background:rgba(27,29,34,.07);border-radius:var(--r-s);animation:skPulse 1.2s ease-in-out infinite}
+.sk-av{width:44px;height:44px;border-radius:var(--r-av)}
+.sk-l1{height:13px;width:32%;margin-bottom:9px}
+.sk-l2{height:11px;width:62%}
+@keyframes skPulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* empty state */
+.empty{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
+  padding:56px 24px;text-align:center;margin-bottom:64px;
+}
+.empty p:first-child{font-size:15px;font-weight:700;line-height:1.5;color:var(--ink-1);margin-bottom:6px}
+.empty p + p{font-size:13.5px;line-height:1.6;color:var(--ink-4);margin-bottom:18px}
+.btn-ghost{
+  display:inline-block;border:1px solid var(--line);border-radius:var(--r-s);
+  font-size:13px;line-height:1.5;font-weight:700;color:var(--ink-2);padding:8px 16px;
+  transition:border-color 140ms ease-out,background-color 140ms ease-out;
+}
+.btn-ghost:hover{border-color:rgba(27,29,34,.22);background:var(--bg)}
+
+/* ---------- chat ---------- */
+.chat-wrap{
+  display:grid;grid-template-columns:264px minmax(0,1fr);
+  max-width:1120px;margin:0 auto;padding:0 32px;gap:0;
+}
+.sessions{
+  border-right:1px solid var(--line-soft);
+  padding:24px 20px 24px 0;
+  position:sticky;top:60px;align-self:start;
+  max-height:calc(100vh - 60px);overflow-y:auto;
+}
+.sess-search{position:relative;margin-bottom:14px}
+.sess-search svg{
+  position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  width:14px;height:14px;stroke:var(--ink-4);fill:none;stroke-width:1.6;stroke-linecap:round;
+}
+.sess-search input{
+  width:100%;border:1px solid var(--line);border-radius:var(--r-s);background:var(--card);
+  padding:8px 10px 8px 30px;font-size:13px;line-height:1.5;
+  transition:border-color 140ms ease-out;
+}
+.sess-search input:focus{outline:none;border-color:var(--blue)}
+.sess-list{list-style:none}
+.sess-item{
+  display:block;padding:9px 12px;border-radius:var(--r-s);
+  transition:background-color 140ms ease-out;position:relative;
+}
+.sess-item:hover{background:rgba(27,29,34,.04)}
+.sess-item .t{font-size:13.5px;line-height:1.5;color:var(--ink-2);display:block}
+.sess-item .d{font-size:11px;line-height:1.5;color:var(--ink-4)}
+.sess-item[aria-current="true"]{background:var(--blue-wash)}
+.sess-item[aria-current="true"] .t{font-weight:700;color:var(--ink-1)}
+.sess-item[aria-current="true"]::before{
+  content:"";position:absolute;left:0;top:10px;bottom:10px;width:2px;
+  background:var(--blue);border-radius:var(--r-pill);
+}
+.sess-empty{font-size:12.5px;line-height:1.6;color:var(--ink-4);padding:10px 12px}
+
+.chat-col{min-width:0;padding:24px 0 0 40px;display:flex;flex-direction:column;min-height:calc(100vh - 60px)}
+.chat-head{
+  display:flex;align-items:flex-start;gap:14px;
+  padding-bottom:18px;border-bottom:1px solid var(--line-soft);margin-bottom:8px;
+}
+.chat-back{
+  flex:none;display:inline-flex;align-items:center;gap:4px;
+  font-size:13px;line-height:1.5;color:var(--ink-4);margin-top:12px;
+  transition:color 140ms ease-out;
+}
+.chat-back:hover{color:var(--ink-1)}
+.chat-back svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.chat-bot{display:flex;align-items:center;gap:12px;min-width:0;flex-wrap:wrap}
+.avatar-s{width:40px;height:40px;font-size:15px}
+.chat-bot-txt{display:flex;flex-direction:column;gap:2px;min-width:0}
+.chat-bot-name{font-size:15px;font-weight:700;line-height:1.4;color:var(--ink-1);display:flex;align-items:center;gap:6px}
+.chat-bot-role{font-size:12.5px;line-height:1.5;color:var(--ink-4)}
+.chat-bot-badges{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto;align-self:center}
+
+.turns{flex:1}
+.day-mark{text-align:center;font-size:11px;line-height:1.5;color:var(--ink-4);margin:16px 0 4px}
+.turn-user{display:flex;justify-content:flex-end;margin:16px 0}
+.bubble{
+  max-width:78%;background:rgba(27,29,34,.06);border-radius:var(--r-s);
+  padding:11px 15px;font-size:14.5px;line-height:1.6;color:var(--ink-2);
+}
+.answer-card{
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
+  box-shadow:var(--sh-rest);padding:22px 24px;margin:8px 0 18px;
+}
+.answer-body{font-size:15px;line-height:1.62;color:var(--ink-2)}
+.answer-body > p + p{margin-top:12px}
+.answer-body ol{margin:12px 0 12px;padding-left:1.5em}
+.answer-body ol li{margin:7px 0;line-height:1.62}
+.answer-body ol li::marker{color:var(--ink-4)}
+.answer-body strong{font-weight:700;color:var(--ink-1)}
+sup.fn{line-height:0}
+.fn-marker{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:15px;height:15px;padding:0 3px;margin-left:2px;
+  background:var(--blue-wash);border-radius:var(--r-pill);
+  font-family:var(--font-mono);font-size:10px;line-height:1;color:var(--blue-ink);
+  vertical-align:baseline;position:relative;top:-1px;
+  transition:background-color 140ms ease-out;
+}
+.fn-marker:hover{background:rgba(49,130,246,.16)}
+
+/* refs (citation block) */
+.refs{margin-top:18px;border-top:1px solid var(--line-soft);padding-top:16px}
+.refs-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.refs-title{font-size:13px;font-weight:700;line-height:1.5;color:var(--ink-1)}
+.refs-honest{font-size:12px;line-height:1.5;color:var(--ink-4)}
+.ref-doc{background:var(--bg);border-radius:var(--r-s);padding:14px 16px}
+.ref-doc + .ref-doc{margin-top:10px}
+.ref-doc-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px}
+.ref-doc-name{font-size:14px;font-weight:700;line-height:1.5;color:var(--ink-1)}
+.doc-type{
+  border:1px solid var(--line);border-radius:var(--r-pill);
+  font-size:11px;line-height:1.5;color:var(--ink-4);padding:0 8px;
+}
+.badge-primary{
+  background:var(--blue-wash);border-radius:var(--r-pill);
+  font-size:11px;line-height:1.5;font-weight:700;color:var(--blue-ink);padding:1px 9px;
+}
+.ref-doc-sum{font-size:12.5px;line-height:1.55;color:var(--ink-4);margin-bottom:10px}
+.ref-snip{
+  border-top:1px solid var(--line-soft);padding:10px 0 2px;
+  border-radius:var(--r-s);transition:box-shadow 300ms ease-out;
+}
+.snip-meta{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.fn-chip{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:16px;height:16px;padding:0 4px;flex:none;
+  background:var(--blue-wash);border-radius:var(--r-pill);
+  font-family:var(--font-mono);font-size:10px;line-height:1;color:var(--blue-ink);
+}
+.snip-meta .mono{font-size:11.5px;color:var(--ink-3)}
+.snip-sec{font-size:11.5px;line-height:1.5;color:var(--ink-4)}
+.snip-text{font-size:13.5px;line-height:1.65;color:var(--ink-3)}
+.cite-flash{box-shadow:0 0 0 2px var(--blue)}
+
+/* no-evidence strip */
+.refs-none{
+  margin-top:18px;border-top:1px solid var(--line-soft);padding-top:16px;
+}
+.refs-none-box{background:var(--bg);border-radius:var(--r-s);padding:13px 16px}
+.refs-none-box .t{font-size:13px;font-weight:700;line-height:1.5;color:var(--ink-2);display:block;margin-bottom:2px}
+.refs-none-box .d{font-size:12.5px;line-height:1.55;color:var(--ink-4)}
+
+/* answer footer */
+.answer-foot{
+  display:flex;align-items:center;gap:4px;
+  margin-top:16px;border-top:1px solid var(--line-soft);padding-top:12px;
+}
+.icon-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  color:var(--ink-4);padding:6px;border-radius:var(--r-s);
+  font-size:12.5px;line-height:1;
+  transition:color 140ms ease-out,background-color 140ms ease-out;
+}
+.icon-btn:hover{color:var(--ink-1);background:rgba(27,29,34,.05)}
+.icon-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.copy-wrap{margin-left:auto;display:flex;align-items:center;gap:8px}
+.copy-done{font-size:12px;line-height:1.5;color:var(--blue-ink);opacity:0;transition:opacity 140ms ease-out}
+.copy-done.show{opacity:1}
+
+/* follow-up chips */
+.followups{margin:0 0 22px}
+.followups-label{font-size:12px;line-height:1.5;color:var(--ink-4);margin-bottom:8px}
+.followups .chip{background:var(--card)}
+
+/* input bar */
+.chat-input-bar{
+  position:sticky;bottom:0;background:var(--bg);
+  border-top:1px solid var(--line-soft);
+  padding:14px 0 18px;margin-top:auto;
+}
+.chat-form{display:flex;gap:10px}
+.chat-form input{
+  flex:1;min-width:0;border:1px solid var(--line);border-radius:var(--r-s);background:var(--card);
+  padding:11px 14px;font-size:14.5px;line-height:1.5;
+  transition:border-color 140ms ease-out;
+}
+.chat-form input:hover{border-color:rgba(27,29,34,.18)}
+.chat-form input:focus{outline:none;border-color:var(--blue)}
+.send-btn{
+  flex:none;width:44px;border-radius:var(--r-s);background:var(--blue);
+  display:inline-flex;align-items:center;justify-content:center;
+  transition:background-color 140ms ease-out;
+}
+.send-btn:hover{background:var(--blue-ink)}
+.send-btn svg{width:17px;height:17px;stroke:#fff;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.chat-notice{font-size:11.5px;line-height:1.6;color:var(--ink-4);margin-top:10px}
+
+/* ---------- footnote popover ---------- */
+#fn-pop{
+  display:none;position:fixed;z-index:60;width:min(340px,calc(100vw - 24px));
+  background:var(--card);border:1px solid var(--line);border-radius:var(--r-s);
+  box-shadow:var(--sh-lift);padding:13px 15px;
+}
+.pop-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:5px}
+.pop-doc{font-size:12.5px;font-weight:700;line-height:1.5;color:var(--ink-1)}
+.pop-loc{font-size:11px;color:var(--ink-4)}
+.pop-excerpt{
+  font-size:12.5px;line-height:1.6;color:var(--ink-3);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.pop-hint{font-size:11px;line-height:1.5;color:var(--ink-4);margin-top:7px}
+
+/* ---------- responsive ---------- */
+@media (max-width:960px){
+  .sessions{display:none}
+  .chat-wrap{grid-template-columns:1fr}
+  .chat-col{padding-left:0}
+  .specimen-grid{grid-template-columns:1fr;gap:24px}
+}
+@media (max-width:700px){
+  .wrap{padding:0 18px}
+  .chat-wrap{padding:0 18px}
+  .topnav .wrap{gap:16px}
+  nav{gap:14px}
+  .hide-m{display:none}
+  .hero{grid-template-columns:1fr;gap:36px;padding:44px 0 48px}
+  .sso-card{justify-self:stretch;max-width:none}
+  .specimen-band{padding:48px 0}
+  .preview-sec{padding:48px 0 56px}
+  .home-head{padding-top:36px}
+  .bot-row{padding:14px 14px;gap:12px;grid-template-columns:40px minmax(0,1fr) auto}
+  .avatar{width:40px;height:40px;font-size:15px}
+  .docs{font-size:11px;padding:2px 9px}
+  .bubble{max-width:92%}
+  .answer-card{padding:18px 16px}
+  .refs-head{gap:4px}
+  .chat-bot-badges{margin-left:0}
+}
+
+/* ---------- reduced motion ---------- */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body data-view="landing">
+<a class="skip" href="#main">본문으로 건너뛰기</a>
+
+<header class="topnav">
+  <div class="wrap">
+    <a class="wordmark" href="#">블레싱</a>
+    <nav aria-label="주 메뉴">
+      <a href="#home" data-nav="home">봇 목록</a>
+      <a href="#chat" data-nav="chat">대화<span class="hide-m"> 미리보기</span></a>
+      <a class="btn-primary" href="#home">시작하기</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============ 랜딩 ============ -->
+<section class="view" id="view-landing" aria-label="소개">
+  <div class="wrap">
+    <div class="hero">
+      <div>
+        <h1>답의 근거를,
+문서의 그 줄까지</h1>
+        <p class="hero-sub">블레싱은 승인 문서를 근거로 안내해요. 어떤 문서 몇 쪽을 참고했는지,
+실제로 참고한 대목은 형광펜으로 보여드려요.</p>
+        <a class="link-plain" href="#home">로그인 없이 봇 목록 둘러보기 →</a>
+      </div>
+      <form class="sso-card" id="sso-form" aria-label="하나로 SSO 로그인">
+        <h2>하나로 SSO 로그인</h2>
+        <p class="sso-cap">하나로 계정 그대로 로그인해요. 별도 가입은 없어요.</p>
+        <label for="sso-id">아이디</label>
+        <input id="sso-id" name="id" type="text" autocomplete="username">
+        <label for="sso-pw">비밀번호</label>
+        <input id="sso-pw" name="pw" type="password" autocomplete="current-password">
+        <button class="btn-primary" type="submit">로그인</button>
+        <p class="sso-note">계정 문의는 소속 교회 담당자에게 해 주세요.</p>
+      </form>
+    </div>
+  </div>
+
+  <div class="specimen-band">
+    <div class="wrap">
+      <h2 class="sec-title">근거는 이렇게 보여드려요</h2>
+      <p class="sec-sub">모든 답변 아래에 참고한 문서가 함께 붙어요. 아래는 실제 답변 화면 그대로예요.</p>
+      <div class="specimen-grid">
+        <div class="specimen">
+          <div class="answer-body">
+            <p>축복식 준비는 소속 가정 교회를 통한 후보자 등록에서 시작합니다.<sup class="fn"><button class="fn-marker" type="button" data-cite="1" data-target="spec-cite-1" aria-label="근거 1 보기">1</button></sup><i class="callout" data-k="a">a</i></p>
+          </div>
+          <div class="refs">
+            <div class="refs-head">
+              <span class="refs-title">참고한 자료 1건</span>
+              <span class="refs-honest">형광펜 부분이 이 답변에 실제로 참고된 대목입니다</span>
+            </div>
+            <div class="ref-doc">
+              <div class="ref-doc-head">
+                <span class="ref-doc-name">축복 안내서(2026 정본)</span>
+                <span class="doc-type">안내</span>
+                <span class="badge-primary">주요 근거</span>
+              </div>
+              <p class="ref-doc-sum">축복의 의미와 전체 절차를 담은 기준 문서예요.</p>
+              <div class="ref-snip" id="spec-cite-1" tabindex="-1">
+                <div class="snip-meta"><span class="fn-chip">1</span><span class="mono">p.41</span><span class="snip-sec">4장 2절</span><i class="callout" data-k="b">b</i></div>
+                <p class="snip-text">…축복을 희망하는 가정은 먼저 <mark>소속 교회와 상의한다. 축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록한다</mark><i class="callout" data-k="c">c</i>. 등록 이후의 절차는…</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <ul class="legend">
+          <li><i class="callout">a</i><span>본문 각주예요. 올려두면 발췌를, 누르면 근거 카드를 바로 확인해요.</span></li>
+          <li><i class="callout">b</i><span>문서 이름과 쪽수, 장·절까지 함께 표기해요.</span></li>
+          <li><i class="callout">c</i><span>형광펜은 답변에 실제로 참고한 대목에만 그어요.</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="preview-sec">
+    <div class="wrap">
+      <h2 class="sec-title">봇마다 담당 문서가 달라요</h2>
+      <p class="sec-sub">필요한 봇을 골라 바로 물어보세요. 봇은 계속 늘어나요.</p>
+      <ul class="bot-list" id="preview-list"></ul>
+      <p class="preview-more"><a class="link-plain" href="#home">봇 목록 전체 보기 →</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 로스터 ============ -->
+<section class="view" id="view-home" aria-label="봇 목록">
+  <div class="wrap">
+    <div class="home-head">
+      <div>
+        <h1>봇 목록</h1>
+        <p class="sec-sub">담당 문서가 다른 봇들이 기다리고 있어요. 필요한 곳에 바로 물어보세요.</p>
+      </div>
+      <div class="demo-ctl">
+        <span class="demo-label" id="demo-label">데모 · 봇 수</span>
+        <div class="seg" role="group" aria-labelledby="demo-label">
+          <button type="button" data-n="8" aria-pressed="true">8</button>
+          <button type="button" data-n="24" aria-pressed="false">24</button>
+          <button type="button" data-n="60" aria-pressed="false">60</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="roster-tools">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input id="roster-q" type="search" placeholder="봇 이름, 하는 일, 태그로 찾기" aria-label="봇 검색">
+      </div>
+      <div class="chips" id="roster-chips" role="group" aria-label="카테고리"></div>
+    </div>
+
+    <p class="roster-count" id="roster-count" aria-live="polite"></p>
+
+    <ul class="skeleton" id="roster-skel" hidden aria-hidden="true">
+      <li><span class="sk sk-av"></span><span><span class="sk sk-l1"></span><span class="sk sk-l2"></span></span></li>
+      <li><span class="sk sk-av"></span><span><span class="sk sk-l1"></span><span class="sk sk-l2"></span></span></li>
+      <li><span class="sk sk-av"></span><span><span class="sk sk-l1"></span><span class="sk sk-l2"></span></span></li>
+      <li><span class="sk sk-av"></span><span><span class="sk sk-l1"></span><span class="sk sk-l2"></span></span></li>
+    </ul>
+
+    <ul class="bot-list" id="roster-list"></ul>
+
+    <div class="empty" id="roster-empty" hidden>
+      <p>조건에 맞는 봇이 없어요</p>
+      <p>검색어나 카테고리를 지우면 전체 목록이 다시 보여요.</p>
+      <button class="btn-ghost" type="button" id="roster-reset">전체 보기</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 채팅 ============ -->
+<section class="view" id="view-chat" aria-label="대화">
+  <div class="chat-wrap">
+
+    <aside class="sessions" aria-label="지난 대화">
+      <div class="sess-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input id="sess-q" type="search" placeholder="대화 검색" aria-label="대화 검색">
+      </div>
+      <ul class="sess-list" id="sess-list">
+        <li><a class="sess-item" href="#chat" aria-current="true"><span class="t">축복식 준비 절차</span><span class="d">오늘</span></a></li>
+        <li><a class="sess-item" href="#chat"><span class="t">후보자 등록 서류 문의</span><span class="d">어제</span></a></li>
+        <li><a class="sess-item" href="#chat"><span class="t">준비 교육 일정</span><span class="d">2일 전</span></a></li>
+        <li><a class="sess-item" href="#chat"><span class="t">교류 기간 질문</span><span class="d">지난주</span></a></li>
+      </ul>
+      <p class="sess-empty" id="sess-empty" hidden>검색된 대화가 없어요.</p>
+    </aside>
+
+    <div class="chat-col">
+      <div class="chat-head">
+        <a class="chat-back" href="#home" aria-label="봇 목록으로">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </a>
+        <div class="chat-bot">
+          <span class="avatar avatar-s" id="chat-avatar" aria-hidden="true"></span>
+          <div class="chat-bot-txt">
+            <span class="chat-bot-name">블레싱 네비게이션
+              <span role="img" aria-label="공식"><svg class="check" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#3182F6"/><path d="M5 8.2l2 2 4-4.4" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+            </span>
+            <span class="chat-bot-role">축복 전반의 절차와 규정을 담당 문서 근거로 안내해요</span>
+          </div>
+          <span class="chat-bot-badges">
+            <span class="docs">문서 7종</span>
+            <span class="quirk">근거 못 찾으면 답하지 않음</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="turns">
+        <p class="day-mark">오늘</p>
+
+        <!-- 턴 1 -->
+        <div class="turn-user">
+          <div class="bubble">축복식 준비 절차가 궁금해요. 어디서부터 시작해야 하나요?</div>
+        </div>
+
+        <div class="answer-card">
+          <div class="answer-body" id="answer-1">
+            <p>축복식 준비는 소속 가정 교회를 통한 후보자 등록에서 시작합니다.<sup class="fn"><button class="fn-marker" type="button" data-cite="1" data-target="cite-1" aria-label="근거 1 보기">1</button></sup></p>
+            <ol>
+              <li><strong>소속 교회와 상의</strong> — 축복을 희망하는 가정은 먼저 소속 교회와 상의합니다.<sup class="fn"><button class="fn-marker" type="button" data-cite="1" data-target="cite-1" aria-label="근거 1 보기">1</button></sup></li>
+              <li><strong>후보자 등록</strong> — 축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록합니다.<sup class="fn"><button class="fn-marker" type="button" data-cite="1" data-target="cite-1" aria-label="근거 1 보기">1</button></sup></li>
+              <li><strong>준비 교육 이수</strong> — 축복식에 앞서 소정의 준비 교육을 이수합니다.<sup class="fn"><button class="fn-marker" type="button" data-cite="2" data-target="cite-2" aria-label="근거 2 보기">2</button></sup></li>
+              <li><strong>정성 기간</strong> — 축복식에 앞서 각 가정은 정해진 기간의 정성을 준비합니다.<sup class="fn"><button class="fn-marker" type="button" data-cite="3" data-target="cite-3" aria-label="근거 3 보기">3</button></sup></li>
+            </ol>
+            <p>서류 목록은 교구마다 안내 시기가 달라, 소속 교회 담당자에게 확인하시는 것이 가장 정확합니다.</p>
+          </div>
+
+          <div class="refs">
+            <div class="refs-head">
+              <span class="refs-title">참고한 자료 2건</span>
+              <span class="refs-honest">형광펜 부분이 이 답변에 실제로 참고된 대목입니다</span>
+            </div>
+            <div class="ref-doc">
+              <div class="ref-doc-head">
+                <span class="ref-doc-name">축복 안내서(2026 정본)</span>
+                <span class="doc-type">안내</span>
+                <span class="badge-primary">주요 근거</span>
+              </div>
+              <p class="ref-doc-sum">축복의 의미와 전체 절차를 담은 기준 문서예요.</p>
+              <div class="ref-snip" id="cite-1" tabindex="-1">
+                <div class="snip-meta"><span class="fn-chip">1</span><span class="mono">p.41</span><span class="snip-sec">4장 2절</span></div>
+                <p class="snip-text">…축복을 희망하는 가정은 먼저 <mark>소속 교회와 상의한다. 축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록한다</mark>. 등록 이후의 절차는…</p>
+              </div>
+            </div>
+            <div class="ref-doc">
+              <div class="ref-doc-head">
+                <span class="ref-doc-name">축복식 준비 지침</span>
+                <span class="doc-type">지침</span>
+              </div>
+              <p class="ref-doc-sum">축복식 전 준비 교육과 정성 기간을 다루는 지침이에요.</p>
+              <div class="ref-snip" id="cite-2" tabindex="-1">
+                <div class="snip-meta"><span class="fn-chip">2</span><span class="mono">p.12</span><span class="snip-sec">2장</span></div>
+                <p class="snip-text">…축복식에 앞서 <mark>소정의 준비 교육을 이수한다</mark>…</p>
+              </div>
+              <div class="ref-snip" id="cite-3" tabindex="-1">
+                <div class="snip-meta"><span class="fn-chip">3</span><span class="mono">p.18</span><span class="snip-sec">3장</span></div>
+                <p class="snip-text">…각 가정은 <mark>정해진 기간의 정성을 준비한다</mark>…</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="answer-foot">
+            <button class="icon-btn" type="button" aria-label="도움이 됐어요">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+            </button>
+            <button class="icon-btn" type="button" aria-label="아쉬워요">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+            </button>
+            <span class="copy-wrap">
+              <span class="copy-done" aria-live="polite"></span>
+              <button class="icon-btn copy-btn" type="button" data-copy="answer-1" aria-label="답변 복사">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                복사
+              </button>
+            </span>
+          </div>
+        </div>
+
+        <div class="followups">
+          <p class="followups-label">이어서 물어보기</p>
+          <div class="chips">
+            <button class="chip followup" type="button">후보자 등록 서류가 궁금해요</button>
+            <button class="chip followup" type="button">준비 교육 일정은 어디서 보나요</button>
+            <button class="chip followup" type="button">정성 기간은 얼마나 되나요</button>
+          </div>
+        </div>
+
+        <!-- 턴 2: 근거 없음 표본 -->
+        <div class="turn-user">
+          <div class="bubble">제 경우엔 언제 등록하는 게 좋을까요?</div>
+        </div>
+
+        <div class="answer-card">
+          <div class="answer-body" id="answer-2">
+            <p>등록 시기의 개인별 판단은 제가 가진 문서에 나와 있지 않습니다. 소속 교회 담당자와 상의하시길 권합니다. 일반 절차는 위 안내와 같습니다.</p>
+          </div>
+          <div class="refs-none">
+            <div class="refs-none-box">
+              <span class="t">참고한 자료 없음</span>
+              <span class="d">이번 답변은 문서에 없는 내용이라 인용 없이 안내드렸어요.</span>
+            </div>
+          </div>
+          <div class="answer-foot">
+            <button class="icon-btn" type="button" aria-label="도움이 됐어요">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+            </button>
+            <button class="icon-btn" type="button" aria-label="아쉬워요">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+            </button>
+            <span class="copy-wrap">
+              <span class="copy-done" aria-live="polite"></span>
+              <button class="icon-btn copy-btn" type="button" data-copy="answer-2" aria-label="답변 복사">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                복사
+              </button>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-input-bar">
+        <form class="chat-form" id="chat-form">
+          <input id="chat-input" type="text" placeholder="축복 절차, 서류, 교육… 궁금한 것을 적어 주세요" aria-label="질문 입력">
+          <button class="send-btn" type="submit" aria-label="보내기">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+          </button>
+        </form>
+        <p class="chat-notice">이 서비스는 승인 문서를 근거로 안내합니다. 최종 확인은 소속 교회를 통해 해 주세요.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="foot-brand">블레싱</p>
+    <p class="foot-note">이 서비스는 승인 문서를 근거로 안내합니다. 최종 확인은 소속 교회를 통해 해 주세요.</p>
+  </div>
+</footer>
+
+<div id="fn-pop" role="tooltip">
+  <div class="pop-head"><span class="pop-doc"></span><span class="pop-loc"></span></div>
+  <p class="pop-excerpt"></p>
+  <p class="pop-hint">누르면 근거 카드로 이동해요</p>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------- 데이터 (_content.md 그대로) ---------- */
+var BOTS_BASE=[
+ {name:"블레싱 네비게이션",desc:"축복 전반의 절차와 규정을 담당 문서 근거로 안내해요.",tags:["축복","종합"],docs:7,verified:true,quirks:["근거 못 찾으면 답하지 않음"]},
+ {name:"가정 행정 안내",desc:"가정 행정 서류와 신청 절차를 차근차근 짚어드려요.",tags:["행정","서류"],docs:5,verified:true,quirks:[]},
+ {name:"가정 정책 길잡이",desc:"가정 관련 정책의 근거 조항을 찾아 안내해요.",tags:["행정","정책"],docs:4,verified:true,quirks:["근거 못 찾으면 답하지 않음"]},
+ {name:"청년 안내",desc:"청년과 2세를 위한 교육·준비 과정을 안내해요.",tags:["청년","교육"],docs:4,verified:false,quirks:[]},
+ {name:"日本語 안내",desc:"日本語で規定と手続きをご案内します。",tags:["언어","일본어"],docs:2,verified:false,quirks:["앞 대화를 기억하지 않음"]},
+ {name:"축복 용어 사전",desc:"낯선 용어의 뜻을 문서에 적힌 정의 그대로 알려드려요.",tags:["용어","종합"],docs:1,verified:true,quirks:["기억 안 함","근거 못 찾으면 답 안 함"]},
+ {name:"마음 나누기",desc:"고민을 나누는 자리예요. 문서 인용 없이 대화로 함께해요.",tags:["상담"],docs:0,verified:false,quirks:["문서를 근거로 답하지 않음"]},
+ {name:"봉헌식·의례 안내",desc:"봉헌식과 생활 의례의 순서·준비물을 안내해요.",tags:["의례","생활"],docs:3,verified:false,quirks:["근거 못 찾으면 답하지 않음"]}
+];
+var BOTS_EXT=[
+ {name:"축복 준비 교육 안내",desc:"준비 교육의 과정과 신청 방법을 안내해요.",tags:["축복","교육"],docs:3,verified:true,quirks:[]},
+ {name:"국제 가정 안내",desc:"국제 가정의 행정 절차를 나라별로 짚어드려요.",tags:["국제","행정"],docs:4,verified:true,quirks:[]},
+ {name:"수련회·행사 안내",desc:"수련회와 행사의 일정·준비 사항을 안내해요.",tags:["행사","생활"],docs:2,verified:false,quirks:[]},
+ {name:"장학·지원 제도",desc:"장학금과 지원 제도의 신청 자격을 확인해 드려요.",tags:["지원","청년"],docs:3,verified:true,quirks:[]},
+ {name:"2세 교육 길잡이",desc:"자녀 교육 과정과 가정 교육 자료를 안내해요.",tags:["교육","가정"],docs:5,verified:true,quirks:[]},
+ {name:"English Guide",desc:"Answers procedures and policies in English.",tags:["언어","English"],docs:2,verified:false,quirks:[]},
+ {name:"헌금·봉헌 안내",desc:"헌금과 봉헌의 종류·절차를 안내해요.",tags:["행정","생활"],docs:2,verified:false,quirks:[]},
+ {name:"예식 음악 도우미",desc:"예식에 쓰는 음악 자료를 찾아드려요.",tags:["의례","자료"],docs:1,verified:false,quirks:[]},
+ {name:"가정관리 절차 안내",desc:"가정관리 절차의 단계별 서류를 안내해요.",tags:["행정","가정"],docs:4,verified:true,quirks:[]},
+ {name:"신혼 가정 첫걸음",desc:"새로 출발하는 가정의 첫 준비를 도와드려요.",tags:["가정","생활"],docs:3,verified:false,quirks:[]},
+ {name:"해외 이주 행정",desc:"해외 이주에 필요한 서류와 절차를 안내해요.",tags:["국제","서류"],docs:3,verified:false,quirks:[]},
+ {name:"부모 상담 창구",desc:"부모님의 고민을 함께 나누는 상담 자리예요.",tags:["상담","가정"],docs:0,verified:false,quirks:[]},
+ {name:"절기·기념일 안내",desc:"절기와 기념일의 의미·준비를 안내해요.",tags:["생활","의례"],docs:2,verified:false,quirks:[]},
+ {name:"중국어 안내(中文)",desc:"以中文介绍相关规定与办理流程。",tags:["언어","중국어"],docs:2,verified:false,quirks:[]},
+ {name:"서류 양식 찾기",desc:"필요한 서류 양식을 이름만으로 찾아드려요.",tags:["서류","행정"],docs:6,verified:true,quirks:[]},
+ {name:"새 식구 오리엔테이션",desc:"처음 오신 분께 전체 흐름을 한눈에 안내해요.",tags:["종합","생활"],docs:3,verified:true,quirks:[]}
+];
+var REGIONS=["서울","부산","대구","인천","광주","대전","울산","경기","강원","전주","제주","창원"];
+var ARCH=[
+ ["행정 안내","행정",function(r){return r+" 지역 행정 절차를 안내해요.";}],
+ ["청년 안내","청년",function(r){return r+" 청년 모임과 교육을 안내해요.";}],
+ ["행사 안내","행사",function(r){return r+" 행사와 수련회 소식을 안내해요.";}]
+];
+function synthRegional(){
+  var out=[];
+  REGIONS.forEach(function(r){
+    ARCH.forEach(function(a){
+      out.push({name:r+" "+a[0],desc:a[2](r),tags:[r,a[1]],docs:2,verified:false,quirks:[]});
+    });
+  });
+  return out;
+}
+function botsForN(n){
+  if(n===8)return BOTS_BASE.slice();
+  if(n===24)return BOTS_BASE.concat(BOTS_EXT);
+  return BOTS_BASE.concat(BOTS_EXT,synthRegional());
+}
+
+var CITES={
+ "1":{doc:"축복 안내서(2026 정본)",loc:"p.41 · 4장 2절",excerpt:"…축복을 희망하는 가정은 먼저 <mark>소속 교회와 상의한다. 축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록한다</mark>. 등록 이후의 절차는…"},
+ "2":{doc:"축복식 준비 지침",loc:"p.12 · 2장",excerpt:"…축복식에 앞서 <mark>소정의 준비 교육을 이수한다</mark>…"},
+ "3":{doc:"축복식 준비 지침",loc:"p.18 · 3장",excerpt:"…각 가정은 <mark>정해진 기간의 정성을 준비한다</mark>…"}
+};
+
+/* ---------- 아바타 ---------- */
+function avatarSeed(name){
+  var h=0;
+  for(var i=0;i<name.length;i++){h=(h*31+name.codePointAt(i))%360;}
+  return h;
+}
+function avatarHTML(name,extra){
+  var h=avatarSeed(name);
+  var init=Array.from(name)[0];
+  if(/[a-z]/.test(init))init=init.toUpperCase();
+  return '<span class="avatar '+(extra||'')+'" style="background:hsl('+h+',26%,89%);color:hsl('+h+',30%,33%)" aria-hidden="true">'+init+'</span>';
+}
+
+/* ---------- 로스터 ---------- */
+var state={n:8,q:"",tag:null,inited:false};
+var elList=document.getElementById("roster-list");
+var elSkel=document.getElementById("roster-skel");
+var elEmpty=document.getElementById("roster-empty");
+var elChips=document.getElementById("roster-chips");
+var elCount=document.getElementById("roster-count");
+var elQ=document.getElementById("roster-q");
+var skelTimer=null;
+
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+function rowHTML(b,i){
+  var check=b.verified?'<span role="img" aria-label="공식"><svg class="check" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#3182F6"/><path d="M5 8.2l2 2 4-4.4" stroke="#fff" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></span>':"";
+  var quirks=b.quirks.map(function(q){return '<span class="quirk">'+esc(q)+'</span>';}).join("");
+  var docs=b.docs>0?'<span class="docs">문서 '+b.docs+'종</span>':'<span class="docs docs-none">문서 없음</span>';
+  var delay=Math.min(i,7)*60;
+  return '<li><a class="bot-row row-in" href="#chat" style="animation-delay:'+delay+'ms">'
+    +avatarHTML(b.name)
+    +'<span class="bot-main">'
+    +'<span class="bot-name">'+esc(b.name)+check+'</span>'
+    +'<span class="bot-desc">'+esc(b.desc)+'</span>'
+    +'<span class="bot-meta"><span class="bot-tags">'+b.tags.map(esc).join(" · ")+'</span>'+quirks+'</span>'
+    +'</span>'+docs+'</a></li>';
+}
+
+function tagUnion(list){
+  var m=new Map();
+  list.forEach(function(b){b.tags.forEach(function(t){m.set(t,(m.get(t)||0)+1);});});
+  return Array.from(m.entries())
+    .sort(function(a,b){return b[1]-a[1]||a[0].localeCompare(b[0],"ko");})
+    .map(function(e){return e[0];});
+}
+
+function buildChips(){
+  var tags=tagUnion(botsForN(state.n));
+  if(state.tag&&tags.indexOf(state.tag)<0)state.tag=null;
+  var html='<button class="chip" type="button" data-tag="" aria-pressed="'+(state.tag===null)+'">전체</button>';
+  tags.forEach(function(t){
+    html+='<button class="chip" type="button" data-tag="'+esc(t)+'" aria-pressed="'+(state.tag===t)+'">'+esc(t)+'</button>';
+  });
+  elChips.innerHTML=html;
+}
+
+function filtered(){
+  var q=state.q.trim().toLowerCase();
+  return botsForN(state.n).filter(function(b){
+    if(state.tag&&b.tags.indexOf(state.tag)<0)return false;
+    if(!q)return true;
+    var hay=(b.name+" "+b.desc+" "+b.tags.join(" ")).toLowerCase();
+    return hay.indexOf(q)>=0;
+  });
+}
+
+function renderRoster(){
+  var list=filtered();
+  var ctx="봇 "+list.length+"개";
+  if(state.tag)ctx+=" · ‘"+state.tag+"’ 카테고리";
+  if(state.q.trim())ctx+=" · ‘"+state.q.trim()+"’ 검색";
+  elCount.textContent=ctx;
+  if(list.length===0){
+    elList.hidden=true;elList.innerHTML="";
+    elEmpty.hidden=false;
+    return;
+  }
+  elEmpty.hidden=true;
+  elList.hidden=false;
+  elList.innerHTML=list.map(rowHTML).join("");
+}
+
+function showSkeletonThenRender(){
+  clearTimeout(skelTimer);
+  elList.hidden=true;elEmpty.hidden=true;
+  elSkel.hidden=false;
+  skelTimer=setTimeout(function(){
+    elSkel.hidden=true;
+    renderRoster();
+  },380);
+}
+
+function initRoster(){
+  if(state.inited)return;
+  state.inited=true;
+  buildChips();
+  showSkeletonThenRender();
+}
+
+document.querySelectorAll(".seg button").forEach(function(btn){
+  btn.addEventListener("click",function(){
+    var n=parseInt(btn.dataset.n,10);
+    if(n===state.n)return;
+    state.n=n;
+    document.querySelectorAll(".seg button").forEach(function(b){
+      b.setAttribute("aria-pressed",String(b===btn));
+    });
+    buildChips();
+    showSkeletonThenRender();
+  });
+});
+
+elQ.addEventListener("input",function(){
+  state.q=elQ.value;
+  renderRoster();
+});
+
+elChips.addEventListener("click",function(e){
+  var chip=e.target.closest(".chip");
+  if(!chip)return;
+  var t=chip.dataset.tag;
+  state.tag=t===""?null:t;
+  elChips.querySelectorAll(".chip").forEach(function(c){
+    c.setAttribute("aria-pressed",String((c.dataset.tag||"")===(state.tag||"")));
+  });
+  renderRoster();
+});
+
+document.getElementById("roster-reset").addEventListener("click",function(){
+  state.q="";state.tag=null;elQ.value="";
+  buildChips();
+  renderRoster();
+});
+
+/* ---------- 랜딩 미리보기 (봇 1·6·7) ---------- */
+document.getElementById("preview-list").innerHTML=
+  [BOTS_BASE[0],BOTS_BASE[5],BOTS_BASE[6]].map(function(b){return rowHTML(b,0);}).join("");
+
+/* ---------- 채팅 헤더 아바타 ---------- */
+document.getElementById("chat-avatar").outerHTML=avatarHTML("블레싱 네비게이션","avatar-s");
+
+/* ---------- SSO → #home ---------- */
+document.getElementById("sso-form").addEventListener("submit",function(e){
+  e.preventDefault();
+  location.hash="#home";
+});
+
+/* ---------- 라우팅 ---------- */
+var motionOK=!window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function route(){
+  var h=location.hash;
+  var v=h==="#home"?"home":h==="#chat"?"chat":"landing";
+  document.body.dataset.view=v;
+  ["landing","home","chat"].forEach(function(name){
+    document.getElementById("view-"+name).classList.toggle("active",name===v);
+  });
+  document.querySelectorAll("nav a[data-nav]").forEach(function(a){
+    if(a.dataset.nav===v)a.setAttribute("aria-current","page");
+    else a.removeAttribute("aria-current");
+  });
+  if(v==="home")initRoster();
+  window.scrollTo(0,0);
+}
+window.addEventListener("hashchange",route);
+route();
+
+/* ---------- 각주: 팝오버 + 클릭 포커스 ---------- */
+var pop=document.getElementById("fn-pop");
+var popDoc=pop.querySelector(".pop-doc");
+var popLoc=pop.querySelector(".pop-loc");
+var popEx=pop.querySelector(".pop-excerpt");
+var hideTimer=null;
+
+function showPop(btn){
+  var d=CITES[btn.dataset.cite];
+  if(!d)return;
+  clearTimeout(hideTimer);
+  popDoc.textContent=d.doc;
+  popLoc.textContent=d.loc;
+  popEx.innerHTML=d.excerpt;
+  pop.style.display="block";
+  var r=btn.getBoundingClientRect();
+  var pr=pop.getBoundingClientRect();
+  var x=Math.min(Math.max(r.left+r.width/2-pr.width/2,12),window.innerWidth-pr.width-12);
+  var y=r.top-pr.height-10;
+  if(y<70)y=r.bottom+10;
+  pop.style.left=x+"px";
+  pop.style.top=y+"px";
+}
+function hidePop(now){
+  clearTimeout(hideTimer);
+  if(now){pop.style.display="none";return;}
+  hideTimer=setTimeout(function(){pop.style.display="none";},140);
+}
+
+document.addEventListener("mouseover",function(e){
+  var btn=e.target.closest(".fn-marker");
+  if(btn)showPop(btn);
+});
+document.addEventListener("mouseout",function(e){
+  if(e.target.closest(".fn-marker"))hidePop(false);
+});
+document.addEventListener("focusin",function(e){
+  var btn=e.target.closest(".fn-marker");
+  if(btn)showPop(btn);
+});
+document.addEventListener("focusout",function(e){
+  if(e.target.closest(".fn-marker"))hidePop(false);
+});
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape")hidePop(true);
+});
+window.addEventListener("scroll",function(){hidePop(true);},{passive:true});
+
+document.addEventListener("click",function(e){
+  var btn=e.target.closest(".fn-marker");
+  if(!btn)return;
+  hidePop(true);
+  var target=document.getElementById(btn.dataset.target||("cite-"+btn.dataset.cite));
+  if(!target)return;
+  target.scrollIntoView({block:"center",behavior:motionOK?"smooth":"auto"});
+  target.classList.add("cite-flash");
+  target.focus({preventScroll:true});
+  setTimeout(function(){target.classList.remove("cite-flash");},1600);
+});
+
+/* ---------- 이어질문 칩 → 입력 프리필 ---------- */
+var chatInput=document.getElementById("chat-input");
+document.querySelectorAll(".followup").forEach(function(chip){
+  chip.addEventListener("click",function(){
+    chatInput.value=chip.textContent.trim();
+    chatInput.focus();
+  });
+});
+document.getElementById("chat-form").addEventListener("submit",function(e){
+  e.preventDefault();
+});
+
+/* ---------- 답변 복사 ---------- */
+function fallbackCopy(text){
+  var ta=document.createElement("textarea");
+  ta.value=text;
+  ta.style.position="fixed";ta.style.left="-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try{document.execCommand("copy");}catch(err){}
+  document.body.removeChild(ta);
+}
+document.querySelectorAll(".copy-btn").forEach(function(btn){
+  btn.addEventListener("click",function(){
+    var src=document.getElementById(btn.dataset.copy);
+    var text=src?src.textContent.replace(/\s+\n/g,"\n").trim():"";
+    var done=btn.parentElement.querySelector(".copy-done");
+    function ok(){
+      done.textContent="복사했어요";
+      done.classList.add("show");
+      setTimeout(function(){done.classList.remove("show");},1800);
+    }
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(ok,function(){fallbackCopy(text);ok();});
+    }else{fallbackCopy(text);ok();}
+  });
+});
+
+/* ---------- 세션 검색 ---------- */
+var sessQ=document.getElementById("sess-q");
+var sessItems=Array.from(document.querySelectorAll("#sess-list li"));
+var sessEmpty=document.getElementById("sess-empty");
+sessQ.addEventListener("input",function(){
+  var q=sessQ.value.trim().toLowerCase();
+  var visible=0;
+  sessItems.forEach(function(li){
+    var hit=!q||li.textContent.toLowerCase().indexOf(q)>=0;
+    li.hidden=!hit;
+    if(hit)visible++;
+  });
+  sessEmpty.hidden=visible>0;
+});
+
+})();
+</script>
+</body>
+</html>

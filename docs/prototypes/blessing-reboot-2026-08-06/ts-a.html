@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 네비게이션 — ts-a · 여백의 근거 (taste-skill)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* ================================================================
+   ts-a · 방향 C 「근거가 보이는 답」 — taste-skill 해석
+   Design Read: 신뢰 우선 문서기반 챗봇. 근거 투명성이 미학.
+   Dials: VARIANCE 5 / MOTION 3 / DENSITY 5
+   언어: 마지널리아(여백 주석) 지면. 판례집처럼 본문 오른쪽
+   여백에 근거가 문장 단위로 나란히 선다. 패널이 아니라 지면이다.
+   ================================================================ */
+:root{
+  --page:#F7F6F3;
+  --white:#FFFFFF;
+  --ink:#201B29;
+  --body:#443E50;
+  --muted:#6F6A7B;
+  --faint:#9C97A7;
+  --hair:#E3E1DC;
+  --hair-2:#CFCCC5;
+  --accent:#5C4396;         /* 유일한 액센트 */
+  --accent-soft:#EDE8F6;
+  --hl:#E9E2F6;             /* 근거 대목 하이라이트 */
+  --hl-edge:#B7A3DE;
+  --focus:#8A6CC4;
+  --r:10px;                  /* 라운딩 단일 스케일 */
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif;
+  background:var(--page);color:var(--body);
+  font-size:15.5px;line-height:1.75;
+  word-break:keep-all;overflow-wrap:break-word;
+  min-height:100dvh;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
+}
+.view{display:none}
+.view.on{display:block}
+.scrim{display:none} /* 데스크톱에서 그리드 아이템으로 잡히지 않도록 */
+
+/* ================= 랜딩 ================= */
+.shell{max-width:1140px;margin:0 auto;padding:0 36px}
+.top{display:flex;align-items:center;gap:12px;height:66px}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink)}
+.brand img{width:27px;height:27px}
+.brand b{font-weight:700;font-size:15.5px;letter-spacing:-.2px}
+.top .sp{flex:1}
+.top nav{display:flex;gap:22px;align-items:center}
+.top nav a{font-size:14px;color:var(--muted)}
+.top nav a:hover{color:var(--ink)}
+.btn-login{
+  border:1px solid var(--hair-2);border-radius:var(--r);padding:8px 17px;
+  font-size:13.5px;font-weight:600;color:var(--ink);
+  transition:border-color .2s,color .2s;
+}
+.btn-login:hover{border-color:var(--accent);color:var(--accent)}
+
+.hero{
+  display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);
+  gap:64px;align-items:center;padding:64px 0 0;
+}
+.hero h1{
+  font-size:clamp(30px,3.6vw,42px);line-height:1.38;font-weight:800;
+  color:var(--ink);letter-spacing:-.03em;
+}
+.hero h1 em{font-style:normal;color:var(--accent)}
+.hero .sub{margin-top:18px;font-size:16px;color:var(--muted);line-height:1.85}
+.hero-ask{margin-top:30px}
+.askbar{
+  display:flex;align-items:center;gap:10px;background:var(--white);
+  border:1px solid var(--hair-2);border-radius:var(--r);
+  padding:5px 5px 5px 17px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.askbar:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.askbar input{flex:1;border:0;background:none;outline:none;font-size:15.5px;min-height:48px}
+.askbar input::placeholder{color:var(--faint)}
+.askbar button{
+  background:var(--accent);color:#fff;border-radius:calc(var(--r) - 3px);
+  height:46px;padding:0 22px;font-weight:700;font-size:14px;flex:none;
+  transition:background .2s;
+}
+.askbar button:hover{background:#4A3480}
+.hero-chips{margin-top:12px;display:flex;flex-wrap:wrap;gap:7px}
+.chip{
+  border:1px solid var(--hair);border-radius:999px;background:var(--white);
+  padding:7px 14px;font-size:13px;color:var(--body);
+  transition:border-color .18s,color .18s;min-height:36px;
+}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+
+/* 히어로 표본: 실제 답변 지면의 축소판 */
+.specimen{
+  background:var(--white);border:1px solid var(--hair);border-radius:var(--r);
+  box-shadow:0 24px 48px -30px rgba(32,27,41,.35);
+  padding:26px 26px 22px;font-size:13px;
+}
+.specimen .q{font-size:12.5px;color:var(--muted);padding-bottom:14px;border-bottom:1px solid var(--hair)}
+.specimen .q b{color:var(--ink);font-weight:600}
+.spec-grid{display:grid;grid-template-columns:minmax(0,1fr) 148px;gap:8px 18px;padding-top:16px}
+.spec-line{line-height:1.8;color:var(--body)}
+.spec-line .hl-t{background:var(--hl);box-shadow:inset 0 -1px var(--hl-edge);padding:0 2px}
+.spec-note{
+  border-left:2px solid var(--accent);padding:2px 0 2px 10px;
+  font-size:11px;line-height:1.6;color:var(--muted);align-self:start;
+}
+.spec-note b{display:block;color:var(--accent);font-weight:700;font-size:11px}
+.specimen .cap{margin-top:16px;padding-top:12px;border-top:1px solid var(--hair);font-size:12px;color:var(--faint)}
+
+/* 문서 대장: 묶음 3덩이 */
+.section{padding:110px 0 0}
+.sec-h{max-width:640px}
+.sec-h h2{font-size:26px;font-weight:800;color:var(--ink);letter-spacing:-.025em}
+.sec-h p{margin-top:12px;font-size:15px;color:var(--muted);line-height:1.85}
+.ledger{margin-top:40px;display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.ledger-group{
+  background:var(--white);border:1px solid var(--hair);border-radius:var(--r);
+  padding:22px 24px 18px;
+}
+.ledger-group h3{font-size:14.5px;font-weight:700;color:var(--ink);padding-bottom:12px;border-bottom:1px solid var(--hair)}
+.ledger-item{display:flex;align-items:baseline;gap:10px;padding:11px 0;font-size:14px;color:var(--body)}
+.ledger-item + .ledger-item{border-top:1px solid var(--hair)}
+.ledger-item .ed{margin-left:auto;font-size:12px;color:var(--faint);flex:none;font-feature-settings:"tnum"}
+.ledger-item .ed.warn{color:var(--accent);font-weight:600}
+.ledger-note{margin-top:16px;font-size:13.5px;color:var(--muted);max-width:640px;line-height:1.8}
+
+/* 근거 없는 질문의 행로 */
+.refusal{
+  margin-top:110px;background:var(--white);border:1px solid var(--hair);border-radius:var(--r);
+  display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);
+}
+.refusal .l{padding:34px 36px;border-right:1px solid var(--hair)}
+.refusal .l h2{font-size:22px;font-weight:800;color:var(--ink);letter-spacing:-.02em;line-height:1.5}
+.refusal .l p{margin-top:14px;font-size:14.5px;color:var(--muted);line-height:1.85}
+.refusal .r{padding:26px 36px 30px}
+.ref-line{padding:14px 0;display:flex;gap:14px;align-items:baseline}
+.ref-line + .ref-line{border-top:1px solid var(--hair)}
+.ref-line .from{font-size:14px;color:var(--body);flex:1}
+.ref-line .to{font-size:13px;color:var(--accent);font-weight:600;flex:none}
+
+.foot{
+  margin-top:120px;border-top:1px solid var(--hair-2);
+  padding:26px 0 46px;display:flex;flex-wrap:wrap;gap:8px 26px;
+  font-size:12.5px;color:var(--faint);
+}
+.foot .sp{flex:1}
+
+/* ================= 채팅 ================= */
+.chat{display:grid;grid-template-columns:252px minmax(0,1fr);height:100dvh}
+.side{
+  border-right:1px solid var(--hair);background:var(--page);
+  padding:16px 13px;display:flex;flex-direction:column;gap:5px;min-height:0;
+}
+.side .brand{padding:4px 6px 14px}
+.btn-new{
+  display:flex;align-items:center;gap:9px;background:var(--white);
+  border:1px solid var(--hair-2);border-radius:var(--r);
+  padding:10px 13px;font-size:14px;font-weight:600;color:var(--ink);
+  transition:border-color .2s;min-height:42px;
+}
+.btn-new:hover{border-color:var(--accent)}
+.btn-new svg{width:15px;height:15px;stroke:var(--accent)}
+.side-label{font-size:11.5px;color:var(--faint);padding:15px 8px 5px}
+.sess{
+  text-align:left;padding:9px 11px;border-radius:calc(var(--r) - 3px);
+  font-size:13.5px;color:var(--body);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:background .15s;min-height:38px;
+}
+.sess:hover{background:var(--white)}
+.sess[aria-current="true"]{background:var(--white);color:var(--ink);font-weight:600;border:1px solid var(--hair)}
+.side .sp{flex:1}
+.side-foot{border-top:1px solid var(--hair);padding:12px 8px 2px;font-size:13px;color:var(--muted)}
+
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.chat-head{
+  display:flex;align-items:center;gap:12px;height:56px;flex:none;
+  padding:0 28px;border-bottom:1px solid var(--hair);background:var(--page);
+}
+.chat-head .menu{display:none}
+.chat-head h1{font-size:14.5px;font-weight:700;color:var(--ink)}
+.chat-head .meta{font-size:12px;color:var(--faint)}
+.chat-head .sp{flex:1}
+.ghost{font-size:13px;color:var(--muted);padding:8px 10px;border-radius:8px;min-height:36px}
+.ghost:hover{color:var(--accent);background:var(--accent-soft)}
+
+.thread{flex:1;overflow-y:auto;min-height:0}
+.thread-inner{max-width:980px;margin:0 auto;padding:36px 32px 20px}
+
+.u-msg{display:flex;justify-content:flex-end;margin:18px 0 30px}
+.u-msg p{
+  background:var(--accent-soft);color:var(--ink);
+  border-radius:var(--r);border-bottom-right-radius:3px;
+  padding:11px 17px;max-width:70%;font-size:15px;line-height:1.7;
+}
+
+/* 마지널리아 지면 */
+.folio{
+  background:var(--white);border:1px solid var(--hair);border-radius:var(--r);
+  padding:34px 38px 30px;
+}
+.folio-head{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  padding-bottom:16px;border-bottom:1px solid var(--hair);margin-bottom:6px;
+}
+.folio-head .t{font-size:13px;color:var(--muted)}
+.folio-head .sp{flex:1}
+.folio-head .n{font-size:12px;color:var(--faint);font-feature-settings:"tnum"}
+.folio-grid{display:grid;grid-template-columns:minmax(0,1fr) 236px;column-gap:34px}
+.fl{padding:14px 0 4px}
+.fl.first .txt{font-size:16.5px;font-weight:600;color:var(--ink);line-height:1.85}
+.fl .txt{font-size:15.3px;line-height:1.95}
+.fl .txt .hl-t{background:var(--hl);box-shadow:inset 0 -1px var(--hl-edge);padding:0 2px;cursor:pointer;transition:background .15s}
+.fl .txt .hl-t:hover{background:#DFD3F2}
+.fl .txt b{color:var(--ink)}
+.fn-note{
+  align-self:start;margin-top:16px;
+  border-left:2px solid var(--accent);
+  padding:3px 0 3px 12px;font-size:12px;line-height:1.7;color:var(--muted);
+  transition:background .2s;border-radius:0 6px 6px 0;
+}
+.fn-note.lit{background:var(--accent-soft)}
+.fn-note .src{display:block;color:var(--accent);font-weight:700;font-size:12px}
+.fn-note .qt{display:block;margin-top:5px}
+.fn-note .more{display:inline-block;margin-top:7px;font-size:11.5px;color:var(--ink);font-weight:600;border-bottom:1px solid var(--hair-2);cursor:pointer}
+.fn-note .more:hover{color:var(--accent);border-color:var(--accent)}
+.fn-note.empty{border-left-color:var(--hair-2);color:var(--faint)}
+.fn-note.empty .src{color:var(--muted)}
+.fl ol{margin:6px 0 0;padding-left:20px}
+.fl ol li{margin:9px 0;font-size:15.3px;line-height:1.9}
+.fl ol li::marker{color:var(--accent);font-weight:700}
+
+.folio-tail{
+  margin-top:20px;padding-top:16px;border-top:1px solid var(--hair);
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  font-size:12.5px;color:var(--muted);
+}
+.folio-tail .sp{flex:1}
+.tail-link{color:var(--accent);font-weight:600;font-size:12.5px}
+.tail-link:hover{text-decoration:underline}
+
+.act-row{display:flex;gap:2px;margin-top:16px}
+.icon-btn{width:36px;height:36px;border-radius:8px;display:grid;place-items:center;color:var(--faint)}
+.icon-btn:hover{color:var(--accent);background:var(--accent-soft)}
+.icon-btn svg{width:16px;height:16px;stroke:currentColor}
+.follow{margin-top:18px;display:flex;flex-wrap:wrap;gap:7px}
+
+.composer{border-top:1px solid var(--hair);background:var(--page);flex:none}
+.composer-inner{max-width:980px;margin:0 auto;padding:14px 32px 10px}
+.c-note{text-align:center;font-size:11.5px;color:var(--faint);padding:9px 0 5px}
+
+/* ================= 반응형 ================= */
+@media (max-width:1020px){
+  .hero{grid-template-columns:1fr;gap:44px}
+  .ledger{grid-template-columns:1fr}
+  .refusal{grid-template-columns:1fr}
+  .refusal .l{border-right:0;border-bottom:1px solid var(--hair)}
+  .folio-grid{grid-template-columns:1fr}
+  .fn-note{margin:10px 0 4px;border-radius:6px;background:var(--page);padding:10px 12px}
+  .fn-note.lit{background:var(--accent-soft)}
+}
+@media (max-width:920px){
+  .chat{grid-template-columns:1fr}
+  .side{
+    position:fixed;inset:0 92px 0 0;z-index:60;transform:translateX(-100%);
+    transition:transform .25s ease-out;box-shadow:24px 0 60px rgba(32,27,41,.2);
+  }
+  .side.open{transform:none}
+  .scrim{position:fixed;inset:0;background:rgba(32,27,41,.4);z-index:50;display:none}
+  .scrim.on{display:block}
+  .chat-head .menu{display:grid}
+}
+@media (max-width:640px){
+  .shell{padding:0 20px}
+  .top nav a:not(.btn-login){display:none}
+  .hero{padding:40px 0 0}
+  .section{padding:76px 0 0}
+  .refusal{margin-top:76px}
+  .thread-inner,.composer-inner{padding-left:16px;padding-right:16px}
+  .folio{padding:24px 20px 22px}
+  .u-msg p{max-width:88%}
+  .specimen{padding:20px 18px 16px}
+  .spec-grid{grid-template-columns:1fr}
+  .spec-note{border-left:0;border-top:1px solid var(--hair);padding:8px 0 0}
+  .foot{margin-top:80px}
+}
+</style>
+</head>
+<body>
+
+<!-- ================================================= 랜딩 -->
+<section class="view on" id="view-home">
+<div class="shell">
+  <header class="top">
+    <a class="brand" href="#" onclick="return false">
+      <img src="assets/emblem.svg" alt="블레싱 네비게이션 엠블럼">
+      <b>블레싱 네비게이션</b>
+    </a>
+    <span class="sp"></span>
+    <nav>
+      <a href="#ledger">근거 문서</a>
+      <a href="#refusal">답의 경계</a>
+      <a class="btn-login" href="#" onclick="return false">하나로 로그인</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <div>
+      <h1>답의 옆자리에,<br>언제나 <em>근거가 섭니다.</em></h1>
+      <p class="sub">축복과 가정 정책을 공식 문서만으로 안내합니다.
+      모든 문장 곁에 출처가 나란히 적힙니다.</p>
+      <div class="hero-ask">
+        <div class="askbar">
+          <input id="home-q" type="text" placeholder="무엇이 궁금하신가요" aria-label="질문 입력" enterkeyhint="send">
+          <button onclick="goChat()">물어보기</button>
+        </div>
+        <div class="hero-chips">
+          <button class="chip" onclick="goChat(this.textContent)">축복식 준비 절차가 궁금해요</button>
+          <button class="chip" onclick="goChat(this.textContent)">40일 정성은 무엇인가요?</button>
+          <button class="chip" onclick="goChat(this.textContent)">축복후보자 서류가 궁금해요</button>
+        </div>
+      </div>
+    </div>
+
+    <figure class="specimen" aria-label="답변 지면 표본">
+      <p class="q">질문. <b>축복식 준비는 어디서 시작하나요?</b></p>
+      <div class="spec-grid">
+        <p class="spec-line">축복식 준비는 소속 가정 교회를 통한 <span class="hl-t">후보자 등록</span>에서 시작합니다.</p>
+        <div class="spec-note"><b>축복 안내서 4장 2절</b>"소속 교회의 추천을 받아 정해진 기간 안에 등록을 마쳐야 한다."</div>
+        <p class="spec-line">이후 <span class="hl-t">준비 교육</span>을 이수하고, 정해진 기간의 정성을 드립니다.</p>
+        <div class="spec-note"><b>준비 지침 2장</b>"소정의 준비 교육을 이수한다."</div>
+      </div>
+      <figcaption class="cap">실제 답변은 이렇게 본문과 근거가 나란히 놓입니다.</figcaption>
+    </figure>
+  </div>
+
+  <section class="section" id="ledger">
+    <div class="sec-h">
+      <h2>근거가 되는 문서</h2>
+      <p>여덟 권이 전부입니다. 이 밖의 내용은 답하지 않고, 여쭤볼 곳을 안내합니다.</p>
+    </div>
+    <div class="ledger">
+      <div class="ledger-group">
+        <h3>정본</h3>
+        <div class="ledger-item">축복 안내서<span class="ed">2026 정본</span></div>
+        <div class="ledger-item">가정 생활 문답<span class="ed">2026</span></div>
+      </div>
+      <div class="ledger-group">
+        <h3>절차와 지침</h3>
+        <div class="ledger-item">축복식 준비 지침<span class="ed">2026</span></div>
+        <div class="ledger-item">후보자 등록 안내<span class="ed">2026</span></div>
+        <div class="ledger-item">40일 정성 안내<span class="ed warn">2025 이전 판본</span></div>
+        <div class="ledger-item">봉헌식 안내<span class="ed">2025</span></div>
+      </div>
+      <div class="ledger-group">
+        <h3>참고</h3>
+        <div class="ledger-item">자주 묻는 질문<span class="ed">수시 갱신</span></div>
+        <div class="ledger-item">용어 풀이집<span class="ed">수시 갱신</span></div>
+      </div>
+    </div>
+    <p class="ledger-note">표시는 확인이 필요한 문서에만 붙습니다. 표시가 없다는 것은 현행 판이라는 뜻입니다.</p>
+  </section>
+
+  <section class="refusal" id="refusal">
+    <div class="l">
+      <h2>답하지 않는 것도<br>이 창구의 일입니다.</h2>
+      <p>문서에 근거가 없는 질문에는 그럴듯한 답을 지어내지 않습니다.
+      대신 그 질문을 들어야 할 사람에게 이어드립니다.</p>
+    </div>
+    <div class="r">
+      <div class="ref-line"><span class="from">개인 상황에 대한 판단이 필요한 질문</span><span class="to">부모님, 가정부장님께</span></div>
+      <div class="ref-line"><span class="from">회차별 일정과 마감일</span><span class="to">회차 공문으로</span></div>
+      <div class="ref-line"><span class="from">문서 여덟 권 밖의 사안</span><span class="to">소속 담당자 연결</span></div>
+      <div class="ref-line"><span class="from">마음이 많이 힘든 순간의 이야기</span><span class="to">신뢰할 수 있는 어른과 상담</span></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>블레싱 네비게이션</span>
+    <span>공식 문서를 근거로 안내합니다. 상황에 따라 담당자 확인이 필요할 수 있습니다.</span>
+    <span class="sp"></span>
+    <span>하나로 계정 문의는 소속 기관 담당자에게</span>
+  </footer>
+</div>
+</section>
+
+<!-- ================================================= 채팅 -->
+<section class="view" id="view-chat">
+<div class="chat">
+  <aside class="side" id="side">
+    <a class="brand" href="#home" onclick="goHome();return false">
+      <img src="assets/emblem.svg" alt="">
+      <b>블레싱 네비게이션</b>
+    </a>
+    <button class="btn-new">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      새 대화
+    </button>
+    <p class="side-label">지난 대화</p>
+    <button class="sess" aria-current="true">축복식 준비 절차</button>
+    <button class="sess">40일 정성 기간</button>
+    <button class="sess">후보자 서류 목록</button>
+    <div class="sp"></div>
+    <div class="side-foot">마이페이지</div>
+  </aside>
+  <div class="scrim" id="scrim" onclick="toggleSide(false)"></div>
+
+  <div class="main">
+    <header class="chat-head">
+      <button class="icon-btn menu" aria-label="메뉴" onclick="toggleSide(true)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div>
+        <h1>축복식 준비 절차</h1>
+        <p class="meta">근거 문서 8권 기준</p>
+      </div>
+      <span class="sp"></span>
+      <button class="ghost" onclick="goHome()">처음으로</button>
+    </header>
+
+    <div class="thread">
+      <div class="thread-inner">
+        <div class="u-msg"><p>축복식 준비 절차가 궁금해요. 어디서부터 시작해야 할까요?</p></div>
+
+        <article class="folio" aria-label="답변 지면">
+          <div class="folio-head">
+            <span class="t">본문 왼쪽, 근거 오른쪽. 형광펜 문장을 누르면 해당 근거가 켜집니다.</span>
+            <span class="sp"></span>
+            <span class="n">근거 3곳</span>
+          </div>
+
+          <div class="folio-grid">
+            <div class="fl first">
+              <p class="txt">축복식 준비는 소속 가정 교회를 통한 <span class="hl-t" data-n="n1" onclick="lit('n1')">후보자 등록</span>에서 시작합니다.</p>
+            </div>
+            <aside class="fn-note" id="n1">
+              <span class="src">축복 안내서 4장 2절</span>
+              <span class="qt">"축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록을 마쳐야 한다."</span>
+              <span class="more">앞뒤 문맥 보기</span>
+            </aside>
+
+            <div class="fl">
+              <p class="txt">등록 이후의 준비는 문서에 안내된 순서대로 이어집니다.</p>
+              <ol>
+                <li><b>후보자 등록.</b> 소속 교회의 추천을 받아 등록 서류를 제출합니다.</li>
+                <li><b>준비 교육 이수.</b> 등록 후 안내되는 <span class="hl-t" data-n="n2" onclick="lit('n2')">교육 과정을 이수</span>합니다.</li>
+                <li><b>정성 기간.</b> 축복식 전 <span class="hl-t" data-n="n3" onclick="lit('n3')">정해진 기간의 정성</span>을 드립니다.</li>
+              </ol>
+            </div>
+            <div>
+              <aside class="fn-note" id="n2">
+                <span class="src">축복식 준비 지침 2장</span>
+                <span class="qt">"후보자는 축복식에 앞서 소정의 준비 교육을 이수한다."</span>
+                <span class="more">앞뒤 문맥 보기</span>
+              </aside>
+              <aside class="fn-note" id="n3" style="margin-top:12px">
+                <span class="src">축복식 준비 지침 3장</span>
+                <span class="qt">"축복식에 앞서 각 가정은 정해진 기간의 정성을 준비한다."</span>
+                <span class="more">앞뒤 문맥 보기</span>
+              </aside>
+            </div>
+
+            <div class="fl">
+              <p class="txt">회차별 등록 기간과 서류 목록은 공문으로 달라질 수 있습니다.
+              이 부분은 문서에 확정 값이 없으므로 소속 가정부장님께 확인을 권합니다.</p>
+            </div>
+            <aside class="fn-note empty">
+              <span class="src">근거 없음</span>
+              <span class="qt">일정 정보는 여덟 권에 없습니다. 그래서 날짜를 답하지 않습니다.</span>
+            </aside>
+          </div>
+
+          <div class="folio-tail">
+            <span>모든 인용은 원문과 대조되었습니다.</span>
+            <span class="sp"></span>
+            <a class="tail-link" href="#" onclick="return false">인용된 문서 전체 보기</a>
+          </div>
+        </article>
+
+        <div class="act-row">
+          <button class="icon-btn" aria-label="도움이 됐어요"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9M3 13v5a2 2 0 0 0 2 2h2V11H5a2 2 0 0 0-2 2zM7 11l4-7a2.4 2.4 0 0 1 2.4 2.4V10h5a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 17.2 20H7"/></svg></button>
+          <button class="icon-btn" aria-label="아쉬워요"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(180deg)"><path d="M7 11v9M3 13v5a2 2 0 0 0 2 2h2V11H5a2 2 0 0 0-2 2zM7 11l4-7a2.4 2.4 0 0 1 2.4 2.4V10h5a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 17.2 20H7"/></svg></button>
+          <button class="icon-btn" aria-label="복사"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>
+        </div>
+        <div class="follow">
+          <button class="chip">축복후보자 서류는 무엇이 필요한가요?</button>
+          <button class="chip">준비 교육은 얼마나 걸리나요?</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer-inner">
+        <div class="askbar">
+          <input type="text" placeholder="이어서 물어보세요" aria-label="질문 입력" enterkeyhint="send">
+          <button>물어보기</button>
+        </div>
+        <p class="c-note">공식 문서를 근거로 안내합니다. 근거가 없으면 여쭤볼 곳을 알려드립니다.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<script>
+function show(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  window.scrollTo(0,0);
+}
+function goChat(q){show('view-chat');history.replaceState(null,'','#chat')}
+function goHome(){show('view-home');history.replaceState(null,'','#home');toggleSide(false)}
+function toggleSide(open){
+  document.getElementById('side').classList.toggle('open',open);
+  document.getElementById('scrim').classList.toggle('on',open);
+}
+function lit(id){
+  document.querySelectorAll('.fn-note').forEach(n=>n.classList.remove('lit'));
+  const n=document.getElementById(id);
+  n.classList.add('lit');
+  n.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+document.getElementById('home-q').addEventListener('keydown',e=>{if(e.key==='Enter')goChat(e.target.value)});
+if(location.hash==='#chat')show('view-chat');
+</script>
+</body>
+</html>

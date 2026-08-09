@@ -1,0 +1,47 @@
+<!doctype html><meta charset="utf-8"><title>audit</title>
+<body style="margin:0;background:#111;color:#eee;font:12px/1.6 ui-monospace,monospace">
+<iframe id="f" style="position:fixed;left:-9999px;top:0;border:0"></iframe><pre id="o">running…</pre>
+<script>
+// 세 시안 × 상태 16종 × 폭 2종. 가로 스크롤이 생기는 케이스를 찾는다.
+// document.title 이 "DONE 0" 이 되어야 통과다.
+var CASES=[];
+var STATES=['login/light','login/dark','home/light','home/dark','home/n0/light','home/n3/light','home/n40/light',
+            'bot/light','bot/b7/light','bot/b14/light','start/light',
+            'thread/admin/light','thread/context/light','thread/norag/dark',
+            'thread/handoff/light','thread/safety/light',
+            'mypage/light','guide/light','states/light'];
+['a-mal.html','b-jari.html','c-chaegwang.html'].forEach(function(file){
+  STATES.forEach(function(h){ CASES.push([file,h,1400]); CASES.push([file,h,390]); });
+});
+var f=document.getElementById('f'), o=document.getElementById('o'), out=[], i=0, fails=0;
+function next(){
+  if(i>=CASES.length){
+    o.textContent=out.join('\n')+'\n\n'+CASES.length+' cases, '+fails+' FAIL\nDONE';
+    document.title='DONE '+fails; return;
+  }
+  var c=CASES[i++];
+  f.width=c[2]; f.height=1200;
+  f.onload=function(){ setTimeout(function(){
+    var d,r=[],docW=0,scrollW=0,err='';
+    try{
+      d=f.contentDocument; docW=d.documentElement.clientWidth; scrollW=d.documentElement.scrollWidth;
+      d.querySelectorAll('*').forEach(function(el){
+        var b=el.getBoundingClientRect();
+        if(b.right>docW+1&&b.width>0){
+          var k=el.tagName.toLowerCase()+(typeof el.className==='string'&&el.className?'.'+el.className.trim().split(/\s+/).join('.'):'');
+          if(r.indexOf(k)<0)r.push(k);
+        }
+      });
+    }catch(e){err=' ERR:'+e.message}
+    var bad=scrollW>docW;
+    if(bad)fails++;
+    out.push((bad?'FAIL':'ok  ')+' '+c[0]+' #'+c[1]+' @'+c[2]+
+             '  vw='+docW+' sw='+scrollW+(r.length?'  ['+r.slice(0,4).join(', ')+']':'')+err);
+    o.textContent=out.join('\n');
+    next();
+  },700); };
+  f.src='about:blank';
+  setTimeout(function(){ f.src=c[0]+'#'+c[1]; }, 40);
+}
+next();
+</script>

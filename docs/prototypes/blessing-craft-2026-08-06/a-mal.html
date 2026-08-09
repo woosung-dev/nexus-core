@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="ko" data-vp="desktop">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 · A안 말문</title>
+<meta name="description" content="홈은 목록이 아니라 말을 여는 자리다. 답변이 조립되는 안무가 시그니처인 멀티봇 클라이언트 시안 A.">
+<!--
+  A안 「말문」 · taste-skill
+
+  Design Read: 문서 근거 멀티봇 RAG 챗봇 클라이언트의 redesign-overhaul(§11).
+    2세 청년 당사자와 부모 세대 실무자가 같은 첫 화면을 쓴다.
+    따뜻한 기관(warm-institutional) 언어. 네이티브 CSS 커스텀 프로퍼티 + 컨테이너 쿼리.
+  Dials: DESIGN_VARIANCE 7 / MOTION_INTENSITY 6 / VISUAL_DENSITY 5
+    직전 라운드는 6/3/6 이었다. 사용자가 "차갑고 만듦새가 없다"고 했고 모션·재질을
+    직접 골랐으므로 overhaul 규칙(+2/+2/유지)을 적용했다. 밀도만 6→5 로 낮춘 것은
+    청년 당사자가 첫 화면에서 시작할 수 있어야 하기 때문이다.
+
+  명제: 홈은 목록이 아니라 말을 여는 자리다.
+    운영원칙 §1 은 첫 화면에 두 진입점(축복 정보 알아보기 / 고민 나누기)을 두고
+    "두 진입점은 별도 봇이 아니다"라고 못박는다. 직전 네 라운드의 메인은 전부
+    카탈로그(표제어 색인 / 한 줄 접수 / 문서 총람)여서 이 원칙을 구현하지 않았다.
+    이 안은 컴포저와 두 진입면을 홈의 본문으로 올리고, 창구는 배정 결과로만 등장시킨다.
+
+  시그니처: 답변 조립 안무.
+    결론 → 근거 → 절차 → 다음이 순서대로 자리를 잡는다. 각주를 누르면 본문 구간과
+    자료 카드가 같은 강조로 함께 켜진다. 검색 과정은 타임라인으로 흐르다가
+    「근거 2건 · 2.1초」 영수증으로 접힌다.
+
+  조사 반영 (docs 참조):
+    · 인용 표식은 맨 위첨자 숫자가 아니라 유형 알약이다. 앞에 nbsp 를 붙여 홀로
+      줄바꿈되지 않게 하고, 카드가 열려 있는 동안 알약이 켜진 채로 있다.
+    · 유형 라벨은 등급이 아니라 종류다. 전부 같은 색이고, 표시가 붙는 것은
+      「개정 이전 판본」「문서 단위로만 확인」 같은 부정적인 경우뿐이다.
+      표시가 없다는 것은 "검증됨"이 아니라 "적을 것이 없음"이다.
+    · 검색 타임라인은 인용 0건과 검색 실패를 구분해 준다.
+    · 안전 화면과 별개로, 분류기와 무관하게 늘 눌러서 도움을 청할 수 있는 자리를
+      컴포저 위에 둔다.
+
+  화면의 봇 이름, 문서명, 규정 내용, 인용문, 계정 정보는 전부 UI 검토용 예시다.
+  실제 규정이나 승인 문서가 아니다.
+
+  해시: #thread/admin/dark/mobile 처럼 순서 무관 다중 세그먼트.
+    화면   login home bot start thread mypage guide states
+    답변   admin context norag safety handoff
+    규모   n0 n3 n14 n40
+    창구   b1 ~ b14        테마   light dark auto      폭   desktop mobile
+-->
+<script>
+  // 페인트 전에 테마를 확정해 깜빡임을 막는다. file:// 에서 localStorage 가 던질 수 있어 감싼다.
+  try {
+    var t = localStorage.getItem('bc-a-theme');
+    if (t) document.documentElement.setAttribute('data-theme', t);
+    var m = localStorage.getItem('bc-a-motion');
+    if (m) document.documentElement.setAttribute('data-motion', m);
+  } catch (e) {}
+</script>
+<!--
+  본문 Pretendard, 인용문 마루부리, 메타 모노. 조사에서 확인한 한국 프로덕션 관행이다.
+  리디북스는 Pretendard + RIDIBatang, 크랙은 Pretendard + 명조 4종을 읽기 서체로 낸다.
+  규정집 인용을 UI 문자열이 아니라 문서로 보이게 하는 것이 마루부리의 역할이다.
+  Paperlogy 와 Freesentation 은 쓰지 않는다. 전자는 장식체(제목용)이고
+  후자는 웹폰트 임베딩이 조건부 허용이라 별도 서면 허락이 필요하다.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/fonts-archive/MaruBuri/MaruBuri.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* ══ 토큰 ═════════════════════════════════════════════════════════════════
+   보라 한 갈래만 쓴다. 금색은 등급이 아니라 "실제로 인용된 구간"을 가리키는
+   위치 표시다. 그래서 글자색으로 쓰지 않고 밑선·세로선으로만 쓴다.          */
+:root{
+  color-scheme:light;
+  --motion:1;
+
+  --paper:#F6F3F8;  --surface:#FFFFFF;  --surface-2:#EFE9F4;  --surface-3:#E6DEEE;
+  --ink:#2E1D4D;    --ink-2:#584A72;    --ink-3:#6F6285;
+  --rule:#E2DAEC;   --rule-2:#CDC0DC;
+  --act:#523A82;    --on-act:#FFFFFF;   --act-soft:#EDE6F7;   --act-line:#B9A4D6;
+  --gold:#C9A227;   --gold-ink:#6B5000; --gold-soft:#FAF2DA;
+  --danger:#A3231B; --danger-soft:#FBEDEB;
+  --ok:#256B4B;
+
+  /* 그림자는 검정이 아니라 잉크 보라를 탄다. 이것 하나로 화면이 종이처럼 눕는다. */
+  --sh-1:0 1px 2px rgba(46,29,77,.06), 0 1px 1px rgba(46,29,77,.04);
+  --sh-2:0 2px 6px rgba(46,29,77,.07), 0 6px 16px rgba(46,29,77,.06);
+  --sh-3:0 4px 10px rgba(46,29,77,.08), 0 14px 34px rgba(46,29,77,.10);
+  --sh-in:inset 0 1px 0 rgba(255,255,255,.7);
+
+  --em-field:#F8C800; --em-mark:#003D84;
+
+  /* 하나의 반경 체계. 카드 14, 입력 12, 알약 999, 작은 것 8. */
+  --r-card:14px; --r-field:12px; --r-pill:999px; --r-sm:8px;
+
+  --chrome:#161022; --chrome-2:#211830; --chrome-line:#332844;
+  --chrome-fg:#B3A6C6; --chrome-fg-2:#EFE9F6;
+
+  --ease:cubic-bezier(.16,1,.3,1);
+  --sans:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",system-ui,sans-serif;
+  --serif:"Maru Buri",MaruBuri,"Noto Serif KR",serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#150F1E;  --surface:#1D1628;  --surface-2:#251D33;  --surface-3:#2E2440;
+  --ink:#EDE7F5;    --ink-2:#BCAFCE;    --ink-3:#978AAA;
+  --rule:#332843;   --rule-2:#43355A;
+  --act:#C3A9E6;    --on-act:#1B1226;   --act-soft:#2B2140;   --act-line:#6E5691;
+  --gold:#D9B84A;   --gold-ink:#EBD48A; --gold-soft:#2C2416;
+  --danger:#F2A9A2; --danger-soft:#2E1A18;
+  --ok:#8CD3B0;
+  --sh-1:0 1px 2px rgba(0,0,0,.4);
+  --sh-2:0 2px 6px rgba(0,0,0,.42), 0 6px 16px rgba(0,0,0,.34);
+  --sh-3:0 4px 10px rgba(0,0,0,.44), 0 14px 34px rgba(0,0,0,.4);
+  --sh-in:inset 0 1px 0 rgba(255,255,255,.055);
+  --em-field:#E8BE1E; --em-mark:#8FB6E8;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --paper:#150F1E;  --surface:#1D1628;  --surface-2:#251D33;  --surface-3:#2E2440;
+    --ink:#EDE7F5;    --ink-2:#BCAFCE;    --ink-3:#978AAA;
+    --rule:#332843;   --rule-2:#43355A;
+    --act:#C3A9E6;    --on-act:#1B1226;   --act-soft:#2B2140;   --act-line:#6E5691;
+    --gold:#D9B84A;   --gold-ink:#EBD48A; --gold-soft:#2C2416;
+    --danger:#F2A9A2; --danger-soft:#2E1A18;
+    --ok:#8CD3B0;
+    --sh-1:0 1px 2px rgba(0,0,0,.4);
+    --sh-2:0 2px 6px rgba(0,0,0,.42), 0 6px 16px rgba(0,0,0,.34);
+    --sh-3:0 4px 10px rgba(0,0,0,.44), 0 14px 34px rgba(0,0,0,.4);
+    --sh-in:inset 0 1px 0 rgba(255,255,255,.055);
+    --em-field:#E8BE1E; --em-mark:#8FB6E8;
+  }
+}
+:root[data-motion="off"]{ --motion:0; }
+@media (prefers-reduced-motion:reduce){ :root:not([data-motion="on"]){ --motion:0; } }
+
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; padding:0; }
+body{
+  background:var(--chrome); color:var(--ink);
+  font-family:var(--sans); font-size:16px; line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  /* 한글은 낱말 중간에서 끊기면 안 된다(W3C KLREQ). 토스가 전역으로 적용하는 것과 같다.
+     긴 URL 이 좁은 칸에서 넘치는 것은 overflow-wrap 이 받는다. */
+  word-break:keep-all; overflow-wrap:break-word;
+  /* 한글에 자간을 벌리면 아마추어 티가 난다. 밀리의서재는 0 을 명시하고
+     리디북스는 -0.01em 을 쓴다. 본문은 0, 큰 표제만 음수로 조인다. */
+  letter-spacing:0;
+}
+button,input,textarea{ font:inherit; color:inherit; }
+button{ background:none; border:none; cursor:pointer; }
+:focus-visible{ outline:2.5px solid var(--act); outline-offset:2px; border-radius:4px; }
+.sr{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+/* 이름과 설명은 각각 한 줄을 차지한다. 인라인으로 두면 붙어서 렌더된다. */
+.wn,.wd,.rq,.rw,.tn,.tc{ display:block; }
+.wt,.rt{ display:block; min-width:0; }
+
+/* ══ 프로토타입 크롬 ═══════════════════════════════════════════════════════
+   시안 자체가 아니다. 세 파일이 서로 다른 크롬을 쓴다.
+   A 는 좌측 세로 목록, B 는 상단 가로 띠, C 는 우측 하단 접이식이다.        */
+.wrap{ display:grid; grid-template-columns:190px 1fr; min-height:100dvh; }
+/* 대조판 안에서는 크롬을 감춘다. 해시에 /bare 를 붙이면 켜진다. */
+:root[data-bare="on"] .wrap{ grid-template-columns:1fr; }
+:root[data-bare="on"] .pc{ display:none; }
+.pc{ background:var(--chrome); color:var(--chrome-fg); padding:18px 14px 26px; font-size:12.5px; }
+.pc h1{ margin:0 0 3px; font-size:13px; color:var(--chrome-fg-2); letter-spacing:-.01em; }
+.pc h1 b{ color:var(--em-field); font-weight:600; }
+.pc .note{ margin:0 0 18px; font-size:11px; line-height:1.5; color:#8B7DA0; }
+.pc h2{ margin:16px 0 6px; font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:#7C6E92; font-weight:600; }
+.pc .set{ display:flex; flex-wrap:wrap; gap:4px; }
+.pc button{ padding:4px 8px; border-radius:var(--r-sm); background:var(--chrome-2); color:var(--chrome-fg);
+  border:1px solid var(--chrome-line); font-size:11.5px; line-height:1.45; }
+.pc button:hover{ background:#2C2140; color:var(--chrome-fg-2); }
+.pc button[aria-pressed="true"]{ background:var(--chrome-fg-2); color:var(--chrome); border-color:var(--chrome-fg-2); font-weight:600; }
+.pc .hash{ margin-top:18px; font-family:var(--mono); font-size:10px; color:#6D6082; word-break:break-all; }
+
+.stage{ padding:0; background:var(--chrome); display:flex; }
+.app{
+  container-type:inline-size; container-name:app;
+  width:100%; background:var(--paper); color:var(--ink);
+  display:flex; flex-direction:column; min-height:100dvh;
+  overflow:hidden;
+}
+[data-vp="mobile"] .stage{ padding:20px; justify-content:center; align-items:flex-start; }
+[data-vp="mobile"] .app{ width:390px; min-height:844px; max-height:calc(100dvh - 40px);
+  border-radius:20px; box-shadow:var(--sh-3); overflow:auto; }
+
+/* ══ 화면 스위치 ══════════════════════════════════════════════════════════
+   표시 여부는 [data-on] 하나만 정한다. 다른 규칙에서 display 를 선언하면
+   숨겨야 할 화면이 함께 렌더된다.                                          */
+.screen{ display:none; }
+.screen[data-on]{ display:flex; flex-direction:column; flex:1; min-height:0; }
+
+/* ══ 앱 헤더 ══════════════════════════════════════════════════════════════ */
+.hd{
+  display:flex; align-items:center; gap:12px; padding:0 20px; height:64px; flex:none;
+  border-bottom:1px solid var(--rule); background:var(--surface);
+}
+.hd .em{ width:30px; height:30px; flex:none; }
+.hd .nm{ font-size:15.5px; font-weight:650; letter-spacing:-.015em; }
+.hd .sub{ font-size:11.5px; color:var(--ink-3); }
+.hd .sp{ flex:1; }
+.hd button.gh{ padding:7px 12px; border-radius:var(--r-pill); font-size:13px; color:var(--ink-2); }
+.hd button.gh:hover{ background:var(--surface-2); color:var(--ink); }
+.hd .avatar{ width:32px; height:32px; border-radius:var(--r-pill); background:var(--act-soft);
+  color:var(--act); display:grid; place-items:center; font-size:12.5px; font-weight:600; border:1px solid var(--act-line); }
+@container app (max-width:719px){ .hd{ padding:0 14px; height:58px; } .hd .sub{ display:none; } }
+
+.scroll{ flex:1; min-height:0; overflow-y:auto; }
+.pad{ max-width:940px; margin:0 auto; padding:44px 28px 72px; }
+@container app (max-width:719px){ .pad{ padding:26px 16px 44px; } }
+
+/* ══ 활자 ═════════════════════════════════════════════════════════════════ */
+.dsp{ font-size:clamp(27px,4.4cqi,40px); line-height:1.22; letter-spacing:-.032em; font-weight:700; margin:0 0 10px; }
+.lede{ font-size:15px; color:var(--ink-2); margin:0 0 26px; max-width:56ch; }
+.h2{ font-size:16px; font-weight:650; letter-spacing:-.015em; margin:0 0 2px; }
+.meta{ font-family:var(--mono); font-size:11px; color:var(--ink-3); letter-spacing:.01em; }
+.eyebrow{ font-size:11px; letter-spacing:.11em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin:0 0 8px; }
+
+/* ══ 컴포저 - 홈의 본문이자 대화의 입력 ══════════════════════════════════ */
+.composer{
+  position:relative; display:flex; align-items:flex-end; gap:8px;
+  background:var(--surface); border:1.5px solid var(--rule-2); border-radius:var(--r-field);
+  padding:12px 12px 12px 16px; box-shadow:var(--sh-2),var(--sh-in);
+  transition:border-color .2s var(--ease), box-shadow .25s var(--ease);
+}
+.composer:focus-within{ border-color:var(--act); box-shadow:var(--sh-3),var(--sh-in),0 0 0 4px var(--act-soft); }
+.composer textarea{
+  flex:1; border:none; background:none; resize:none; outline:none;
+  font-size:16px; line-height:1.55; min-height:26px; max-height:150px; padding:0;
+}
+.composer textarea::placeholder{ color:var(--ink-3); }
+.send{
+  width:38px; height:38px; flex:none; border-radius:var(--r-sm);
+  background:var(--act); color:var(--on-act); display:grid; place-items:center;
+  transition:transform .16s var(--ease), background .16s var(--ease);
+}
+.send:hover{ background:#452F70; }
+:root[data-theme="dark"] .send:hover{ background:#D2BDF0; }
+.send:active{ transform:scale(.94); }
+.composer-foot{ display:flex; align-items:center; gap:10px; margin-top:9px; font-size:12px; color:var(--ink-3); }
+
+/* 분류기와 무관하게 늘 열려 있는 도움 요청. 안전 화면이 뜨기를 기다리지 않는다. */
+.helpbar{ display:flex; align-items:center; gap:7px; flex-wrap:wrap; margin-bottom:9px; }
+.helpbar .lbl{ font-size:12px; color:var(--ink-3); }
+.help-chip{
+  display:inline-flex; align-items:center; gap:5px; padding:5px 11px; border-radius:var(--r-pill);
+  border:1px solid var(--rule-2); background:var(--surface); font-size:12.5px; color:var(--ink-2);
+  transition:border-color .16s var(--ease), color .16s var(--ease), transform .16s var(--ease);
+}
+.help-chip:hover{ border-color:var(--act-line); color:var(--act); }
+.help-chip:active{ transform:translateY(1px); }
+.help-chip svg{ width:14px; height:14px; }
+
+/* ══ 두 진입면 - 균등 카드 두 장이 아니라 비대칭 두 면 ═══════════════════ */
+.gates{ display:grid; grid-template-columns:1.32fr 1fr; gap:14px; margin:30px 0 0; }
+@container app (max-width:719px){ .gates{ grid-template-columns:1fr; } }
+.gate{
+  position:relative; text-align:left; padding:22px 20px 20px; border-radius:var(--r-card);
+  border:1px solid var(--rule); background:var(--surface); box-shadow:var(--sh-1);
+  transition:transform .24s var(--ease), box-shadow .24s var(--ease), border-color .2s var(--ease);
+  overflow:hidden;
+}
+.gate:hover{ transform:translateY(-2px); box-shadow:var(--sh-2); border-color:var(--rule-2); }
+.gate:active{ transform:translateY(0); }
+.gate .gi{ width:30px; height:30px; color:var(--act); margin-bottom:12px; }
+.gate h3{ margin:0 0 5px; font-size:17px; font-weight:650; letter-spacing:-.02em; }
+.gate p{ margin:0; font-size:13.5px; color:var(--ink-2); line-height:1.55; }
+.gate .gm{ margin-top:14px; padding-top:11px; border-top:1px solid var(--rule); }
+/* 두 번째 면은 재질이 다르다. 규정이 아니라 마음을 받는 자리이므로 종이 톤이 눕는다. */
+.gate.soft{ background:var(--surface-2); border-color:transparent; box-shadow:none; }
+.gate.soft:hover{ box-shadow:var(--sh-1); }
+.gate.soft .gi{ color:var(--ink-2); }
+
+/* ══ 이어가던 이야기 ═════════════════════════════════════════════════════ */
+.sec{ margin-top:40px; }
+.sec-hd{ display:flex; align-items:baseline; gap:10px; margin-bottom:12px; }
+.sec-hd .h2{ margin:0; }
+.sec-hd .rule{ flex:1; height:1px; background:var(--rule); }
+
+.resume{ display:grid; gap:8px; }
+.resume-row{
+  display:flex; align-items:center; gap:12px; width:100%; text-align:left;
+  padding:13px 15px; border-radius:var(--r-card); background:var(--surface);
+  border:1px solid var(--rule); box-shadow:var(--sh-1);
+  transition:transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+.resume-row:hover{ transform:translateX(2px); box-shadow:var(--sh-2); }
+.resume-row .rt{ flex:1; min-width:0; }
+.resume-row .rq{ font-size:14px; font-weight:550; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.resume-row .rw{ font-size:11.5px; color:var(--ink-3); margin-top:2px; }
+
+/* ══ 창구 묶음 - 5개의 평범한 말로 된 갈래 ══════════════════════════════ */
+.groups{ display:grid; gap:10px; }
+.group{ border:1px solid var(--rule); border-radius:var(--r-card); background:var(--surface); overflow:hidden; box-shadow:var(--sh-1); }
+.group > summary{
+  list-style:none; cursor:pointer; padding:14px 16px; display:flex; align-items:center; gap:11px;
+  transition:background .16s var(--ease);
+}
+.group > summary::-webkit-details-marker{ display:none; }
+.group > summary:hover{ background:var(--surface-2); }
+.group .gname{ font-size:14.5px; font-weight:600; letter-spacing:-.015em; }
+.group .gcount{ font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.group .chev{ margin-left:auto; width:16px; height:16px; color:var(--ink-3);
+  transition:transform .25s var(--ease); }
+.group[open] .chev{ transform:rotate(90deg); }
+.group .gbody{ border-top:1px solid var(--rule); padding:4px; }
+
+.wrow{ display:flex; align-items:center; gap:12px; width:100%; text-align:left; padding:11px 12px; border-radius:10px;
+  transition:background .16s var(--ease); }
+.wrow:hover{ background:var(--surface-2); }
+.wmark{ width:34px; height:34px; flex:none; border-radius:10px; display:grid; place-items:center;
+  background:var(--act-soft); color:var(--act); border:1px solid var(--act-line); }
+.wmark svg{ width:19px; height:19px; }
+.wrow .wt{ flex:1; min-width:0; }
+.wrow .wn{ font-size:14px; font-weight:550; }
+.wrow .wd{ font-size:12px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.wrow .wc{ font-family:var(--mono); font-size:10.5px; color:var(--ink-3); flex:none; }
+
+/* 능력 표기. 기대와 어긋나는 쪽만 적는다. 기대대로면 아무것도 안 적는다. */
+.caps{ display:flex; flex-wrap:wrap; gap:5px; margin-top:5px; }
+.cap{
+  display:inline-flex; align-items:center; gap:4px; font-size:11px; line-height:1.5;
+  padding:2px 8px; border-radius:var(--r-pill);
+  border:1px solid var(--rule-2); color:var(--ink-2); background:var(--surface-2);
+}
+.cap svg{ width:11px; height:11px; }
+.cap.off{ color:var(--ink-3); border-style:dashed; }
+
+/* ══ 유형 라벨 - 등급이 아니라 종류다. 전부 같은 색을 쓴다 ═══════════════ */
+.kind{
+  display:inline-flex; align-items:center; font-size:10.5px; font-weight:600; letter-spacing:.02em;
+  padding:1.5px 7px; border-radius:5px; background:var(--surface-3); color:var(--ink-2);
+  border:1px solid var(--rule-2); white-space:nowrap;
+}
+/* 표시가 붙는 것은 부정적인 경우뿐이다. 표시 없음 = 적을 것이 없음. */
+.kind.flag{ background:transparent; color:var(--ink-3); border-style:dashed; }
+
+/* ══ 대화 ═════════════════════════════════════════════════════════════════
+   .thread 에 display 를 선언하지 않는다. 선언하면 .screen{display:none} 을
+   같은 특정도로 덮어써서 숨겨야 할 대화 화면이 늘 렌더된다.
+   화면의 표시 여부는 .screen[data-on] 하나만 정한다.                        */
+.thread{ flex-direction:column; flex:1; min-height:0; }
+.thd{
+  display:flex; align-items:center; gap:11px; padding:11px 20px; flex:none;
+  border-bottom:1px solid var(--rule); background:var(--surface);
+}
+.thd .back{ width:30px; height:30px; border-radius:var(--r-sm); display:grid; place-items:center; color:var(--ink-2); }
+.thd .back:hover{ background:var(--surface-2); }
+.thd .wmark{ width:30px; height:30px; border-radius:9px; }
+.thd .wmark svg{ width:17px; height:17px; }
+.thd .tn{ font-size:14px; font-weight:600; line-height:1.3; }
+.thd .tc{ font-size:11.5px; color:var(--ink-3); }
+@container app (max-width:719px){ .thd{ padding:9px 12px; } }
+
+.tbody{ flex:1; min-height:0; overflow-y:auto; }
+.tinner{ max-width:1180px; margin:0 auto; padding:26px 28px 34px; display:grid; grid-template-columns:minmax(0,1fr) 316px; gap:34px; align-items:start; }
+@container app (max-width:1059px){ .tinner{ grid-template-columns:minmax(0,1fr); gap:22px; } }
+@container app (max-width:719px){ .tinner{ padding:18px 16px 26px; } }
+
+.ask{ display:flex; justify-content:flex-end; margin-bottom:22px; }
+.ask .b{
+  max-width:min(74%,520px); padding:11px 16px; border-radius:16px 16px 4px 16px;
+  background:var(--act); color:var(--on-act); font-size:14.5px; line-height:1.55;
+  box-shadow:var(--sh-2);
+}
+
+/* 답변은 말풍선이 아니다. 문서처럼 전폭으로 앉는다.
+   규정을 인용하는 답에 말풍선을 씌우면 대화의 한마디처럼 가벼워진다. */
+.reply{ font-size:15.5px; line-height:1.72; }
+.reply .lead{ font-size:17px; line-height:1.6; letter-spacing:-.015em; font-weight:550; margin:0 0 20px; }
+.part{ margin:0 0 20px; }
+.part > .pl{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin:0 0 6px; }
+.part p{ margin:0 0 8px; }
+.part p:last-child{ margin-bottom:0; }
+
+/* 절차는 번호가 정보다. 실제로 차례가 있는 것이므로 번호를 쓴다. */
+.steps{ list-style:none; margin:0; padding:0; display:grid; gap:11px; counter-reset:s; }
+.steps li{ display:grid; grid-template-columns:26px 1fr; gap:12px; align-items:start; counter-increment:s; }
+.steps li::before{
+  content:counter(s,decimal-leading-zero); font-family:var(--mono); font-size:11px; color:var(--ink-3);
+  padding-top:5px; letter-spacing:.02em;
+}
+
+/* ══ 인용 알약 - 위첨자 숫자가 아니라 유형 알약 ══════════════════════════
+   앞의 nbsp 가 알약을 앞 낱말에 붙여 홀로 줄바꿈되는 것을 막는다.
+   카드가 열려 있는 동안 알약은 켜진 채로 있다.                             */
+.cnb{ white-space:nowrap; }
+.cite{
+  display:inline-flex; align-items:center; gap:4px; vertical-align:middle; position:relative; top:-1px;
+  padding:1px 7px 1px 5px; margin:0; border-radius:6px; font-size:11.5px; line-height:1.6;
+  background:var(--surface-2); color:var(--ink-2); border:1px solid var(--rule-2);
+  font-family:var(--sans); font-weight:550; max-width:19ch; overflow:hidden;
+  transition:background .16s var(--ease), border-color .16s var(--ease), color .16s var(--ease);
+}
+.cite svg{ width:12px; height:12px; flex:none; color:var(--ink-3); }
+.cite .ct{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cite:hover{ background:var(--act-soft); border-color:var(--act-line); color:var(--act); }
+.cite[aria-expanded="true"]{ background:var(--act-soft); border-color:var(--act); color:var(--act); }
+.cite[aria-expanded="true"] svg{ color:var(--act); }
+
+/* 각주를 누르면 본문 구간과 자료 카드가 같은 강조로 함께 켜진다.
+   보라는 AI 메시지 뒤에 깔리는 틴트로 쓰지 않는다. 그것이 2026년 AI 제품의
+   가장 흔한 표식이다. 여기서는 납작한 밑선, 즉 두 곳을 잇는 선으로만 쓴다. */
+.seg{ box-shadow:inset 0 -1.5px 0 transparent; box-decoration-break:clone; -webkit-box-decoration-break:clone;
+  transition:box-shadow .28s var(--ease); }
+.seg.lit{ box-shadow:inset 0 -1.5px 0 var(--act); }
+
+/* ══ 검색 타임라인 → 영수증 ══════════════════════════════════════════════
+   인용 0건과 검색 실패를 구분해 준다. 흐르는 동안은 단계가 보이고,
+   끝나면 「근거 2건 · 2.1초」 한 줄로 접힌다.                                */
+.trace{ margin:0 0 22px; }
+.trace-live{ display:grid; gap:7px; }
+.trace-step{ display:flex; align-items:center; gap:9px; font-size:12.5px; color:var(--ink-3); }
+.trace-step .dot{ width:6px; height:6px; border-radius:var(--r-pill); background:var(--rule-2); flex:none; }
+.trace-step.done .dot{ background:var(--act); }
+.trace-step.done{ color:var(--ink-2); }
+.trace-step .el{ font-family:var(--mono); font-size:10.5px; color:var(--ink-3); margin-left:auto; }
+.receipt{
+  display:inline-flex; align-items:center; gap:8px; padding:5px 11px 5px 9px;
+  border-radius:var(--r-pill); border:1px solid var(--rule); background:var(--surface);
+  font-size:12px; color:var(--ink-2); box-shadow:var(--sh-1);
+  transition:border-color .16s var(--ease), transform .16s var(--ease);
+}
+.receipt:hover{ border-color:var(--rule-2); transform:translateY(-1px); }
+.receipt svg{ width:14px; height:14px; color:var(--ink-3); }
+.receipt .rn{ font-family:var(--mono); font-size:11px; }
+
+/* ══ 자료 레일 ═══════════════════════════════════════════════════════════ */
+.rail{ position:sticky; top:0; display:grid; gap:12px; align-content:start; }
+@container app (max-width:1059px){ .rail{ position:static; border-top:1px solid var(--rule); padding-top:20px; } }
+.rail-hd{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--ink-2); font-weight:600; }
+.rail-hd svg{ width:15px; height:15px; color:var(--ink-3); }
+
+.src{
+  border:1px solid var(--rule); border-radius:var(--r-card); background:var(--surface);
+  padding:13px 14px; box-shadow:var(--sh-1);
+  transition:border-color .2s var(--ease), box-shadow .2s var(--ease), transform .2s var(--ease);
+}
+.src.lit{ border-color:var(--act); box-shadow:var(--sh-2); transform:translateX(-2px); }
+.src .st{ font-size:13.5px; font-weight:600; letter-spacing:-.01em; margin-bottom:3px; }
+.src .sm{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:9px; }
+/* 인용문만 명조다. 규정집 문장이 UI 문자열이 아니라 문서로 읽히게 하는 장치다.
+   금색 밑선은 등급이 아니라 "실제로 이 대목이 인용됐다"는 위치 표시다. */
+.quote{
+  font-family:var(--serif); font-size:13.5px; line-height:1.78; color:var(--ink-2);
+  padding-left:12px; border-left:1px solid var(--rule-2);
+}
+.quote mark{
+  background:none; color:inherit; box-shadow:inset 0 -.52em 0 var(--gold-soft);
+  border-bottom:1.5px solid var(--gold); padding-bottom:1px;
+}
+:root[data-theme="dark"] .quote mark{ box-shadow:inset 0 -.52em 0 var(--gold-soft); }
+
+.notcited{ font-size:12px; color:var(--ink-3); }
+.notcited summary{ cursor:pointer; list-style:none; display:flex; align-items:center; gap:6px; }
+.notcited summary::-webkit-details-marker{ display:none; }
+.notcited summary:hover{ color:var(--ink-2); }
+.notcited ul{ margin:8px 0 0; padding:0 0 0 16px; display:grid; gap:4px; }
+
+/* ══ 답변 유형별 ══════════════════════════════════════════════════════════ */
+.chips{ display:flex; flex-wrap:wrap; gap:7px; margin-top:6px; }
+.chip{
+  padding:7px 13px; border-radius:var(--r-pill); border:1px solid var(--rule-2);
+  background:var(--surface); font-size:13px; color:var(--ink-2); box-shadow:var(--sh-1);
+  transition:border-color .16s var(--ease), color .16s var(--ease), transform .16s var(--ease);
+}
+.chip:hover{ border-color:var(--act-line); color:var(--act); }
+.chip:active{ transform:translateY(1px); }
+
+.adults{ list-style:none; margin:0; padding:0; display:grid; gap:0; }
+.adults li{ display:flex; align-items:center; gap:11px; padding:11px 2px; border-bottom:1px solid var(--rule); font-size:14.5px; }
+.adults li:last-child{ border-bottom:none; }
+.adults .ord{ font-family:var(--mono); font-size:11px; color:var(--ink-3); width:16px; flex:none; }
+
+/* 안전 카드는 시스템의 목소리다. 어시스턴트의 말풍선처럼 보이면 안 된다. */
+.crisis{
+  margin:18px 0 0; border-radius:var(--r-card); border:1px solid var(--danger);
+  background:var(--danger-soft); padding:16px 18px; box-shadow:var(--sh-2);
+}
+.crisis .ch{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+.crisis .ch svg{ width:17px; height:17px; color:var(--danger); }
+.crisis .ct2{ font-size:13.5px; font-weight:650; color:var(--danger); }
+.crisis .sys{ font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--danger);
+  opacity:.72; margin-left:auto; font-weight:600; }
+.crisis p{ margin:0 0 12px; font-size:13.5px; line-height:1.62; color:var(--ink); }
+.lines{ display:grid; gap:8px; }
+.line{
+  display:flex; align-items:center; gap:12px; padding:11px 14px; border-radius:10px;
+  background:var(--surface); border:1px solid var(--rule); box-shadow:var(--sh-1);
+}
+.line .ln{ font-family:var(--mono); font-size:17px; font-weight:500; letter-spacing:-.01em; }
+.line .lt{ flex:1; min-width:0; }
+.line .lname{ font-size:13.5px; font-weight:600; }
+.line .lmeta{ font-size:11.5px; color:var(--ink-3); }
+.line .badge{ font-size:10.5px; padding:2px 7px; border-radius:var(--r-pill);
+  background:var(--surface-2); color:var(--ink-2); border:1px solid var(--rule-2); flex:none; }
+
+/* 이관 카드 */
+.handoff{
+  margin:18px 0 0; border-radius:var(--r-card); border:1px solid var(--rule-2);
+  background:var(--surface); padding:17px 18px; box-shadow:var(--sh-2);
+}
+.handoff .hh{ display:flex; align-items:center; gap:9px; margin-bottom:11px; }
+.handoff .hh svg{ width:18px; height:18px; color:var(--act); }
+.handoff .hh b{ font-size:14px; letter-spacing:-.01em; }
+.handoff .target{ display:flex; align-items:center; gap:12px; padding:13px 14px; border-radius:10px;
+  background:var(--surface-2); margin-bottom:12px; }
+.handoff p{ margin:0 0 12px; font-size:13.5px; line-height:1.62; color:var(--ink-2); }
+.handoff .carry{ font-size:12.5px; color:var(--ink-3); padding-top:11px; border-top:1px solid var(--rule); }
+.btnrow{ display:flex; gap:8px; flex-wrap:wrap; }
+.btn{ padding:9px 15px; border-radius:var(--r-sm); font-size:13.5px; font-weight:550;
+  background:var(--act); color:var(--on-act); box-shadow:var(--sh-1);
+  transition:transform .16s var(--ease); }
+.btn:active{ transform:translateY(1px); }
+.btn.ghost{ background:var(--surface); color:var(--ink-2); border:1px solid var(--rule-2); box-shadow:none; }
+.btn.ghost:hover{ border-color:var(--act-line); color:var(--act); }
+
+/* 근거 없음의 검색 노력 증명 */
+.effort{ margin:0 0 18px; padding:13px 15px; border-radius:var(--r-card);
+  background:var(--surface-2); font-size:13px; color:var(--ink-2); }
+.effort b{ font-family:var(--mono); font-size:12.5px; font-weight:500; color:var(--ink); }
+
+.fups{ margin-top:26px; padding-top:18px; border-top:1px solid var(--rule); }
+.fups .fl{ font-size:12px; color:var(--ink-3); margin-bottom:9px; }
+.actbar{ display:flex; align-items:center; gap:4px; margin-top:20px; padding-top:14px; border-top:1px solid var(--rule); }
+.actbar button{ padding:6px 11px; border-radius:var(--r-sm); font-size:12.5px; color:var(--ink-3); }
+.actbar button:hover{ background:var(--surface-2); color:var(--ink-2); }
+.actbar .sp{ flex:1; }
+
+.tfoot{ flex:none; border-top:1px solid var(--rule); background:var(--surface); padding:12px 20px 14px; }
+.tfoot-in{ max-width:1180px; margin:0 auto; }
+.disc{ font-size:11.5px; color:var(--ink-3); margin-top:8px; }
+
+/* ══ 로그인 - 입력란이 없으므로 남는 면적을 브랜드 순간에 쓴다 ══════════ */
+.login{ flex:1; display:grid; grid-template-columns:1.15fr 1fr; min-height:0; }
+@container app (max-width:859px){ .login{ grid-template-columns:1fr; } }
+.login-art{
+  position:relative; background:var(--surface-2); display:grid; place-items:center; overflow:hidden;
+  border-right:1px solid var(--rule);
+}
+@container app (max-width:859px){ .login-art{ display:none; } }
+.login-art .big{ width:min(62%,300px); height:auto; opacity:.96; }
+.login-art .cap{ position:absolute; left:34px; right:34px; bottom:30px; font-size:12.5px; color:var(--ink-3); }
+.login-form{ display:grid; place-items:center; padding:40px 34px; }
+.login-form .in{ width:100%; max-width:330px; }
+.login-form .em{ width:44px; height:44px; margin-bottom:20px; }
+@container app (min-width:860px){ .login-form .em{ display:none; } }
+.login h1{ font-size:26px; line-height:1.28; letter-spacing:-.03em; margin:0 0 8px; font-weight:700; }
+.login .sub{ font-size:14px; color:var(--ink-2); margin:0 0 26px; }
+.sso{
+  width:100%; display:flex; align-items:center; justify-content:center; gap:9px;
+  padding:14px 18px; border-radius:var(--r-field); background:var(--act); color:var(--on-act);
+  font-size:15px; font-weight:600; box-shadow:var(--sh-2);
+  transition:transform .16s var(--ease), box-shadow .2s var(--ease);
+}
+.sso:hover{ box-shadow:var(--sh-3); }
+.sso:active{ transform:translateY(1px); }
+.login .fine{ font-size:12px; color:var(--ink-3); margin-top:16px; line-height:1.6; }
+
+/* ══ 창구 상세 ═══════════════════════════════════════════════════════════ */
+.botcard{ display:flex; align-items:flex-start; gap:16px; margin-bottom:26px; }
+.botcard .wmark{ width:56px; height:56px; border-radius:16px; }
+.botcard .wmark svg{ width:30px; height:30px; }
+.dl{ display:grid; grid-template-columns:auto 1fr; gap:8px 18px; font-size:13.5px; margin:0; }
+.dl dt{ color:var(--ink-3); font-size:12.5px; padding-top:1px; }
+.dl dd{ margin:0; }
+.doclist{ display:grid; gap:1px; background:var(--rule); border-radius:var(--r-card); overflow:hidden; border:1px solid var(--rule); }
+.doclist li{ list-style:none; display:flex; align-items:center; gap:10px; padding:11px 14px; background:var(--surface); font-size:13.5px; }
+.doclist li svg{ width:15px; height:15px; color:var(--ink-3); flex:none; }
+.notdo{ margin-top:22px; padding:15px 17px; border-radius:var(--r-card); background:var(--surface-2); }
+.notdo b{ display:block; font-size:13.5px; margin-bottom:6px; }
+.notdo p{ margin:0; font-size:13px; color:var(--ink-2); line-height:1.6; }
+
+/* ══ 마이페이지 · 안내자료 · 상태 ════════════════════════════════════════ */
+.tiles{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px; }
+.tile{ padding:16px 17px; border-radius:var(--r-card); border:1px solid var(--rule); background:var(--surface);
+  box-shadow:var(--sh-1); text-align:left; }
+.tile .tn2{ font-family:var(--mono); font-size:22px; letter-spacing:-.02em; }
+.tile .tl2{ font-size:12.5px; color:var(--ink-3); margin-top:2px; }
+.states-grid{ display:grid; gap:26px; }
+.state-item{ border:1px solid var(--rule); border-radius:var(--r-card); background:var(--surface); overflow:hidden; }
+.state-item h3{ margin:0; padding:13px 16px; font-size:14px; border-bottom:1px solid var(--rule); background:var(--surface-2); }
+.state-item .sb{ padding:16px; font-size:13.5px; color:var(--ink-2); line-height:1.62; }
+
+/* ══ 모션 - 시그니처. 답변이 조립되는 안무 ═══════════════════════════════
+   모든 애니메이션은 위계·서사·피드백·상태전환 중 하나를 한다.
+   장식으로 도는 무한 루프는 없다.                                          */
+@keyframes rise{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+@keyframes fade{ from{ opacity:0; } to{ opacity:1; } }
+@keyframes railIn{ from{ opacity:0; transform:translateX(12px); } to{ opacity:1; transform:none; } }
+@keyframes pulse{ 0%,100%{ opacity:.35; } 50%{ opacity:1; } }
+
+/* 화면이 바뀔 때 본문이 한 번 올라온다. 어디로 왔는지 알려 주는 상태 전환. */
+.screen[data-on] .pad > *, .screen[data-on] .login-form .in{
+  animation:rise calc(.44s * var(--motion)) var(--ease) both;
+  animation-delay:calc(var(--i,0) * .045s * var(--motion));
+}
+/* 답변은 결론 → 근거 → 절차 → 다음 순서로 자리를 잡는다. 읽는 순서를 몸이 먼저 안다. */
+.reply > *{
+  animation:rise calc(.5s * var(--motion)) var(--ease) both;
+  animation-delay:calc(.06s + var(--i,0) * .11s * var(--motion));
+}
+.steps li{
+  animation:rise calc(.42s * var(--motion)) var(--ease) both;
+  animation-delay:calc(.3s + var(--i,0) * .07s * var(--motion));
+}
+/* 자료 레일은 본문이 끝난 뒤 옆에서 들어온다. 본문이 먼저라는 위계 표현. */
+.rail > *{
+  animation:railIn calc(.5s * var(--motion)) var(--ease) both;
+  animation-delay:calc(.42s + var(--i,0) * .08s * var(--motion));
+}
+.trace-step .dot.live{ animation:pulse calc(1.3s * var(--motion)) ease-in-out infinite; }
+:root[data-motion="off"] .trace-step .dot.live{ animation:none; opacity:1; }
+
+/* 모션을 끄면 전부 즉시 최종 상태다. animation:none 대신 duration 0 을 쓴다.
+   none 을 쓰면 both 가 풀려 시작 상태에 머무는 요소가 생긴다. */
+:root[data-motion="off"] *,
+:root[data-motion="off"] *::before{ animation-duration:.001s !important; animation-delay:0s !important; }
+@media (prefers-reduced-motion:reduce){
+  :root:not([data-motion="on"]) *,
+  :root:not([data-motion="on"]) *::before{ animation-duration:.001s !important; animation-delay:0s !important;
+    transition-duration:.001s !important; }
+}
+
+/* ══ 좁은 폭 ═════════════════════════════════════════════════════════════ */
+@media (max-width:1099px){
+  .wrap{ grid-template-columns:1fr; }
+  .pc{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:0 18px; align-items:start; }
+  .pc h1,.pc .note,.pc .hash{ grid-column:1/-1; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+<!-- 프로토타입 크롬. 시안이 아니다. -->
+<nav class="pc" aria-label="시안 조종">
+  <h1><b>A</b> 말문</h1>
+  <p class="note">예시 데이터입니다. 실제 규정이나 승인 문서가 아닙니다.</p>
+
+  <h2>화면</h2>
+  <div class="set" id="c-screen"></div>
+  <h2>답변 유형</h2>
+  <div class="set" id="c-type"></div>
+  <h2>창구 수</h2>
+  <div class="set" id="c-scale"></div>
+  <h2>폭</h2>
+  <div class="set" id="c-vp"></div>
+  <h2>테마</h2>
+  <div class="set" id="c-theme"></div>
+  <h2>모션</h2>
+  <div class="set" id="c-motion"></div>
+
+  <p class="hash" id="c-hash">#home</p>
+</nav>
+
+<div class="stage">
+<div class="app" id="app">
+
+  <!-- ══ 로그인 ══════════════════════════════════════════════════════════ -->
+  <section class="screen" id="s-login" aria-label="로그인">
+    <div class="login">
+      <div class="login-art">
+        <svg class="big" aria-hidden="true"><use href="#em"/></svg>
+        <p class="cap">승인된 문서 13종을 14곳의 창구가 나누어 봅니다.<br>답은 문서에서 나옵니다.</p>
+      </div>
+      <div class="login-form">
+        <div class="in">
+          <svg class="em" aria-hidden="true"><use href="#em"/></svg>
+          <h1>축복과 가정에 관한 것을<br>문서에서 찾아 드립니다</h1>
+          <p class="sub">하나로 계정으로 시작하세요.</p>
+          <button class="sso" data-go="home">
+            <svg width="18" height="18" aria-hidden="true"><use href="#i-window"/></svg>
+            하나로 계정으로 로그인
+          </button>
+          <p class="fine">하나로 계정 정보는 소속 가정 연동에만 쓰이고, 대화 내용은 계정과 분리해 보관합니다.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 홈 ══════════════════════════════════════════════════════════════ -->
+  <section class="screen" id="s-home" aria-label="홈">
+    <header class="hd">
+      <svg class="em" aria-hidden="true"><use href="#em"/></svg>
+      <div>
+        <div class="nm">블레싱</div>
+        <div class="sub">문서에서 답을 찾습니다</div>
+      </div>
+      <div class="sp"></div>
+      <button class="gh" data-go="guide">읽는 법</button>
+      <button class="avatar" data-go="mypage" aria-label="내 정보">오</button>
+    </header>
+    <div class="scroll"><div class="pad" id="home-body"></div></div>
+  </section>
+
+  <!-- ══ 창구 상세 ══════════════════════════════════════════════════════ -->
+  <section class="screen" id="s-bot" aria-label="창구 상세">
+    <header class="hd">
+      <button class="gh" data-go="home" aria-label="뒤로">←</button>
+      <div class="nm">창구</div>
+      <div class="sp"></div>
+    </header>
+    <div class="scroll"><div class="pad" id="bot-body"></div></div>
+  </section>
+
+  <!-- ══ 대화 시작 ══════════════════════════════════════════════════════ -->
+  <section class="screen" id="s-start" aria-label="대화 시작">
+    <header class="hd">
+      <button class="gh" data-go="home" aria-label="뒤로">←</button>
+      <div class="nm">대화 시작</div>
+      <div class="sp"></div>
+    </header>
+    <div class="scroll"><div class="pad" id="start-body"></div></div>
+  </section>
+
+  <!-- ══ 대화 ════════════════════════════════════════════════════════════ -->
+  <section class="screen thread" id="s-thread" aria-label="대화">
+    <header class="thd" id="thread-hd"></header>
+    <div class="tbody"><div class="tinner" id="thread-body"></div></div>
+    <div class="tfoot">
+      <div class="tfoot-in">
+        <div class="helpbar">
+          <span class="lbl">언제든</span>
+          <button class="help-chip"><svg aria-hidden="true"><use href="#i-adult"/></svg>어른께 여쭐 문장 만들기</button>
+          <button class="help-chip" data-go="thread/safety"><svg aria-hidden="true"><use href="#i-safety"/></svg>지금 많이 힘들어요</button>
+        </div>
+        <div class="composer">
+          <textarea rows="1" placeholder="이어서 물어보세요" aria-label="이어서 물어보기"></textarea>
+          <button class="send" aria-label="보내기">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12h14M13 6.5l5.5 5.5L13 17.5"/></svg>
+          </button>
+        </div>
+        <p class="disc">문서를 근거로 안내합니다. 개인 사정에 따른 적용은 소속 교구나 부모님과 확인해 주세요.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 내 정보 ═════════════════════════════════════════════════════════ -->
+  <section class="screen" id="s-mypage" aria-label="내 정보">
+    <header class="hd">
+      <button class="gh" data-go="home" aria-label="뒤로">←</button>
+      <div class="nm">내 정보</div>
+      <div class="sp"></div>
+    </header>
+    <div class="scroll"><div class="pad" id="mypage-body"></div></div>
+  </section>
+
+  <!-- ══ 읽는 법 ═════════════════════════════════════════════════════════ -->
+  <section class="screen" id="s-guide" aria-label="읽는 법">
+    <header class="hd">
+      <button class="gh" data-go="home" aria-label="뒤로">←</button>
+      <div class="nm">읽는 법</div>
+      <div class="sp"></div>
+    </header>
+    <div class="scroll"><div class="pad" id="guide-body"></div></div>
+  </section>
+
+  <!-- ══ 상태 갤러리 ═════════════════════════════════════════════════════ -->
+  <section class="screen" id="s-states" aria-label="상태 갤러리">
+    <header class="hd">
+      <button class="gh" data-go="home" aria-label="뒤로">←</button>
+      <div class="nm">상태 갤러리</div>
+      <div class="sp"></div>
+    </header>
+    <div class="scroll"><div class="pad" id="states-body"></div></div>
+  </section>
+
+</div>
+</div>
+</div>
+
+<!-- ══ 도상 ═══════════════════════════════════════════════════════════════
+     엠블럼 파생. 24 그리드에 원·호·광선 세 요소로만 작도해 엠블럼과 같은
+     계보로 보이게 한다. 아이콘 라이브러리를 쓰지 않는 것은 이 브랜드의
+     도상 체계를 만드는 것이 이번 작업의 요구였기 때문이다.                  -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <!-- 문서. 낱장은 관습대로 네모로 두고, 엠블럼의 요람 호를 첫 줄 자리에 넣어
+       같은 계보로 보이게 한다. 위를 둥글리면 자물쇠로 읽힌다(실제로 그랬다). -->
+  <symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 4.6h12v14.8a1.4 1.4 0 0 1-1.4 1.4H7.4A1.4 1.4 0 0 1 6 19.4Z"/>
+    <path d="M9.2 10.6a2.8 2.8 0 0 1 5.6 0"/><path d="M9 14.4h6M9 17.2h4"/>
+  </symbol>
+  <symbol id="i-edition" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 3.6h9.4v13.2" opacity=".45"/>
+    <path d="M5.6 7h9.8v12.4a1.4 1.4 0 0 1-1.4 1.4H7A1.4 1.4 0 0 1 5.6 19.4Z"/>
+    <path d="M8.6 11.6h3.8M8.6 15.2h5.4"/>
+  </symbol>
+  <symbol id="i-evidence" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 7.5h15M4.5 11.5h11"/><path d="M4.5 16.5h8.5" stroke-width="3" opacity=".9"/>
+  </symbol>
+  <symbol id="i-checking" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+    <path d="M12 3.5a8.5 8.5 0 1 1-6.01 2.49"/><path d="M12 8v4.4l2.8 1.7"/>
+  </symbol>
+  <symbol id="i-handoff" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="5.75" cy="16.25" r="2.75"/><circle cx="18.25" cy="16.25" r="2.75"/>
+    <path d="M5.75 13.5A6.25 6.25 0 0 1 18.25 13.5"/><path d="M15.9 7.9 18.25 9.4l1.4-2.4" opacity=".9"/>
+  </symbol>
+  <symbol id="i-safety" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.5 11.5a7.5 7.5 0 0 1 15 0v1.2A7.3 7.3 0 0 1 12 20a7.3 7.3 0 0 1-7.5-7.3Z"/><circle cx="12" cy="11.6" r="2.6"/>
+  </symbol>
+  <symbol id="i-adult" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 15.5a8.5 8.5 0 0 1 17 0"/><circle cx="12" cy="16.9" r="3.1"/>
+  </symbol>
+  <symbol id="i-window" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5"/><path d="M4.4 14.2h15.2"/>
+  </symbol>
+  <symbol id="i-ray" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+    <path d="M12 2.6v3.2M12 18.2v3.2M2.6 12h3.2M18.2 12h3.2M5.4 5.4l2.3 2.3M16.3 16.3l2.3 2.3M18.6 5.4l-2.3 2.3M7.7 16.3l-2.3 2.3"/><circle cx="12" cy="12" r="3.4"/>
+  </symbol>
+  <symbol id="i-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3.2"/><path d="M8.6 12h6.8"/>
+  </symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9.5 5.5 16 12l-6.5 6.5"/>
+  </symbol>
+  <symbol id="em" viewBox="0 0 512 512">
+    <path fill="var(--em-field,#F8C800)" fill-rule="evenodd" d="M239 455C183 448 135 410 109 350C103 338 94 313 94 309C94 308 93 304 92 299C66 195 132 72 226 52C239 49 242 49 256 49C263 49 272 49 275 50C278 51 283 52 286 52C335 62 381 103 406 161C458 281 396 430 284 453C265 457 255 457 239 455Z"/>
+    <path fill="var(--em-mark,#003D84)" fill-rule="evenodd" d="M197 197C184 190 185 170 198 163C213 155 226 178 215 193C210 199 204 201 197 197ZM309 198C289 194 293 159 313 161C321 162 327 170 327 180C327 192 319 200 309 198ZM255 155C254 147 253 144 250 144C249 144 248 144 247 143C245 141 245 141 241 145C236 150 236 150 240 144C244 138 244 134 239 135C236 135 236 134 238 133C242 129 240 127 234 126C221 126 220 125 230 124C239 123 240 122 240 120C240 118 239 118 237 117C233 115 233 114 238 114C244 115 244 112 240 107C238 105 237 103 237 102C238 102 239 104 241 106C245 111 248 110 247 103C247 99 247 99 248 101C250 107 254 107 254 102C254 88 257 83 257 97C257 102 259 106 261 105C262 104 263 105 263 106C265 110 267 109 271 105C276 100 277 101 273 106C269 111 269 114 273 115C274 116 275 117 274 119C272 122 275 124 283 124C292 124 288 126 279 126C273 126 270 128 273 130C274 132 274 133 272 133C269 135 269 138 272 143C276 148 276 149 271 145C266 140 265 140 264 143C263 144 262 145 261 144C259 143 257 146 257 151C257 161 255 164 255 155ZM260 141C271 138 273 116 263 110C248 101 235 124 247 138C251 142 254 143 260 141ZM265 279C283 260 289 245 283 233C277 223 265 222 258 231L256 233L252 229C246 224 242 223 236 226C221 235 226 259 247 279C257 289 256 289 265 279ZM165 263C161 260 159 255 161 248C166 234 182 238 182 253C182 264 173 270 165 263ZM334 262C327 254 331 239 340 239C351 239 356 255 348 262C343 266 337 266 334 262ZM222 325C228 319 227 308 220 304C211 298 201 311 207 322C210 328 218 330 222 325ZM305 323C312 316 308 302 298 302C288 302 284 320 293 326C297 329 301 328 305 323ZM206 332C203 331 199 329 196 327L192 324L192 317C192 313 193 308 193 306C194 303 194 299 194 295C194 287 194 287 204 281C219 272 225 264 222 258C221 255 219 255 214 258C210 261 199 266 197 266C196 266 196 264 196 261C196 248 190 237 182 234C175 232 158 238 148 247L143 251L138 246C132 240 132 240 143 233C164 218 190 210 230 204C275 197 333 210 370 234C378 239 378 238 374 244C370 249 369 249 363 245C338 226 319 231 318 256L317 264L314 264C312 264 307 262 302 260C292 255 291 255 289 259C287 264 295 274 311 282L318 286L319 292C319 298 323 320 324 321C324 322 321 324 314 328C296 337 281 333 264 315C257 307 255 307 252 312C242 327 219 337 206 332Z"/>
+  </symbol>
+</svg>
+
+<script>
+(function(){
+'use strict';
+
+/* ══ 데이터 ══════════════════════════════════════════════════════════════
+   BOTS 의 필드는 실제 Bot 모델과 1:1 이다.
+     mem ← history_window > 0 · strict ← evidence_policy_mode === 'strict'
+     rag ← use_rag · plan ← plan_required · active ← is_active
+   docs 는 API 에 없다. 봇과 문서를 잇는 값이 클라이언트로 오지 않는다.
+   이 안이 성립하려면 필요한 값이라 예시로 채웠다(README 선행 과제 1번).      */
+
+var BOTS = [
+  { id:1,  n:'블레싱 네비게이션', t:'축복식 절차와 서류를 규정집 기준으로 안내합니다',
+    docs:['축복 행정 규정집 2026 개정','축복후보자 등록 안내 v2.1','봉헌식 시행 안내 v1.0','교류 기간 운영 지침 v1.2','가정 정책 해설 v1.4','승인 FAQ 모음','축복 용어집 v1.1'],
+    mem:true, strict:true, rag:true, plan:'FREE', active:true, up:'2026.07.14', g:1 },
+  { id:2,  n:'가정 행정 안내', t:'등록 신청, 양식, 교구 일정을 안내합니다',
+    docs:['축복후보자 등록 안내 v2.1','양식 모음 v3.0','교구 일정 안내 2026','축복 행정 규정집 2026 개정','승인 FAQ 모음'],
+    mem:true, strict:false, rag:true, plan:'FREE', active:true, up:'2026.07.02', g:1 },
+  { id:3,  n:'가정 정책 길잡이', t:'가정 정책과 생활 규정을 안내합니다',
+    docs:['가정 정책 해설 v1.4','가정 생활 규정 v2.0','축복 행정 규정집 2026 개정','승인 FAQ 모음'],
+    mem:true, strict:true, rag:true, plan:'FREE', active:true, up:'2026.06.28', g:2 },
+  { id:4,  n:'청년 안내', t:'2세 청년의 축복 준비 과정을 안내합니다',
+    docs:['2세 축복 준비 안내 v1.3','축복 행정 규정집 2026 개정','축복 용어집 v1.1','승인 FAQ 모음'],
+    mem:true, strict:false, rag:true, plan:'FREE', active:true, up:'2026.06.11', g:1 },
+  { id:5,  n:'日本語 안내', t:'일본어로 축복 안내를 받습니다',
+    docs:['일본어 안내 모음 2022 승인','축복후보자 등록 안내 v2.1'],
+    mem:false, strict:false, rag:true, plan:'FREE', active:true, up:'2026.03.09', g:5 },
+  { id:6,  n:'축복 용어 사전', t:'축복 용어의 뜻을 한 낱말씩 찾아 줍니다',
+    docs:['축복 용어집 v1.1'],
+    mem:false, strict:true, rag:true, plan:'FREE', active:true, up:'2026.05.30', g:4 },
+  { id:7,  n:'마음 나누기', t:'결론을 내리지 않고 함께 정리합니다',
+    docs:[],
+    mem:true, strict:false, rag:false, plan:'FREE', active:true, up:'2026.07.20', g:5 },
+  { id:8,  n:'봉헌식·의례 안내', t:'봉헌식과 탕감봉 시행을 안내합니다',
+    docs:['봉헌식 시행 안내 v1.0','축복 행정 규정집 2026 개정','축복 용어집 v1.1'],
+    mem:true, strict:true, rag:true, plan:'FREE', active:true, up:'2026.04.17', g:2 },
+  { id:9,  n:'교류 기간 도우미', t:'매칭 이후 교류 기간의 진행을 안내합니다',
+    docs:['교류 기간 운영 지침 v1.2','승인 FAQ 모음'],
+    mem:true, strict:false, rag:true, plan:'FREE', active:true, up:'2026.05.06', g:3 },
+  { id:10, n:'카카오 채널 창구', t:'카카오톡 채널에서 같은 규정집을 안내합니다',
+    docs:['축복 행정 규정집 2026 개정','승인 FAQ 모음','축복후보자 등록 안내 v2.1'],
+    mem:false, strict:false, rag:true, plan:'FREE', active:true, up:'2026.07.11', g:5 },
+  { id:11, n:'규정 원문 찾기', t:'규정집 원문을 조항 단위로 대조합니다',
+    docs:['축복 행정 규정집 2026 개정','가정 생활 규정 v2.0','일본어 안내 모음 2022 승인'],
+    mem:false, strict:true, rag:true, plan:'PRO', active:true, up:'2026.07.14', g:4 },
+  { id:12, n:'문서 변경 이력', t:'어느 문서가 언제 무엇으로 바뀌었는지 찾아 줍니다',
+    docs:['문서 개정 이력'],
+    mem:true, strict:false, rag:true, plan:'PRO', active:true, up:'2026.07.30', g:4 },
+  { id:13, n:'축복 FAQ', t:'검수를 마친 자주 묻는 질문 35건을 답합니다',
+    docs:['승인 FAQ 모음'],
+    mem:true, strict:true, rag:true, plan:'FREE', active:true, up:'2026.07.30', g:1 },
+  { id:14, n:'2022 규정 안내', t:'2022 승인본을 안내하던 창구입니다',
+    docs:['축복 행정 규정집 2022 승인'],
+    mem:true, strict:false, rag:true, plan:'FREE', active:false, up:'2025.11.02', succ:1, g:5 }
+];
+
+/* 8~15곳 구간에서는 묶음이 필수다. 조직이 준 그룹 축이 없으므로
+   "사람들이 실제로 그렇게 부르는 말" 다섯 갈래를 세웠다.
+   조직이 축을 정하면 이 배열만 갈아 끼우면 된다.                            */
+var GROUPS = [
+  { id:1, n:'축복 준비와 서류', d:'등록, 서류, 일정, 자주 묻는 것' },
+  { id:2, n:'가정 생활과 의례', d:'봉헌식, 탕감봉, 성물, 생활 규정' },
+  { id:3, n:'매칭과 교류',      d:'매칭 이후의 진행과 확인' },
+  { id:4, n:'말과 원문',        d:'용어의 뜻, 조항 원문, 판차 변경' },
+  { id:5, n:'그 밖의 창구',     d:'다른 언어, 마음 나누기, 카카오, 지난 판' }
+];
+
+var SUFFIX = ['서울','부산','대구','광주','대전','인천','경기북부','경기남부','강원','충북',
+              '충남','전북','전남','경북','경남','제주','일본','미국','유럽','대양주'];
+
+var ANSWERS = {
+  admin: {
+    bot:1,
+    q:'축복후보자 서류는 무엇이 필요한가요?',
+    lead:'축복후보자 서류는 공통 3종이 기본이고, 재혼 축복이나 국제 축복처럼 유형에 따라 서류가 더 붙습니다.',
+    parts:[
+      { label:'근거', html:'<strong>『축복 행정 규정집』 2026 개정판</strong> 4장과 <strong>『축복후보자 등록 안내』 v2.1</strong>에 <span class="seg" data-seg="1">공통 서류와 유형별 추가 서류가 나뉘어</span> 있습니다.@1' },
+      { label:'절차', steps:[
+        '소속 교구 가정부에 등록 의사를 전합니다.',
+        '<span class="seg" data-seg="1">공통 서류 3종을 준비합니다. 등록신청서, 신앙생활 확인서, 보호자 동의서입니다.</span>@1',
+        '<span class="seg" data-seg="2">본인 유형에 해당하는 추가 서류가 있는지 확인합니다.</span>@2',
+        '담당자 검토를 거쳐 접수합니다.'
+      ]},
+      { label:'다음', html:'어떤 유형에 해당하는지는 개인 사정에 따라 달라집니다. 소속 교구 가정부나 부모님과 함께 확인해 보세요.' }
+    ],
+    fups:['공통 서류 3종을 자세히 알려주세요','재혼 축복은 서류가 어떻게 다른가요','보호자 동의서 양식은 어디서 받나요'],
+    found:['『가정 정책 해설』 v1.4','『봉헌식 시행 안내』 v1.0','『교류 기간 운영 지침』 v1.2','『승인 FAQ 모음』'],
+    trace:[ ['승인 문서 7종을 검색했습니다','0.6초'], ['맞는 대목 6곳을 찾았습니다','1.4초'], ['원문과 대조해 2곳을 남겼습니다','2.1초'] ],
+    cites:[
+      { n:'1', kind:'규정집', short:'축복 행정 규정집', title:'『축복 행정 규정집』', meta:'2026 개정 · 4장 · 38쪽',
+        text:'축복후보자 등록 시 공통으로 제출하는 서류는 등록신청서, 신앙생활 확인서, 보호자 동의서 세 가지로 한다. 서류는 소속 교구 가정부를 통해 접수한다.',
+        ev:'공통으로 제출하는 서류는 등록신청서, 신앙생활 확인서, 보호자 동의서' },
+      { n:'2', kind:'안내', short:'축복후보자 등록 안내', title:'『축복후보자 등록 안내』', meta:'v2.1 · 6쪽',
+        text:'재혼 축복 및 국제 축복의 경우 유형별 추가 서류가 있으며, 해당 여부는 소속 교구 가정부를 통해 확인한다.',
+        ev:'유형별 추가 서류가 있으며' }
+    ]
+  },
+  context: {
+    bot:7,
+    q:'과거의 일 때문에 축복을 받을 수 있을지 걱정됩니다',
+    lead:'그 걱정을 혼자 오래 안고 계셨겠습니다. 먼저 마음을 받고 시작하겠습니다.',
+    parts:[
+      { label:'', html:'자세한 개인 정보나 구체적인 내용은 말씀하지 않으셔도 괜찮습니다. 답을 드리기 전에 한 가지만 여쭙겠습니다.' },
+      { label:'', html:'<strong>지금 어느 준비 단계에 계신지</strong>만 알려 주실 수 있을까요. 아직 준비 전인지, 등록을 마치셨는지 정도면 충분합니다.' }
+    ],
+    chips:['아직 준비 전입니다','등록을 마쳤습니다','매칭 이후입니다','말하기 어렵습니다'],
+    fups:[]
+  },
+  norag: {
+    bot:1,
+    q:'참가비 환불은 어떻게 하나요?',
+    lead:'승인된 자료에서 확인되지 않습니다. 확실하지 않은 내용을 지어내지 않겠습니다.',
+    effort:'승인 문서 7종 190쪽을 검색했고, 환불과 참가비를 다루는 대목은 없었습니다.',
+    parts:[
+      { label:'', html:'현장 운영에 관한 사항이라 문서로 정리되어 있지 않은 것으로 보입니다.' },
+      { label:'부모님께 여쭐 질문', steps:[
+        '이번 일정의 참가비가 어떤 항목으로 되어 있는지 여쭤 보세요.',
+        '사정이 생겼을 때 어떻게 처리해 왔는지 여쭤 보세요.',
+        '누구에게 먼저 말씀드리면 되는지 여쭤 보세요.'
+      ]},
+      { label:'', html:'답이 바로 나오지 않아도 괜찮습니다. 확인해야 할 것이 무엇인지 정리되어 있으면 절반은 풀린 셈입니다.' }
+    ],
+    fups:['가정부장님께 여쭐 문장을 만들어 주세요','다른 궁금한 것을 물어볼게요'],
+    found:['『승인 FAQ 모음』','『교류 기간 운영 지침』 v1.2','『가정 생활 규정』 v2.0'],
+    trace:[ ['승인 문서 7종을 검색했습니다','0.7초'], ['맞는 대목을 찾지 못했습니다','1.9초'] ],
+    cites:[]
+  },
+  handoff: {
+    bot:1, to:3,
+    q:'성물은 어떻게 보관하나요?',
+    lead:'이 창구가 보는 문서에는 없습니다. 지어내는 대신 어느 창구가 그 문서를 보는지 알려 드리겠습니다.',
+    why:'『가정 생활 규정』 v2.0',
+    reason:'성물 관리는 <b>『가정 생활 규정』 v2.0</b> 15쪽에 실려 있습니다. 이 창구는 그 문서를 보지 않고, <b>『가정 정책 길잡이』</b>가 봅니다.',
+    fups:[],
+    found:['『축복 행정 규정집』 2026 개정','『승인 FAQ 모음』'],
+    trace:[ ['이 창구의 문서 7종을 검색했습니다','0.6초'], ['맞는 대목이 없습니다','1.5초'], ['같은 표제어를 싣는 창구를 찾았습니다','1.8초'] ],
+    cites:[]
+  },
+  safety: {
+    bot:7,
+    q:'요즘은 그냥 사라지고 싶다는 생각이 듭니다',
+    lead:'그 말씀을 해 주셔서 고맙습니다. 지금은 다른 이야기보다 안전이 먼저입니다.',
+    parts:[
+      { label:'', html:'지금 혼자 계신가요. 가까이에 위험할 수 있는 물건이나 장소가 있다면 잠시 떨어져 주실 수 있을까요.' },
+      { label:'지금 곁에 있어 줄 수 있는 분', adults:[
+        '부모님',
+        '믿을 수 있는 가정부장님',
+        '공직자, 목회자, 사모님',
+        '신뢰하는 가까운 어른'
+      ]},
+      { label:'', html:'지금 이야기할 수 있는 분이 떠오르지 않으셔도 괜찮습니다. 아래는 24시간 연결됩니다.' }
+    ],
+    /* 보건복지부 안내 문구(2024.09.10 시행)가 명시하는 것은 109 와 마들랜이다. */
+    lines:[
+      { n:'109', t:'자살예방 상담전화', d:'24시간 · 통화료 무료', b:'24시간' },
+      { n:'마들랜', t:'자살예방 SNS 상담', d:'말로 하기 어려울 때 글로', b:'24시간' }
+    ],
+    fups:[]
+  }
+};
+
+var SCREENS = ['login','home','bot','start','thread','mypage','guide','states'];
+var TYPES   = ['admin','context','norag','safety','handoff'];
+var SCALES  = { n0:0, n3:3, n14:14, n40:40 };
+var THEMES  = ['light','dark','auto'];
+var VPS     = ['desktop','mobile'];
+
+var LBL  = { login:'로그인', home:'홈', bot:'창구 상세', start:'대화 시작', thread:'대화',
+             mypage:'내 정보', guide:'읽는 법', states:'상태' };
+var ALBL = { admin:'행정 확답', context:'맥락 확인', norag:'근거 없음', handoff:'이관', safety:'안전 우선' };
+
+/* ══ 상태 ═════════════════════════════════════════════════════════════════ */
+var S = { screen:'home', type:'admin', scale:14, bot:1, theme:'auto', vp:'desktop', motion:'on', bare:false };
+/* 변수 이름을 짧게 쓰지 않는다. 이 자리에 var st 를 두었더니 아래의
+   function st() 를 덮어써서 상태 화면이 통째로 죽었다. */
+try {
+  var savedTheme = localStorage.getItem('bc-a-theme'); if (savedTheme) S.theme = savedTheme;
+  var savedMotion = localStorage.getItem('bc-a-motion'); if (savedMotion) S.motion = savedMotion;
+} catch(e){}
+
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+/* 규모에 따라 보이는 창구. 나중에 소속별 가시성 층이 끼어들 자리다. */
+function visibleBots(){
+  if (S.scale === 0) return [];
+  if (S.scale <= 14) return BOTS.slice(0, S.scale);
+  var out = BOTS.slice();
+  for (var i = 0; out.length < S.scale; i++){
+    var base = BOTS[i % BOTS.length];
+    out.push({ id:1000+i, n:base.n + ' · ' + SUFFIX[i % SUFFIX.length], t:base.t,
+      docs:base.docs, mem:base.mem, strict:base.strict, rag:base.rag,
+      plan:base.plan, active:base.active, up:base.up, g:base.g, derived:true });
+  }
+  return out.slice(0, S.scale);
+}
+function botById(id){
+  var all = visibleBots();
+  for (var i=0;i<all.length;i++) if (all[i].id === id) return all[i];
+  return all[0] || BOTS[0];
+}
+
+/* 능력 표기 - 기대와 어긋나는 쪽만 적는다. 기대대로면 아무것도 안 적는다.
+   화면에 절대 나오지 않는 말: RAG, strict, legacy, history_window, 시스템 프롬프트. */
+function capsOf(b){
+  var out = [];
+  if (!b.active) out.push({ i:'i-none', t:'지금은 답하지 않습니다', off:true });
+  if (!b.rag)    out.push({ i:'i-none', t:'문서를 근거로 답하지 않습니다', off:true });
+  if (b.strict)  out.push({ i:'i-doc',  t:'근거를 못 찾으면 답하지 않습니다' });
+  if (!b.mem)    out.push({ i:'i-checking', t:'앞 대화를 기억하지 않습니다' });
+  return out;
+}
+function capsHtml(b){
+  var c = capsOf(b);
+  if (!c.length) return '';
+  return '<div class="caps">' + c.map(function(x){
+    return '<span class="cap' + (x.off ? ' off' : '') + '"><svg aria-hidden="true"><use href="#' + x.i + '"/></svg>' + esc(x.t) + '</span>';
+  }).join('') + '</div>';
+}
+
+function markOf(b){
+  /* 봇 마크는 이름 이니셜이 아니라 담당 성격을 나타내는 도상이다. */
+  if (!b.active) return 'i-none';
+  if (!b.rag)    return 'i-adult';
+  if (b.docs && b.docs.length >= 5) return 'i-edition';
+  if (b.docs && b.docs.length === 1) return 'i-evidence';
+  return 'i-window';
+}
+
+/* ══ 홈 ═══════════════════════════════════════════════════════════════════ */
+function renderHome(){
+  var bots = visibleBots();
+  var h = '';
+  var i = 0;
+  function step(){ return ' style="--i:' + (i++) + '"'; }
+
+  h += '<h1 class="dsp"' + step() + '>무엇을 여쭤볼까요</h1>';
+
+  h += '<div' + step() + '>';
+  h += '<div class="composer"><textarea rows="1" placeholder="질문을 적어 주세요" aria-label="질문 적기"></textarea>';
+  h += '<button class="send" data-go="thread/admin" aria-label="보내기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12h14M13 6.5l5.5 5.5L13 17.5"/></svg></button></div>';
+  if (bots.length) {
+    h += '<p class="composer-foot">적어 주시면 어느 창구가 답하는지 먼저 알려 드립니다. 고르는 것은 그다음입니다.</p>';
+  } else {
+    h += '<p class="composer-foot">지금은 열려 있는 창구가 없습니다. 소속 교구에 문의해 주세요.</p>';
+  }
+  h += '</div>';
+
+  /* 운영원칙 §1 의 두 진입점. 균등 카드 두 장이 아니라 비대칭 두 면이다. */
+  h += '<div class="gates"' + step() + '>';
+  h += '<button class="gate" data-go="start">';
+  h += '<svg class="gi" aria-hidden="true"><use href="#i-doc"/></svg>';
+  h += '<h3>규정과 절차를 확인하고 싶어요</h3>';
+  h += '<p>서류, 일정, 순서처럼 문서에 기준이 있는 것을 문서 이름과 쪽수까지 함께 답합니다.</p>';
+  h += '<div class="gm meta">승인 문서 13종 · 마지막 갱신 2026.07.30</div>';
+  h += '</button>';
+  h += '<button class="gate soft" data-go="thread/context">';
+  h += '<svg class="gi" aria-hidden="true"><use href="#i-adult"/></svg>';
+  h += '<h3>마음이 무거울 때</h3>';
+  h += '<p>결론을 대신 내리지 않습니다. 무엇이 걱정인지 함께 정리하고, 어른께 여쭐 말을 만들어 드립니다.</p>';
+  h += '<div class="gm meta">규정 판정을 하지 않습니다</div>';
+  h += '</button>';
+  h += '</div>';
+
+  /* 재방문 상태. 매번 처음처럼 보이지 않게 한다. */
+  if (bots.length) {
+    h += '<section class="sec"' + step() + '>';
+    h += '<div class="sec-hd"><h2 class="h2">이어가던 이야기</h2><span class="rule"></span></div>';
+    h += '<div class="resume">';
+    h += resumeRow('축복후보자 서류는 무엇이 필요한가요?', '블레싱 네비게이션', '어제', 'thread/admin');
+    h += resumeRow('교류 기간은 얼마나 되나요?', '교류 기간 도우미', '지난주', 'thread/admin');
+    h += '</div></section>';
+  }
+
+  h += '<section class="sec"' + step() + '>';
+  h += '<div class="sec-hd"><h2 class="h2">창구 ' + bots.length + '곳</h2><span class="rule"></span>';
+  h += '<span class="meta">이름과 담당 문서로 나눕니다</span></div>';
+
+  if (!bots.length) {
+    h += '<div class="notdo"><b>지금 볼 수 있는 창구가 없습니다</b>';
+    h += '<p>소속이 아직 연결되지 않았거나, 열린 창구가 없습니다. 소속 교구 가정부에 문의해 주세요.</p></div>';
+  } else {
+    h += '<div class="groups">';
+    GROUPS.forEach(function(g, gi){
+      var mine = bots.filter(function(b){ return b.g === g.id; });
+      if (!mine.length) return;
+      h += '<details class="group"' + (gi === 0 ? ' open' : '') + '>';
+      h += '<summary><span class="gname">' + esc(g.n) + '</span>';
+      h += '<span class="gcount">' + mine.length + '</span>';
+      h += '<svg class="chev" aria-hidden="true"><use href="#i-chev"/></svg></summary>';
+      h += '<div class="gbody">';
+      mine.forEach(function(b){
+        h += '<button class="wrow" data-bot="' + b.id + '">';
+        h += '<span class="wmark"><svg aria-hidden="true"><use href="#' + markOf(b) + '"/></svg></span>';
+        h += '<span class="wt"><span class="wn">' + esc(b.n) + '</span>';
+        h += '<span class="wd">' + esc(b.t) + '</span>' + capsHtml(b) + '</span>';
+        h += '<span class="wc">' + (b.docs.length ? '문서 ' + b.docs.length + '종' : '문서 없음') + '</span>';
+        h += '</button>';
+      });
+      h += '</div></details>';
+    });
+    h += '</div>';
+  }
+  h += '</section>';
+
+  document.getElementById('home-body').innerHTML = h;
+}
+function resumeRow(q, w, when, go){
+  return '<button class="resume-row" data-go="' + go + '">'
+    + '<span class="wmark" style="width:30px;height:30px;border-radius:9px"><svg style="width:17px;height:17px" aria-hidden="true"><use href="#i-window"/></svg></span>'
+    + '<span class="rt"><span class="rq">' + esc(q) + '</span>'
+    + '<span class="rw">' + esc(w) + ' · ' + esc(when) + '</span></span>'
+    + '<svg style="width:15px;height:15px;color:var(--ink-3)" aria-hidden="true"><use href="#i-chev"/></svg></button>';
+}
+
+/* ══ 창구 상세 - "이 창구가 무엇인가"가 아니라 "옆 창구와 무엇이 다른가" ══ */
+function renderBot(){
+  var b = botById(S.bot);
+  var h = '';
+  var i = 0; function step(){ return ' style="--i:' + (i++) + '"'; }
+
+  h += '<div class="botcard"' + step() + '>';
+  h += '<span class="wmark"><svg aria-hidden="true"><use href="#' + markOf(b) + '"/></svg></span>';
+  h += '<div><h1 class="dsp" style="font-size:26px;margin-bottom:6px">' + esc(b.n) + '</h1>';
+  h += '<p class="lede" style="margin-bottom:10px">' + esc(b.t) + '</p>' + capsHtml(b) + '</div></div>';
+
+  h += '<dl class="dl"' + step() + '>';
+  h += '<dt>보는 문서</dt><dd>' + (b.docs.length ? b.docs.length + '종' : '없음') + '</dd>';
+  h += '<dt>마지막 갱신</dt><dd class="meta">' + esc(b.up) + '</dd>';
+  if (b.plan === 'PRO') h += '<dt>이용</dt><dd>일부 기능은 소속 확인이 필요합니다</dd>';
+  h += '</dl>';
+
+  if (b.docs.length){
+    h += '<div class="sec"' + step() + '><div class="sec-hd"><h2 class="h2">이 창구가 보는 문서</h2><span class="rule"></span></div>';
+    h += '<ul class="doclist">';
+    b.docs.forEach(function(d){
+      h += '<li><svg aria-hidden="true"><use href="#i-doc"/></svg>' + esc(d) + '</li>';
+    });
+    h += '</ul></div>';
+  }
+
+  /* 조사: 아무도 "이 봇이 답하지 않는 것"을 적지 않는다. 여기가 우리의 자리다. */
+  h += '<div class="notdo"' + step() + '><b>이 창구가 답하지 않는 것</b><p>';
+  if (!b.active) {
+    h += '지금은 답하지 않습니다. 같은 내용을 『블레싱 네비게이션』이 이어받았습니다.';
+  } else if (!b.rag) {
+    h += '규정의 기준이나 절차를 판정하지 않습니다. 문서에 기준이 있는 질문은 『블레싱 네비게이션』이 답합니다.';
+  } else {
+    h += '위 문서에 없는 내용은 답하지 않습니다. 다른 창구가 그 문서를 보면 그 창구를 알려 드리고, 어느 창구에도 없으면 부모님께 여쭐 질문을 대신 정리해 드립니다.';
+  }
+  h += '</p></div>';
+
+  h += '<div class="btnrow" style="margin-top:22px"' + step() + '>';
+  if (b.active) h += '<button class="btn" data-go="start">이 창구에서 시작하기</button>';
+  else h += '<button class="btn" data-bot="1">『블레싱 네비게이션』으로 가기</button>';
+  h += '<button class="btn ghost" data-go="home">다른 창구 보기</button></div>';
+
+  document.getElementById('bot-body').innerHTML = h;
+}
+
+/* ══ 대화 시작 ════════════════════════════════════════════════════════════ */
+function renderStart(){
+  var b = botById(S.bot);
+  var h = '';
+  var i = 0; function step(){ return ' style="--i:' + (i++) + '"'; }
+
+  h += '<div class="eyebrow"' + step() + '>' + esc(b.n) + '</div>';
+  h += '<h1 class="dsp"' + step() + '>무엇을 여쭤볼까요</h1>';
+  h += '<div' + step() + '><div class="composer"><textarea rows="1" placeholder="질문을 적어 주세요" aria-label="질문 적기"></textarea>';
+  h += '<button class="send" data-go="thread/admin" aria-label="보내기"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 12h14M13 6.5l5.5 5.5L13 17.5"/></svg></button></div></div>';
+
+  h += '<section class="sec"' + step() + '><div class="sec-hd"><h2 class="h2">이렇게 물어보실 수 있습니다</h2><span class="rule"></span></div>';
+  h += '<div class="chips">';
+  ['축복후보자 서류는 무엇이 필요한가요?','축복식 준비 절차가 궁금해요','40일 정성은 언제부터 시작하나요?','봉헌식은 언제 하나요?'].forEach(function(q){
+    h += '<button class="chip" data-go="thread/admin">' + esc(q) + '</button>';
+  });
+  h += '</div></section>';
+
+  h += '<section class="sec"' + step() + '><div class="sec-hd"><h2 class="h2">답이 나오는 방식</h2><span class="rule"></span></div>';
+  h += '<p class="lede">문서에 기준이 있으면 결론을 먼저 말하고 문서 이름과 쪽수를 함께 답합니다. ';
+  h += '문서에 없으면 없다고 말하고 부모님께 여쭐 질문을 정리해 드립니다. 확실하지 않은 내용을 지어내지 않습니다.</p>';
+  h += '</section>';
+
+  document.getElementById('start-body').innerHTML = h;
+}
+
+/* ══ 대화 ═════════════════════════════════════════════════════════════════
+   시그니처. 결론 → 근거 → 절차 → 다음이 순서대로 자리를 잡고,
+   각주를 누르면 본문 구간과 자료 카드가 함께 켜진다.                        */
+function citePill(c){
+  /* 위첨자 숫자가 아니라 유형 알약이다. 앞의 nbsp 가 줄바꿈을 막는다. */
+  return '<span class="cnb">&nbsp;<button class="cite" data-cite="' + c.n + '" aria-expanded="false">'
+    + '<svg aria-hidden="true"><use href="#i-doc"/></svg>'
+    + '<span class="ct">' + esc(c.short) + '</span></button></span>';
+}
+function withCites(html, cites){
+  return String(html).replace(/@(\d)/g, function(m, n){
+    for (var i=0;i<cites.length;i++) if (cites[i].n === n) return citePill(cites[i]);
+    return '';
+  });
+}
+
+function renderThread(){
+  var a = ANSWERS[S.type];
+  var b = botById(a.bot === 7 ? 7 : S.bot);
+  if (a.bot === 7) b = BOTS[6];
+  var cites = a.cites || [];
+
+  /* 헤더 - 어느 창구와 이야기 중인지 항상 보인다. */
+  var hd = '<button class="back" data-go="home" aria-label="뒤로">'
+    + '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 5.5 8 12l6.5 6.5"/></svg></button>'
+    + '<span class="wmark"><svg aria-hidden="true"><use href="#' + markOf(b) + '"/></svg></span>'
+    + '<span><span class="tn">' + esc(b.n) + '</span>';
+  var cap = capsOf(b);
+  if (cap.length) hd += '<span class="tc">' + esc(cap.map(function(c){ return c.t; }).join(' · ')) + '</span>';
+  hd += '</span><span class="sp" style="flex:1"></span>'
+    + '<span class="kind">' + esc(ALBL[S.type]) + '</span>';
+  document.getElementById('thread-hd').innerHTML = hd;
+
+  var i = 0; function step(){ return ' style="--i:' + (i++) + '"'; }
+  var h = '<div>';
+  h += '<div class="ask"><div class="b">' + esc(a.q) + '</div></div>';
+  h += '<div class="reply">';
+
+  /* 검색 타임라인 → 영수증. 인용 0건과 검색 실패를 구분해 준다. */
+  if (a.trace) {
+    h += '<div class="trace"' + step() + '>';
+    if (S.type === 'norag' || S.type === 'handoff') {
+      h += '<div class="trace-live">';
+      a.trace.forEach(function(t, ti){
+        var last = ti === a.trace.length - 1;
+        h += '<div class="trace-step' + (last ? '' : ' done') + '">';
+        h += '<span class="dot' + (last ? ' live' : '') + '"></span>' + esc(t[0]);
+        h += '<span class="el">' + esc(t[1]) + '</span></div>';
+      });
+      h += '</div>';
+    } else {
+      h += '<button class="receipt"><svg aria-hidden="true"><use href="#i-ray"/></svg>';
+      h += '근거 <span class="rn">' + cites.length + '</span>건 · 검색 <span class="rn">'
+        + esc(a.trace[a.trace.length-1][1]) + '</span></button>';
+    }
+    h += '</div>';
+  }
+
+  h += '<p class="lead"' + step() + '>' + esc(a.lead) + '</p>';
+
+  if (a.effort) h += '<div class="effort"' + step() + '>' + esc(a.effort) + '</div>';
+
+  (a.parts || []).forEach(function(p){
+    h += '<div class="part"' + step() + '>';
+    if (p.label) h += '<p class="pl">' + esc(p.label) + '</p>';
+    if (p.html)  h += '<p>' + withCites(p.html, cites) + '</p>';
+    if (p.steps) {
+      h += '<ol class="steps">';
+      p.steps.forEach(function(s, si){
+        h += '<li style="--i:' + si + '"><span>' + withCites(s, cites) + '</span></li>';
+      });
+      h += '</ol>';
+    }
+    if (p.adults) {
+      h += '<ul class="adults">';
+      p.adults.forEach(function(x, xi){
+        h += '<li><span class="ord">' + (xi+1) + '</span><span>' + esc(x) + '</span></li>';
+      });
+      h += '</ul>';
+    }
+    h += '</div>';
+  });
+
+  /* 안전 카드는 시스템 크롬이다. 어시스턴트의 목소리로 보이면 안 된다. */
+  if (a.lines) {
+    h += '<div class="crisis"' + step() + ' role="note">';
+    h += '<div class="ch"><svg aria-hidden="true"><use href="#i-safety"/></svg>';
+    h += '<span class="ct2">지금 바로 연결할 수 있는 곳</span>';
+    h += '<span class="sys">서비스 안내</span></div>';
+    h += '<p>혼자 견디지 않으셔도 됩니다. 아래는 24시간 연결되고, 통화가 어려우면 글로도 상담할 수 있습니다.</p>';
+    h += '<div class="lines">';
+    a.lines.forEach(function(l){
+      h += '<div class="line"><span class="ln">' + esc(l.n) + '</span>';
+      h += '<span class="lt"><span class="lname">' + esc(l.t) + '</span>';
+      h += '<span class="lmeta">' + esc(l.d) + '</span></span>';
+      h += '<span class="badge">' + esc(l.b) + '</span></div>';
+    });
+    h += '</div></div>';
+  }
+
+  /* 이관. 답변 5번째 유형이 아니라 「근거 없음」의 하위 갈래다. */
+  if (S.type === 'handoff') {
+    var to = botById(a.to);
+    h += '<div class="handoff"' + step() + '>';
+    h += '<div class="hh"><svg aria-hidden="true"><use href="#i-handoff"/></svg><b>이 표제어를 싣는 창구가 있습니다</b></div>';
+    h += '<div class="target"><span class="wmark"><svg aria-hidden="true"><use href="#' + markOf(to) + '"/></svg></span>';
+    h += '<span class="wt"><span class="wn">' + esc(to.n) + '</span>';
+    h += '<span class="wd">' + esc(a.why) + '을 봅니다</span></span></div>';
+    h += '<p>' + a.reason + '</p>';
+    h += '<div class="btnrow"><button class="btn" data-go="thread/admin">옮겨서 다시 묻기</button>';
+    h += '<button class="btn ghost">여기서 계속하기</button></div>';
+    h += '<p class="carry">질문은 그대로 넘어갑니다. 지금까지의 대화와 근거는 넘어가지 않습니다.</p>';
+    h += '</div>';
+  }
+
+  if (a.chips) {
+    h += '<div class="part"' + step() + '><div class="chips">';
+    a.chips.forEach(function(c){ h += '<button class="chip">' + esc(c) + '</button>'; });
+    h += '</div></div>';
+  }
+
+  if (a.fups && a.fups.length) {
+    h += '<div class="fups"' + step() + '><div class="fl">이어서 물어볼 만한 것</div><div class="chips">';
+    a.fups.forEach(function(f){ h += '<button class="chip">' + esc(f) + '</button>'; });
+    h += '</div></div>';
+  }
+
+  /* 안전 우선에서는 피드백 액션 바를 그리지 않는다. */
+  if (S.type !== 'safety') {
+    h += '<div class="actbar"' + step() + '><button>도움 됨</button><button>아쉬움</button>';
+    h += '<span class="sp"></span><button>복사</button></div>';
+  }
+  h += '</div></div>';
+
+  /* 자료 레일. 맥락 확인과 안전 우선에는 인용 UI 자체가 없다. */
+  if (S.type === 'context' || S.type === 'safety') {
+    h += '<div></div>';
+  } else {
+    var j = 0; function rstep(){ return ' style="--i:' + (j++) + '"'; }
+    h += '<aside class="rail" aria-label="참고한 자료">';
+    if (cites.length) {
+      h += '<div class="rail-hd"' + rstep() + '><svg aria-hidden="true"><use href="#i-evidence"/></svg>참고한 자료 ' + cites.length + '건</div>';
+      cites.forEach(function(c){
+        h += '<article class="src" data-src="' + c.n + '"' + rstep() + '>';
+        h += '<div class="st">' + esc(c.title) + '</div>';
+        h += '<div class="sm"><span class="kind">' + esc(c.kind) + '</span><span class="meta">' + esc(c.meta) + '</span></div>';
+        h += '<div class="quote">' + hl(c.text, c.ev) + '</div>';
+        h += '</article>';
+      });
+    } else {
+      h += '<div class="rail-hd"' + rstep() + '><svg aria-hidden="true"><use href="#i-none"/></svg>인용한 자료 없음</div>';
+      h += '<article class="src"' + rstep() + '><div class="quote" style="border-left-color:var(--rule)">'
+        + '검색은 되었지만 답을 뒷받침할 대목을 찾지 못했습니다. 문서에 없는 내용을 지어내지 않습니다.</div></article>';
+    }
+    if (a.found && a.found.length) {
+      h += '<details class="notcited"' + rstep() + '><summary><svg style="width:13px;height:13px" aria-hidden="true"><use href="#i-chev"/></svg>';
+      h += '검색되었지만 인용되지 않은 자료 ' + a.found.length + '건</summary><ul>';
+      a.found.forEach(function(f){ h += '<li>' + esc(f) + '</li>'; });
+      h += '</ul></details>';
+    }
+    h += '</aside>';
+  }
+
+  document.getElementById('thread-body').innerHTML = h;
+  wireCites();
+}
+
+/* 근거 구절에 금색 밑선. 등급이 아니라 "실제로 이 대목이 인용됐다"는 위치 표시다. */
+function hl(text, ev){
+  if (!ev) return esc(text);
+  var at = text.indexOf(ev);
+  if (at < 0) return esc(text);
+  return esc(text.slice(0, at)) + '<mark>' + esc(ev) + '</mark>' + esc(text.slice(at + ev.length));
+}
+
+/* 각주 ↔ 본문 구간 ↔ 자료 카드를 하나의 강조로 묶는다. */
+function wireCites(){
+  var body = document.getElementById('thread-body');
+  body.querySelectorAll('.cite').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var n = btn.getAttribute('data-cite');
+      var on = btn.getAttribute('aria-expanded') !== 'true';
+      body.querySelectorAll('.cite').forEach(function(x){ x.setAttribute('aria-expanded','false'); });
+      body.querySelectorAll('.seg').forEach(function(x){ x.classList.remove('lit'); });
+      body.querySelectorAll('.src').forEach(function(x){ x.classList.remove('lit'); });
+      if (!on) return;
+      btn.setAttribute('aria-expanded','true');
+      body.querySelectorAll('.seg[data-seg="' + n + '"]').forEach(function(x){ x.classList.add('lit'); });
+      var card = body.querySelector('.src[data-src="' + n + '"]');
+      if (card) { card.classList.add('lit'); card.scrollIntoView({ block:'nearest', behavior: S.motion === 'off' ? 'auto' : 'smooth' }); }
+    });
+  });
+}
+
+/* ══ 나머지 화면 ══════════════════════════════════════════════════════════ */
+function renderMypage(){
+  var h = '';
+  var i = 0; function step(){ return ' style="--i:' + (i++) + '"'; }
+  h += '<h1 class="dsp"' + step() + '>오찬수 님</h1>';
+  h += '<p class="lede"' + step() + '>하나로 계정으로 로그인했습니다. 대화 내용은 계정과 분리해 보관합니다.</p>';
+  h += '<div class="tiles"' + step() + '>';
+  h += '<div class="tile"><div class="tn2">12</div><div class="tl2">주고받은 이야기</div></div>';
+  h += '<div class="tile"><div class="tn2">4</div><div class="tl2">써 본 창구</div></div>';
+  h += '<div class="tile"><div class="tn2">2026.07</div><div class="tl2">마지막 문서 갱신</div></div>';
+  h += '</div>';
+  h += '<section class="sec"' + step() + '><div class="sec-hd"><h2 class="h2">내 이야기</h2><span class="rule"></span></div>';
+  h += '<div class="resume">' + resumeRow('축복후보자 서류는 무엇이 필요한가요?','블레싱 네비게이션','어제','thread/admin')
+     + resumeRow('과거의 일 때문에 걱정됩니다','마음 나누기','3일 전','thread/context')
+     + resumeRow('참가비 환불은 어떻게 하나요?','블레싱 네비게이션','지난주','thread/norag') + '</div></section>';
+  h += '<section class="sec"' + step() + '><div class="sec-hd"><h2 class="h2">설정</h2><span class="rule"></span></div>';
+  h += '<ul class="doclist"><li><svg aria-hidden="true"><use href="#i-adult"/></svg>소속 가정 연동</li>';
+  h += '<li><svg aria-hidden="true"><use href="#i-doc"/></svg>대화 보관 기간</li>';
+  h += '<li><svg aria-hidden="true"><use href="#i-safety"/></svg>대화 내려받기와 삭제</li></ul></section>';
+  document.getElementById('mypage-body').innerHTML = h;
+}
+
+function renderGuide(){
+  var h = '';
+  var i = 0; function step(){ return ' style="--i:' + (i++) + '"'; }
+  h += '<h1 class="dsp"' + step() + '>답을 읽는 법</h1>';
+  h += '<p class="lede"' + step() + '>이 서비스는 승인된 문서를 근거로 답합니다. 무엇을 믿고 무엇을 확인해야 하는지 미리 알려 드립니다.</p>';
+
+  h += '<section class="sec"' + step() + '><div class="sec-hd"><h2 class="h2">자료 표시</h2><span class="rule"></span></div>';
+  h += '<div class="src" style="max-width:520px"><div class="st">『축복 행정 규정집』</div>';
+  h += '<div class="sm"><span class="kind">규정집</span><span class="meta">2026 개정 · 4장 · 38쪽</span></div>';
+  h += '<div class="quote">축복후보자 등록 시 <mark>공통으로 제출하는 서류는 등록신청서, 신앙생활 확인서, 보호자 동의서</mark> 세 가지로 한다.</div></div>';
+  h += '<p class="lede" style="margin-top:14px">밑선이 그어진 대목이 답에 실제로 쓰인 부분입니다. ';
+  h += '<b>규정집 · 안내 · 지침 · FAQ</b>는 문서의 종류를 적은 것이지 정확도의 등급이 아닙니다. ';
+  h += '표시가 붙는 것은 <b>개정 이전 판본</b>이나 <b>문서 단위로만 확인</b>처럼 알아 두셔야 할 때뿐이고, ';
+  h += '표시가 없다는 것은 적을 것이 없다는 뜻입니다.</p></section>';
+
+  h += '<section class="sec"' + step() + '><div class="sec-hd"><h2 class="h2">네 가지 답</h2><span class="rule"></span></div>';
+  h += '<ul class="doclist">';
+  h += '<li><svg aria-hidden="true"><use href="#i-doc"/></svg><b>행정 확답</b>&nbsp; 결론을 먼저 말하고 문서와 쪽수를 함께 답합니다.</li>';
+  h += '<li><svg aria-hidden="true"><use href="#i-adult"/></svg><b>맥락 확인</b>&nbsp; 답하기 전에 꼭 필요한 것 하나만 되묻습니다.</li>';
+  h += '<li><svg aria-hidden="true"><use href="#i-none"/></svg><b>근거 없음</b>&nbsp; 없다고 말하고 부모님께 여쭐 질문을 정리합니다.</li>';
+  h += '<li><svg aria-hidden="true"><use href="#i-safety"/></svg><b>안전 우선</b>&nbsp; 규정 안내를 멈추고 지금 안전부터 확인합니다.</li>';
+  h += '</ul></section>';
+
+  h += '<div class="notdo"' + step() + '><b>이 서비스가 하지 않는 것</b>';
+  h += '<p>자격이나 미래를 판정하지 않습니다. 관계를 이어갈지 정리할지 대신 정하지 않습니다. ';
+  h += '문서에 없는 것을 지어내지 않습니다. 개인 적용은 부모님과 소속 교구를 통해 확인해 주세요.</p></div>';
+  document.getElementById('guide-body').innerHTML = h;
+}
+
+function renderStates(){
+  var h = '';
+  var i = 0; function step(){ return ' style="--i:' + (i++) + '"'; }
+  h += '<h1 class="dsp"' + step() + '>상태</h1>';
+  h += '<p class="lede"' + step() + '>이 안이 어디서 좋고 어디서 무너지는지 적어 둡니다.</p>';
+  h += '<div class="states-grid"' + step() + '>';
+
+  h += st('규모', '창구 1곳이면 홈의 묶음 목록이 통째로 군더더기가 됩니다. 그때는 컴포저와 두 진입면만 남기고 창구 절을 건너뜁니다. '
+    + '3곳이면 묶음 없이 평평하게 냅니다. 8~15곳이 이 안이 가장 잘 맞는 구간입니다. '
+    + '40곳에서는 다섯 갈래가 각각 8곳씩이 되어 갈래 안에서 다시 찾아야 합니다. 그때는 갈래를 조직이 정해 주어야 하고, 지금의 다섯 갈래는 예시입니다. '
+    + '해시로 확인하실 수 있습니다. #home/n0 · #home/n3 · #home/n14 · #home/n40');
+
+  h += st('인용을 기다리는 동안', '인용은 답변보다 늦게 옵니다(2초씩 15회, 실측 약 15초). '
+    + '그동안 검색 단계가 흐르고, 끝나면 「근거 2건 · 2.1초」 한 줄로 접힙니다. '
+    + '이 화면이 있어야 인용 0건과 검색 실패가 구분됩니다. 지금 코드에는 이 진행 상태를 내보내는 값이 없습니다.');
+
+  h += st('빈 상태 셋', '「근거 없음」은 검색은 됐지만 대목이 없는 것이고, 「검색 실패」는 시스템이 답을 못 가져온 것이며, '
+    + '「담당자 연결 실패」는 사람에게 넘기려다 실패한 것입니다. 셋은 사용자가 할 일이 다르므로 같은 화면을 쓰면 안 됩니다. '
+    + '지금 API 로는 셋을 구분할 값이 오지 않습니다.');
+
+  h += st('이관이 성립하는 조건', '이관은 봇과 문서의 연결을 알아야만 성립합니다. 그 값이 없으면 근거 없이 남의 창구를 지목하게 되고, '
+    + '그것은 문서명을 지어내는 것과 같은 종류의 거짓말입니다. 값이 없으면 이관을 「근거 없음」으로 떨어뜨리는 것이 맞습니다.');
+
+  h += st('안전 화면', '분류기가 켜지기를 기다리지 않습니다. 컴포저 위에 늘 열려 있는 자리를 두어 사용자가 먼저 도울 것을 청할 수 있게 했습니다. '
+    + '안내 카드는 서비스의 목소리이지 상담자의 말이 아니므로 시각적으로 분리했습니다. '
+    + '번호는 보건복지부 안내 문구가 명시하는 109 와 마들랜입니다.');
+
+  h += '</div>';
+  document.getElementById('states-body').innerHTML = h;
+}
+function st(t, b){
+  return '<div class="state-item"><h3>' + esc(t) + '</h3><div class="sb">' + esc(b) + '</div></div>';
+}
+
+/* ══ 라우터 ═══════════════════════════════════════════════════════════════
+   해시는 순서 무관 다중 세그먼트다. 각 토막을 알려진 어휘에 대조해 배정한다.  */
+function readHash(){
+  var raw = location.hash.replace(/^#/, '');
+  if (!raw) return;
+  raw.split('/').forEach(function(seg){
+    if (!seg) return;
+    if (SCREENS.indexOf(seg) >= 0) { S.screen = seg; return; }
+    if (TYPES.indexOf(seg) >= 0)   { S.type = seg; if (S.screen !== 'thread') S.screen = 'thread'; return; }
+    if (SCALES[seg] !== undefined) { S.scale = SCALES[seg]; return; }
+    if (THEMES.indexOf(seg) >= 0)  { S.theme = seg; return; }
+    if (VPS.indexOf(seg) >= 0)     { S.vp = seg; return; }
+    if (seg === 'bare')            { S.bare = true; return; }
+    var m = /^b(\d+)$/.exec(seg);
+    if (m) { S.bot = parseInt(m[1], 10); return; }
+  });
+}
+function writeHash(){
+  var p = [S.screen];
+  if (S.screen === 'thread') p.push(S.type);
+  if (S.screen === 'bot' || S.screen === 'start') p.push('b' + S.bot);
+  if (S.scale !== 14) { for (var k in SCALES) if (SCALES[k] === S.scale) p.push(k); }
+  if (S.theme !== 'auto') p.push(S.theme);
+  if (S.vp !== 'desktop') p.push(S.vp);
+  if (S.bare) p.push('bare');
+  var h = '#' + p.join('/');
+  if (location.hash !== h) history.replaceState(null, '', h);
+  document.getElementById('c-hash').textContent = h;
+}
+
+function apply(){
+  var root = document.documentElement;
+  if (S.theme === 'auto') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', S.theme);
+  root.setAttribute('data-motion', S.motion);
+  root.setAttribute('data-vp', S.vp);
+  root.setAttribute('data-bare', S.bare ? 'on' : 'off');
+  try {
+    localStorage.setItem('bc-a-theme', S.theme);
+    localStorage.setItem('bc-a-motion', S.motion);
+  } catch(e){}
+
+  renderHome(); renderBot(); renderStart(); renderThread();
+  renderMypage(); renderGuide(); renderStates();
+
+  SCREENS.forEach(function(s){
+    var el = document.getElementById('s-' + s);
+    if (s === S.screen) el.setAttribute('data-on','');
+    else el.removeAttribute('data-on');
+  });
+
+  paintControls();
+  writeHash();
+}
+
+function paintControls(){
+  function fill(id, items, cur, onPick){
+    var box = document.getElementById(id);
+    box.innerHTML = '';
+    items.forEach(function(it){
+      var b = document.createElement('button');
+      b.textContent = it.l;
+      b.setAttribute('aria-pressed', it.v === cur ? 'true' : 'false');
+      b.addEventListener('click', function(){ onPick(it.v); apply(); });
+      box.appendChild(b);
+    });
+  }
+  fill('c-screen', SCREENS.map(function(s){ return { v:s, l:LBL[s] }; }), S.screen, function(v){ S.screen = v; });
+  fill('c-type', TYPES.map(function(t){ return { v:t, l:ALBL[t] }; }), S.type, function(v){ S.type = v; S.screen = 'thread'; });
+  fill('c-scale', Object.keys(SCALES).map(function(k){ return { v:SCALES[k], l:SCALES[k] + '곳' }; }), S.scale, function(v){ S.scale = v; });
+  fill('c-vp', [{v:'desktop',l:'넓게'},{v:'mobile',l:'좁게'}], S.vp, function(v){ S.vp = v; });
+  fill('c-theme', [{v:'light',l:'라이트'},{v:'dark',l:'다크'},{v:'auto',l:'자동'}], S.theme, function(v){ S.theme = v; });
+  fill('c-motion', [{v:'on',l:'켬'},{v:'off',l:'끔'}], S.motion, function(v){ S.motion = v; });
+}
+
+/* 위임. 화면 안의 이동은 전부 data-go / data-bot 으로 처리한다. */
+document.addEventListener('click', function(e){
+  var go = e.target.closest ? e.target.closest('[data-go]') : null;
+  if (go) {
+    var parts = go.getAttribute('data-go').split('/');
+    parts.forEach(function(p){
+      if (SCREENS.indexOf(p) >= 0) S.screen = p;
+      else if (TYPES.indexOf(p) >= 0) { S.type = p; S.screen = 'thread'; }
+    });
+    apply();
+    return;
+  }
+  var bt = e.target.closest ? e.target.closest('[data-bot]') : null;
+  if (bt) { S.bot = parseInt(bt.getAttribute('data-bot'), 10); S.screen = 'bot'; apply(); }
+});
+
+window.addEventListener('hashchange', function(){ readHash(); apply(); });
+
+readHash();
+apply();
+})();
+</script>
+</body>
+</html>

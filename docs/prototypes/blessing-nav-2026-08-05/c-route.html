@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="ko" data-viewport="desktop">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 네비게이션 · C안 경로 (Route)</title>
+<!--
+  C안 「경로」 · frontend-design
+  제품 이름이 네비게이션이다. 그러면 답이 어떤 경로로 왔는지를 보여줘야 한다.
+
+  시그니처: 답변 경로 레일. 질문 -> 확인한 문서 -> 답변.
+  근거가 아직 안 왔으면 가운데 역이 확인 중으로 맥동하다 확정된다.
+
+  운영 원칙 §6 제약: 시스템 프롬프트, 내부 분류, RAG 동작 방식은 공개하지 않는다.
+  따라서 역 이름은 사용자 언어로만 쓴다. FAQ 즉답 / 문서검색 / 일반 LLM 같은
+  내부 분기는 역으로 만들지 않는다. 경로는 "무엇을 근거로 삼았는가"만 말하고
+  "어떻게 처리했는가"는 말하지 않는다.
+
+  화면의 봇 이름, 문서명, 규정 내용, 인용문은 전부 UI 검토용 예시다. 실제 규정이 아니다.
+-->
+<script>
+  try {
+    var t = localStorage.getItem('bn-theme'); if (t) document.documentElement.setAttribute('data-theme', t);
+    var m = localStorage.getItem('bn-motion'); if (m) document.documentElement.setAttribute('data-motion', m);
+  } catch (e) {}
+</script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+/* Freesentation: jsDelivr 에 CSS 가 없어 직접 선언한다. */
+@font-face{font-family:'Freesentation';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2404@1.0/Freesentation-7Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:'Freesentation';src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2404@1.0/Freesentation-9Black.woff2') format('woff2');font-weight:900;font-style:normal;font-display:swap}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  color-scheme:light;
+  --motion:1;
+
+  /* 자기(porcelain) 위의 잉크. 채도가 있는 색은 노선 하나뿐이다. */
+  --paper:#F7F6F8; --surface:#FFFFFF; --surface-2:#F1EFF4;
+  --ink:#17131C; --ink-2:#4E4757; --ink-3:#837B8E;
+  --hair:#E4E0E9; --hair-2:#CFC9D8;
+  --route:#603B94; --route-2:#7B54B0; --route-soft:#EFE9F7; --route-ink:#4A2C77;
+  --danger:#A3251D;
+  --r:10px;
+
+  --f:'Pretendard Variable',Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  --f-dsp:'Freesentation','Pretendard Variable',Pretendard,'Apple SD Gothic Neo',sans-serif;
+  --f-mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --paper:#131019; --surface:#1A1622; --surface-2:#221D2C;
+  --ink:#EEEAF3; --ink-2:#B9B1C5; --ink-3:#8B8298;
+  --hair:#2C2637; --hair-2:#40384F;
+  --route:#B694E6; --route-2:#C9AEF0; --route-soft:#251C34; --route-ink:#C9AEF0;
+  --danger:#EFA9A2;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme]){
+    color-scheme:dark;
+    --paper:#131019; --surface:#1A1622; --surface-2:#221D2C;
+    --ink:#EEEAF3; --ink-2:#B9B1C5; --ink-3:#8B8298;
+    --hair:#2C2637; --hair-2:#40384F;
+    --route:#B694E6; --route-2:#C9AEF0; --route-soft:#251C34; --route-ink:#C9AEF0;
+    --danger:#EFA9A2;
+  }
+}
+/* 모션은 단일 변수로만 통제한다. animation:none !important 를 쓰면
+   OS 에서 Reduce Motion 을 켠 사용자에게 수동 토글이 영구히 먹지 않는다. */
+@media (prefers-reduced-motion:reduce){ :root:not([data-motion]){ --motion:0 } }
+:root[data-motion="off"]{ --motion:0 }
+
+html,body{height:100%}
+body{font-family:var(--f);background:#0E0B12;color:var(--ink);-webkit-font-smoothing:antialiased;display:flex;flex-direction:column}
+:where(a){color:inherit;text-decoration:none}
+:where(button,input,select,textarea){font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--route);outline-offset:3px;border-radius:3px}
+
+/* ══ 프로토타입 크롬 ═══════════════════════════════════════════════════ */
+.pt{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:10px 16px;
+  background:#0E0B12;color:#B9AFC6;border-bottom:1px solid #241D2E;font-size:12px}
+.pt b{color:#EFE9F5;font-weight:600}
+.pt .sep{width:1px;height:16px;background:#2C2437}
+.pt-warn{font-family:var(--f-mono);font-size:10.5px;color:#F0C98A;border:1px solid #4A3A1C;background:#231A0D;padding:3px 8px;border-radius:99px}
+.seg{display:flex;background:#191322;border:1px solid #2C2437;border-radius:8px;padding:2px;gap:2px}
+.seg button{background:none;border:0;color:#9E93AC;padding:4px 9px;border-radius:6px;font-size:11.5px;cursor:pointer;
+  transition:background calc(var(--motion)*140ms) ease,color calc(var(--motion)*140ms) ease}
+.seg button:hover{color:#E4DCEE}
+.seg button[aria-pressed="true"]{background:#3A2C55;color:#F1EAFA}
+.pt select{background:#191322;border:1px solid #2C2437;color:#D8CFE4;border-radius:8px;padding:5px 8px;font-size:11.5px;cursor:pointer}
+.pt label{font-size:11px;color:#7E7389}
+
+.stage{flex:1;display:grid;place-items:center;padding:18px;overflow:auto}
+.device{position:relative}
+.app{container-type:inline-size;container-name:app;--safe-top:0px;
+  background:var(--paper);color:var(--ink);
+  width:min(1320px,calc(100vw - 48px));height:min(840px,calc(100dvh - 108px));
+  border-radius:14px;overflow:hidden;box-shadow:0 30px 80px -30px rgba(0,0,0,.7);display:grid}
+html[data-viewport="mobile"] .app{--safe-top:30px;width:390px;height:min(812px,calc(100dvh - 108px));
+  border-radius:38px;border:9px solid #17121F}
+html[data-viewport="mobile"] .device::after{content:"";position:absolute;top:9px;left:50%;transform:translateX(-50%);
+  width:112px;height:26px;background:#17121F;border-radius:0 0 16px 16px;z-index:5;pointer-events:none}
+
+/* ══ 프리미티브 ════════════════════════════════════════════════════════ */
+.screen{min-height:0;grid-template-rows:1fr}
+.screen:not([data-active]){display:none}
+.screen[data-active]{display:grid}
+.scroll{overflow-y:auto;overscroll-behavior:contain;min-height:0}
+.pad{padding:26px 20px 48px}
+@container app (min-width:760px){ .pad{padding:40px 48px 64px} }
+
+.emblem{-webkit-mask-image:var(--emblem);mask-image:var(--emblem);
+  -webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;
+  -webkit-mask-position:center;mask-position:center;background-color:var(--route);flex:none}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.dsp{font-family:var(--f-dsp);font-weight:900;letter-spacing:-.03em;line-height:1.1}
+h1,h2,h3{font-family:var(--f-dsp);font-weight:700;letter-spacing:-.022em;line-height:1.3}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 22px;
+  border:1px solid transparent;border-radius:var(--r);font-size:14.5px;font-weight:600;cursor:pointer;
+  transition:background calc(var(--motion)*180ms) ease,color calc(var(--motion)*180ms) ease,border-color calc(var(--motion)*180ms) ease}
+.btn-go{background:var(--route);color:#fff}
+:root[data-theme="dark"] .btn-go{color:#180F24}
+@media (prefers-color-scheme:dark){:root:not([data-theme]) .btn-go{color:#180F24}}
+.btn-go:hover{background:var(--route-ink)}
+.btn-line{background:transparent;border-color:var(--hair-2);color:var(--ink-2)}
+.btn-line:hover{border-color:var(--route);color:var(--route-ink)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-sm{min-height:38px;padding:0 16px;font-size:13px}
+
+.field{display:grid;gap:7px}
+.field label{font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.field .ctrl{position:relative;display:flex;align-items:center}
+.field input{width:100%;min-height:48px;padding:0 44px 0 0;background:transparent;border:0;
+  border-bottom:1px solid var(--hair-2);font-size:16px;
+  transition:border-color calc(var(--motion)*180ms) ease}
+.field input::placeholder{color:var(--ink-3)}
+.field input:focus{outline:none;border-bottom-color:var(--route);border-bottom-width:2px}
+.field .err{font-size:12.5px;color:var(--danger);display:flex;gap:5px;align-items:flex-start;line-height:1.5}
+.field[data-invalid] input{border-bottom-color:var(--danger)}
+.reveal{position:absolute;right:0;width:40px;height:40px;display:grid;place-items:center;background:none;border:0;
+  color:var(--ink-3);cursor:pointer;border-radius:8px}
+.reveal:hover{color:var(--ink);background:var(--surface-2)}
+
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border:1px solid var(--hair-2);
+  border-radius:99px;background:transparent;font-size:13px;color:var(--ink-2);cursor:pointer;
+  transition:border-color calc(var(--motion)*150ms) ease,color calc(var(--motion)*150ms) ease}
+.chip:hover{border-color:var(--route);color:var(--route-ink)}
+
+.ico{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.ico-sm{width:14px;height:14px}
+mark{background:var(--route-soft);color:inherit;border-radius:2px;padding:0 2px;
+  box-shadow:inset 0 -1px 0 var(--route);box-decoration-break:clone;-webkit-box-decoration-break:clone}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* ══ 헤더 ══════════════════════════════════════════════════════════════ */
+.bar{flex:none;display:flex;align-items:center;gap:12px;height:calc(60px + var(--safe-top));
+  padding:var(--safe-top) 20px 0;border-bottom:1px solid var(--hair);background:var(--paper)}
+@container app (min-width:760px){ .bar{height:66px;padding:0 40px} }
+.bar .emblem{width:26px;height:26px}
+.bar .wm{font-family:var(--f-dsp);font-weight:700;font-size:15px;letter-spacing:-.02em}
+.bar .sp{flex:1}
+.iconbtn{width:40px;height:40px;display:grid;place-items:center;border:0;background:none;border-radius:8px;color:var(--ink-3);cursor:pointer}
+.iconbtn:hover{background:var(--surface-2);color:var(--ink)}
+
+/* ══════════════════════════════════════════════════════════════════════
+   노선도. 이 페이지의 유일한 모험이고, 나머지는 전부 조용하게 둔다.
+   색을 늘리지 않고 실선과 점선, 굵기로만 노선을 구분한다.
+   ══════════════════════════════════════════════════════════════════════ */
+.map{display:grid;gap:44px;margin-top:38px}
+.line-h{display:flex;align-items:baseline;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.line-h .nm{font-family:var(--f-dsp);font-weight:900;font-size:20px;letter-spacing:-.03em}
+.line-h .ds{font-size:12.5px;color:var(--ink-3);line-height:1.6}
+.line-h .badge{font-family:var(--f-mono);font-size:10.5px;color:var(--route-ink);background:var(--route-soft);
+  padding:3px 8px;border-radius:99px;letter-spacing:.02em}
+
+.stations{list-style:none;position:relative;display:grid;gap:22px}
+/* 세로 노선 (기본, 모바일) */
+.stations::before{content:"";position:absolute;left:7px;top:8px;bottom:8px;width:2px;
+  background:var(--route);border-radius:2px}
+.line[data-kind="care"] .stations::before{
+  background:repeating-linear-gradient(180deg,var(--route) 0 5px,transparent 5px 11px);width:2px}
+.stations li{position:relative;padding-left:30px}
+.stations button{display:block;width:100%;text-align:left;background:none;border:0;cursor:pointer;padding:0}
+.stop{position:absolute;left:0;top:3px;width:16px;height:16px;border-radius:50%;
+  background:var(--paper);border:2px solid var(--route);
+  transition:background calc(var(--motion)*200ms) ease,transform calc(var(--motion)*200ms) cubic-bezier(.16,1,.3,1)}
+.stations li:hover .stop,.stations button:focus-visible .stop{background:var(--route);transform:scale(1.15)}
+.st-name{display:block;font-size:15px;font-weight:600;letter-spacing:-.015em;line-height:1.4}
+.stations li:hover .st-name{color:var(--route-ink)}
+.st-sub{display:block;font-size:12.5px;color:var(--ink-3);margin-top:3px;line-height:1.55}
+.st-docs{display:block;font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);margin-top:5px;letter-spacing:.01em}
+
+/* 가로 노선 (넓은 폭) */
+@container app (min-width:860px){
+  .stations{grid-auto-flow:column;grid-auto-columns:1fr;gap:0;align-items:start}
+  /* 선은 첫 역에서 시작해 마지막 역에서 끝난다. 각 칸이 1fr 이므로
+     마지막 점은 (n-1)/n 지점에 있고, 그만큼을 오른쪽에서 덜어낸다. */
+  .stations::before{left:8px;right:calc(100% / var(--n,5) - 8px);top:7px;bottom:auto;width:auto;height:2px}
+  .line[data-kind="care"] .stations::before{
+    background:repeating-linear-gradient(90deg,var(--route) 0 5px,transparent 5px 11px);height:2px;width:auto}
+  .stations li{padding:32px 14px 0 0}
+  .stop{left:0;top:0}
+  .st-sub{min-height:2.4em}
+}
+
+.map-foot{margin-top:44px;padding-top:20px;border-top:1px solid var(--hair);
+  font-size:12.5px;color:var(--ink-3);line-height:1.8;max-width:60ch}
+
+/* 노선 목록 (봇) */
+.lines-list{margin-top:44px}
+.lines-list > h2{font-size:16px;margin-bottom:4px}
+.lines-list > p{font-size:12.5px;color:var(--ink-3);margin-bottom:16px;line-height:1.6}
+.lrow{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;
+  padding:16px 4px;border-top:1px solid var(--hair);cursor:pointer;
+  transition:background calc(var(--motion)*150ms) ease}
+.lrow:last-child{border-bottom:1px solid var(--hair)}
+.lrow:hover{background:var(--surface-2)}
+.lmark{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;
+  border:2px solid var(--route);color:var(--route-ink);font-size:12px;font-weight:700}
+.lmark .emblem{width:22px;height:22px}
+.lname{font-size:15px;font-weight:600;letter-spacing:-.015em;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.lseg{font-size:12.5px;color:var(--ink-3);margin-top:3px;line-height:1.5}
+.lprov{font-family:var(--f-mono);font-size:11px;color:var(--route-ink);background:var(--route-soft);
+  padding:4px 9px;border-radius:99px;white-space:nowrap}
+.lprov.old{color:var(--ink-3);background:var(--surface-2)}
+.tagline{display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:4px;
+  background:var(--route-soft);color:var(--route-ink);font-size:10.5px;font-weight:700}
+
+/* ══ 로그인 ════════════════════════════════════════════════════════════ */
+.login{display:grid;grid-template-rows:1fr;position:relative;overflow:hidden}
+.login-in{align-self:center;width:100%;max-width:440px;margin:0 auto;padding:40px 28px}
+@container app (min-width:760px){ .login-in{max-width:520px;padding:40px} }
+/* 노선이 화면 위에서 들어와 로그인 역에서 멈춘다. 이 페이지에서 유일한 장식이다. */
+.login-line{position:relative;padding-left:34px}
+.login-line::before{content:"";position:absolute;left:7px;top:-160px;bottom:64px;width:2px;background:var(--route)}
+.login-line .stop{position:absolute;left:0;top:calc(100% - 64px - 8px);width:16px;height:16px;border-radius:50%;
+  background:var(--route);border:2px solid var(--route)}
+.login-kicker{font-family:var(--f-mono);font-size:11px;letter-spacing:.14em;color:var(--ink-3);text-transform:uppercase}
+.login-in h1{font-size:clamp(30px,6cqw,46px);margin-top:14px}
+.login-in .lede{font-size:14.5px;line-height:1.8;color:var(--ink-2);margin-top:16px;max-width:38ch}
+.login-form{display:grid;gap:22px;margin-top:38px}
+.login-note{font-size:12px;color:var(--ink-3);line-height:1.7}
+
+/* ══ 봇 상세 ═══════════════════════════════════════════════════════════ */
+.detail{max-width:760px;margin:0 auto;width:100%}
+.detail-head{display:flex;gap:18px;align-items:flex-start}
+.detail-head .lmark{width:56px;height:56px;font-size:19px}
+.detail-head .lmark .emblem{width:36px;height:36px}
+.detail .lede{font-size:15px;line-height:1.9;color:var(--ink-2);margin-top:24px;max-width:52ch}
+.meta-grid{margin-top:30px;border-top:1px solid var(--hair)}
+.meta-grid > div{display:grid;gap:3px;padding:13px 0;border-bottom:1px solid var(--hair)}
+@container app (min-width:640px){ .meta-grid > div{grid-template-columns:150px 1fr;gap:18px;align-items:center} }
+.meta-grid dt{font-size:12.5px;color:var(--ink-3)}
+.meta-grid dd{font-size:13.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sec{margin-top:44px}
+.sec > h2{font-size:16px;margin-bottom:5px}
+.sec > .n{font-size:12.5px;color:var(--ink-3);line-height:1.6;margin-bottom:18px;max-width:56ch}
+.docline{list-style:none;position:relative;display:grid;gap:16px}
+.docline::before{content:"";position:absolute;left:5px;top:8px;bottom:8px;width:1px;background:var(--hair-2)}
+.docline li{position:relative;padding-left:26px;display:grid;grid-template-columns:1fr auto;gap:4px 14px;align-items:baseline}
+.docline li::before{content:"";position:absolute;left:0;top:6px;width:11px;height:11px;border-radius:50%;
+  background:var(--paper);border:1.5px solid var(--hair-2)}
+.docline .t{font-size:13.5px}
+.docline .v{font-family:var(--f-mono);font-size:11px;color:var(--ink-3);white-space:nowrap}
+.nolist{list-style:none;display:grid;gap:10px}
+.nolist li{display:grid;grid-template-columns:16px 1fr;gap:10px;font-size:13.5px;color:var(--ink-3);line-height:1.7}
+.cta-row{margin-top:40px;display:flex;gap:10px;flex-wrap:wrap}
+
+/* ══ 대화 ══════════════════════════════════════════════════════════════ */
+.conv{display:grid;grid-template-rows:1fr auto;min-height:0}
+.msgs{padding:28px 20px 48px;display:grid;gap:38px;align-content:start;max-width:900px;margin:0 auto;width:100%}
+@container app (min-width:760px){ .msgs{padding:40px 48px 56px} }
+.m-user{justify-self:end;max-width:min(30rem,88%);font-size:15px;line-height:1.65;
+  border-right:2px solid var(--route);padding:2px 16px 2px 0;text-align:right;color:var(--ink)}
+.m-bot{display:grid;gap:18px}
+@container app (min-width:760px){ .m-bot{grid-template-columns:180px minmax(0,1fr);gap:0 28px} }
+
+/* ── 시그니처: 답변 경로 레일 ────────────────────────────────────────── */
+.route{position:relative}
+.route ol{list-style:none;position:relative;display:grid;gap:20px}
+.route ol::before{content:"";position:absolute;left:6px;top:6px;width:2px;background:var(--hair-2);
+  height:var(--drawn,0%);
+  transition:height calc(var(--motion)*900ms) cubic-bezier(.16,1,.3,1)}
+.route ol::after{content:"";position:absolute;left:6px;top:6px;bottom:6px;width:2px;
+  background:repeating-linear-gradient(180deg,var(--hair) 0 3px,transparent 3px 7px);z-index:-1}
+.route[data-drawn] ol::before{background:var(--route)}
+.route li{position:relative;padding-left:26px;min-height:20px}
+.route .dot{position:absolute;left:0;top:2px;width:14px;height:14px;border-radius:50%;
+  background:var(--paper);border:2px solid var(--hair-2);
+  transition:border-color calc(var(--motion)*300ms) ease,background calc(var(--motion)*300ms) ease}
+.route li[data-on] .dot{border-color:var(--route);background:var(--route)}
+.route li[data-wait] .dot{border-color:var(--route);background:var(--paper);
+  animation:beat calc(var(--motion)*1300ms + 1ms) ease-in-out infinite}
+@keyframes beat{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--route) 45%,transparent)}
+                60%{box-shadow:0 0 0 6px color-mix(in srgb,var(--route) 0%,transparent)}}
+.route .lbl{display:block;font-family:var(--f-mono);font-size:11px;letter-spacing:.02em;color:var(--ink-3)}
+.route li[data-on] .lbl,.route li[data-wait] .lbl{color:var(--ink)}
+.route .val{display:block;font-size:12.5px;color:var(--ink-3);margin-top:3px;line-height:1.5}
+.route .open{background:none;border:0;padding:4px 0 0;margin:0;cursor:pointer;font-size:12px;color:var(--route-ink);
+  display:inline-flex;align-items:center;gap:4px;text-decoration:underline;text-underline-offset:3px}
+.route .open[aria-expanded="true"] .ico{transform:rotate(180deg)}
+.route .open .ico{transition:transform calc(var(--motion)*200ms) ease}
+.route .docs{display:none;margin-top:10px;padding-left:0;list-style:none;gap:9px}
+.route .docs[data-open]{display:grid}
+.route .docs li{padding-left:0;font-size:12px;line-height:1.55;color:var(--ink-3);display:grid;
+  grid-template-columns:13px 1fr;gap:7px;align-items:start}
+.route .docs .ico{margin-top:2px}
+.route .docs li[data-cited]{color:var(--ink-2)}
+.route .docs li[data-cited] .n{font-family:var(--f-mono);color:var(--route-ink);font-weight:700}
+.route-note{font-size:11px;color:var(--ink-3);line-height:1.6;margin-top:14px;padding-top:12px;border-top:1px solid var(--hair)}
+
+.a-lead{font-size:17px;line-height:1.72;letter-spacing:-.012em}
+@container app (min-width:760px){ .a-lead{font-size:18px} }
+.a-sec{margin-top:24px}
+.a-sec > .h{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.05em;color:var(--ink-3);margin-bottom:7px}
+.a-sec > .b{font-size:14.5px;line-height:1.85;color:var(--ink-2)}
+.a-sec strong{color:var(--ink);font-weight:600}
+.a-steps{display:grid;gap:10px;counter-reset:s}
+.a-steps li{list-style:none;counter-increment:s;display:grid;grid-template-columns:18px 1fr;gap:12px;
+  font-size:14.5px;line-height:1.75;color:var(--ink-2)}
+.a-steps li::before{content:counter(s,decimal-leading-zero);font-family:var(--f-mono);font-size:10.5px;
+  color:var(--route);padding-top:6px}
+.cite-ref{font-family:var(--f-mono);font-size:10px;font-weight:700;vertical-align:super;color:var(--route);
+  background:none;border:0;cursor:pointer;padding:0 1px;line-height:1}
+.cite-ref:hover{text-decoration:underline}
+
+.snips{margin-top:26px;display:grid;gap:12px}
+.snip{border-left:2px solid var(--route);padding:2px 0 2px 16px}
+.snip[data-flash]{background:var(--route-soft)}
+.snip .h{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.snip .n{font-family:var(--f-mono);font-size:10.5px;color:var(--route-ink);font-weight:700}
+.snip .t{font-size:13px;font-weight:600}
+.snip .v{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3)}
+.snip .s{font-size:12.5px;line-height:1.75;color:var(--ink-2)}
+.snip .w{font-size:11px;color:var(--ink-3);line-height:1.6;margin-top:6px}
+
+.fups{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
+.acts{display:flex;align-items:center;gap:2px;margin-top:20px}
+.act{height:32px;padding:0 9px;border:0;background:none;border-radius:7px;color:var(--ink-3);font-size:12.5px;
+  cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.act:hover{background:var(--surface-2);color:var(--ink)}
+.act[aria-pressed="true"]{color:var(--route-ink);background:var(--route-soft)}
+.act-div{width:1px;height:15px;background:var(--hair-2);margin:0 6px}
+.fb{margin-top:12px;border:1px solid var(--hair-2);border-radius:var(--r);padding:14px;display:none;background:var(--surface)}
+.fb[data-open]{display:block}
+.fb .t{font-size:12.5px;font-weight:600;margin-bottom:10px}
+.fb .cs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.fb textarea{width:100%;min-height:62px;padding:9px 11px;font:inherit;font-size:13px;resize:vertical;
+  border:1px solid var(--hair-2);border-radius:8px;background:var(--paper)}
+.fb textarea:focus{outline:none;border-color:var(--route)}
+.fb .r{display:flex;justify-content:flex-end;gap:8px;margin-top:10px}
+
+.callout{border:1px solid var(--hair-2);border-radius:var(--r);padding:18px;margin-top:26px}
+.callout.safe{border-color:var(--route);background:var(--route-soft)}
+.callout h4{font-family:var(--f-dsp);font-size:14px;font-weight:700;margin-bottom:12px}
+.callout ul{list-style:none;display:grid;gap:9px}
+.callout li{display:grid;grid-template-columns:18px 1fr;gap:10px;font-size:13.5px;line-height:1.7;color:var(--ink-2)}
+.callout li i{font-style:normal;font-family:var(--f-mono);font-size:10.5px;color:var(--route);padding-top:4px}
+.callout .after{font-size:13px;line-height:1.75;color:var(--ink-2);margin-top:12px}
+.hot{margin-top:14px;padding-top:12px;border-top:1px solid var(--hair-2);font-size:13px;color:var(--ink-2)}
+.hot b{font-family:var(--f-mono);font-size:16px;font-weight:700;color:var(--route-ink)}
+
+.composer{border-top:1px solid var(--hair);background:var(--paper);padding:14px 20px 18px}
+@container app (min-width:760px){ .composer{padding:16px 48px 22px} }
+.composer .in{max-width:900px;margin:0 auto}
+.composer .box{display:flex;align-items:flex-end;gap:10px;border-bottom:1px solid var(--hair-2);padding:0 0 6px;
+  transition:border-color calc(var(--motion)*180ms) ease}
+.composer .box:focus-within{border-bottom-color:var(--route);border-bottom-width:2px;padding-bottom:5px}
+.composer textarea{flex:1;border:0;background:none;resize:none;font:inherit;font-size:15px;line-height:1.6;
+  padding:10px 0;max-height:140px}
+.composer textarea:focus{outline:none}
+.send{width:40px;height:40px;flex:none;border:0;border-radius:50%;background:var(--route);color:#fff;
+  display:grid;place-items:center;cursor:pointer}
+:root[data-theme="dark"] .send{color:#180F24}
+@media (prefers-color-scheme:dark){:root:not([data-theme]) .send{color:#180F24}}
+.composer .d{font-size:11.5px;color:var(--ink-3);margin-top:10px;line-height:1.5}
+
+/* ══ 대화 시작 ═════════════════════════════════════════════════════════ */
+.start{max-width:700px;margin:0 auto;width:100%}
+.start h1{font-size:clamp(24px,4cqw,34px)}
+.start .lede{font-size:14.5px;line-height:1.85;color:var(--ink-2);margin-top:14px;max-width:44ch}
+.start .stations{margin-top:36px}
+.guide{margin-top:38px;display:flex;align-items:center;gap:18px;padding:20px 0;
+  border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);width:100%;text-align:left;
+  background:none;border-left:0;border-right:0;cursor:pointer}
+.guide h3{font-size:15px}
+.guide p{font-size:12.5px;color:var(--ink-3);margin-top:4px}
+.guide .go{width:34px;height:34px;border-radius:50%;border:2px solid var(--route);color:var(--route-ink);
+  display:grid;place-items:center;flex:none;margin-left:auto}
+
+/* ══ 마이페이지 / 자료 / 상태 ══════════════════════════════════════════ */
+.narrow{max-width:700px;margin:0 auto;width:100%}
+.kv{border-top:1px solid var(--hair)}
+.kv > div{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--hair)}
+.kv dt{font-size:13px;color:var(--ink-3)}
+.kv dd{font-size:14px}
+.switch{width:42px;height:24px;border-radius:99px;background:var(--hair-2);border:0;cursor:pointer;position:relative;flex:none;
+  transition:background calc(var(--motion)*180ms) ease}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;
+  transition:transform calc(var(--motion)*180ms) cubic-bezier(.16,1,.3,1)}
+.switch[aria-checked="true"]{background:var(--route)}
+.switch[aria-checked="true"]::after{transform:translateX(18px)}
+.btn-danger{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 34%,transparent)}
+
+.guides{display:grid;gap:0;margin-top:26px;border-top:1px solid var(--hair)}
+.grow{display:grid;grid-template-columns:auto 1fr auto;gap:16px;align-items:center;padding:18px 4px;
+  border-bottom:1px solid var(--hair);text-align:left;background:none;border-left:0;border-right:0;border-top:0;cursor:pointer;
+  transition:background calc(var(--motion)*150ms) ease}
+.grow:hover{background:var(--surface-2)}
+.grow .no{font-family:var(--f-mono);font-size:11px;color:var(--route);flex:none}
+.grow h3{font-size:14.5px}
+.grow p{font-size:12.5px;color:var(--ink-3);margin-top:4px;line-height:1.6}
+.grow .m{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);white-space:nowrap}
+
+.st-sec{margin-top:44px}
+.st-sec > h2{font-size:16px;padding-bottom:9px;border-bottom:2px solid var(--ink);margin-bottom:16px}
+.st-sec > .n{font-size:12.5px;color:var(--ink-3);line-height:1.7;margin-bottom:18px;max-width:60ch}
+.g2{display:grid;gap:18px}
+@container app (min-width:760px){ .g2{grid-template-columns:1fr 1fr;gap:22px} }
+.demo{border:1px solid var(--hair);border-radius:var(--r);padding:16px;background:var(--surface)}
+.demo > .c{font-family:var(--f-mono);font-size:10.5px;color:var(--ink-3);margin-bottom:12px;letter-spacing:.02em}
+.rule{border:1px solid var(--route);border-radius:var(--r);padding:18px;display:grid;gap:9px;background:var(--route-soft)}
+.rule h4{font-family:var(--f-dsp);font-size:14px;font-weight:700}
+.rule p{font-size:13px;line-height:1.75;color:var(--ink-2)}
+/* JetBrains Mono 는 === 를 하나의 긴 등호로 합친다. 코드를 그대로 읽어야 하는 자리라 합자를 끈다. */
+.rule code{font-family:var(--f-mono);font-size:12px;background:var(--surface);padding:2px 6px;border-radius:4px;
+  font-variant-ligatures:none;font-feature-settings:"liga" 0,"calt" 0}
+.toast{display:flex;align-items:center;gap:9px;background:var(--ink);color:var(--paper);padding:11px 15px;border-radius:8px;font-size:13px}
+.toast .u{margin-left:auto;background:none;border:0;color:inherit;font-size:13px;cursor:pointer;text-decoration:underline}
+.skel{background:linear-gradient(90deg,var(--surface-2) 0%,var(--hair) 50%,var(--surface-2) 100%);
+  background-size:220% 100%;border-radius:4px;animation:sh calc(var(--motion)*1500ms + 1ms) linear infinite}
+@keyframes sh{to{background-position:-220% 0}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header class="pt">
+  <b>C안 · 경로</b>
+  <span class="pt-warn">예시 데이터 · 실제 규정 아님</span>
+  <span class="sep"></span>
+  <label for="pt-screen">화면</label>
+  <select id="pt-screen">
+    <option value="login">로그인</option>
+    <option value="home" selected>메인 (노선도)</option>
+    <option value="bot">봇 상세</option>
+    <option value="start">대화 시작</option>
+    <option value="thread">대화 진행</option>
+    <option value="mypage">마이페이지</option>
+    <option value="guide">안내자료</option>
+    <option value="states">상태 갤러리</option>
+  </select>
+  <label for="pt-answer">답변 유형</label>
+  <select id="pt-answer">
+    <option value="admin">행정 확답</option>
+    <option value="context">맥락 확인</option>
+    <option value="norag">근거 없음</option>
+    <option value="safety">안전 우선</option>
+  </select>
+  <span class="sep"></span>
+  <div class="seg" role="group" aria-label="뷰포트">
+    <button type="button" data-vp="desktop" aria-pressed="true">Desktop</button>
+    <button type="button" data-vp="mobile" aria-pressed="false">Mobile</button>
+  </div>
+  <div class="seg" role="group" aria-label="테마">
+    <button type="button" data-theme-set="light" aria-pressed="false">라이트</button>
+    <button type="button" data-theme-set="dark" aria-pressed="false">다크</button>
+    <button type="button" data-theme-set="auto" aria-pressed="true">자동</button>
+  </div>
+  <div class="seg" role="group" aria-label="모션">
+    <button type="button" data-motion-set="on" aria-pressed="true">모션 On</button>
+    <button type="button" data-motion-set="off" aria-pressed="false">Off</button>
+  </div>
+</header>
+
+<div class="stage">
+<div class="device">
+<div class="app" id="app">
+
+<!-- ══ 로그인 ═══════════════════════════════════════════════════════════ -->
+<section class="screen login" data-screen="login" aria-label="로그인">
+  <div class="scroll">
+    <div class="login-in">
+      <div class="login-line">
+        <span class="stop" aria-hidden="true"></span>
+        <p class="login-kicker">Blessing Navigation</p>
+        <h1 class="dsp">묻기 전에<br>어디를 지나왔는지<br>먼저 보여 드립니다.</h1>
+        <p class="lede">축복과 가정에 관한 공식 문서를 근거로 답합니다. 답변마다 어떤 문서를 지나 그 결론에 닿았는지 함께 보여 드립니다.</p>
+
+        <form class="login-form" id="login-form" novalidate>
+          <div class="field">
+            <label for="uid">하나로 아이디</label>
+            <div class="ctrl"><input id="uid" type="text" autocomplete="username" placeholder="아이디"></div>
+          </div>
+          <div class="field">
+            <label for="pw">비밀번호</label>
+            <div class="ctrl">
+              <input id="pw" type="password" autocomplete="current-password" placeholder="비밀번호">
+              <button class="reveal" type="button" id="pw-toggle" aria-label="비밀번호 표시" aria-pressed="false">
+                <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+          <button class="btn btn-go" type="submit">출발</button>
+          <p class="login-note">이메일이나 소셜 계정은 쓰지 않습니다. 하나로 계정 정보는 소속 기관 연동에만 쓰이며, 계정 문의는 소속 기관 담당자에게 연락해 주세요.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 메인 (노선도) ════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="home" aria-label="메인">
+  <div style="display:grid;grid-template-rows:auto 1fr;min-height:0">
+    <div class="bar">
+      <div class="emblem" role="img" aria-label="블레싱 네비게이션"></div>
+      <span class="wm">블레싱 네비게이션</span>
+      <span class="sp"></span>
+      <button class="iconbtn" type="button" aria-label="내 정보" data-go="mypage">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.2-3.6 4-5 7-5s5.8 1.4 7 5"/></svg>
+      </button>
+    </div>
+    <div class="scroll">
+      <div class="pad">
+        <p class="mono" style="font-size:11px;color:var(--ink-3);letter-spacing:.06em">2026.08 기준 · 현행 승인 문서만 지납니다</p>
+        <h1 class="dsp" style="font-size:clamp(26px,4.6cqw,42px);margin-top:14px;max-width:16ch">어디로 가시나요</h1>
+        <p style="font-size:14px;color:var(--ink-2);line-height:1.8;margin-top:14px;max-width:44ch">
+          두 노선은 서로 다른 봇이 아닙니다. 같은 봇이 질문의 중심에 맞춰 답변 순서를 바꿉니다.
+        </p>
+
+        <div class="map" id="map"></div>
+
+        <p class="map-foot">
+          역을 누르면 그 질문으로 바로 출발합니다. 어느 노선에도 없는 질문이라면 그렇게 말씀드리고,
+          부모님이나 가정부장님께 여쭐 내용을 대신 정리해 드립니다.
+        </p>
+
+        <div class="lines-list">
+          <h2>노선별 담당 문서</h2>
+          <p>인기순이 아니라 담당 구간과 근거 문서로 정렬했습니다.</p>
+          <div id="bot-lines"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 봇 상세 (노선 확대도) ════════════════════════════════════════════ -->
+<section class="screen" data-screen="bot" aria-label="봇 상세">
+  <div style="display:grid;grid-template-rows:auto 1fr;min-height:0">
+    <div class="bar">
+      <button class="iconbtn" type="button" aria-label="뒤로" data-go="home">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <span class="wm">노선 안내</span>
+      <span class="sp"></span>
+    </div>
+    <div class="scroll">
+      <div class="pad">
+        <div class="detail">
+          <div class="detail-head">
+            <span class="lmark"><span class="emblem" role="img" aria-label="블레싱 네비게이션 엠블럼"></span></span>
+            <div>
+              <h1 class="dsp" style="font-size:clamp(24px,3.8cqw,34px)">블레싱 네비게이션</h1>
+              <div style="display:flex;gap:7px;flex-wrap:wrap;margin-top:12px;align-items:center">
+                <span class="tagline">공식</span>
+                <span class="lprov mono">문서 6종 · 2026 정본</span>
+              </div>
+            </div>
+          </div>
+
+          <p class="lede">
+            축복과 가정에 관한 공식 문서를 근거로 안내합니다. 결론을 먼저 말하고, 어떤 문서를 지나 그 결론에
+            닿았는지 답변 옆 경로에 남깁니다. 개인 사정에 따라 달라지는 부분은 대신 결론짓지 않습니다.
+          </p>
+
+          <dl class="meta-grid">
+            <div><dt>담당 구간</dt><dd>축복식 절차 · 서류 · 가정 정책</dd></div>
+            <div><dt>지나지 않는 구간</dt><dd>현장 운영 · 환불 · 플랫폼 절차</dd></div>
+            <div><dt>확신도 표기</dt><dd>확정 · 일반 원칙 · 확인 필요 · 확인 불가</dd></div>
+            <div><dt>확인이 필요할 때</dt><dd>부모님 → 가정부장님 → 목회자</dd></div>
+            <div><dt>수정일</dt><dd class="mono">2026.07.14</dd></div>
+          </dl>
+
+          <div class="sec">
+            <h2>이 노선이 서는 역</h2>
+            <p class="n">역을 누르면 그 질문이 입력창에 채워집니다.</p>
+            <ol class="stations" style="gap:20px">
+              <li><button type="button" data-ask="축복식 준비 절차가 궁금해요"><span class="stop"></span>
+                <span class="st-name">축복식 절차</span><span class="st-sub">준비 시작부터 당일까지</span>
+                <span class="st-docs">축복 행정 규정집 · 2026 개정</span></button></li>
+              <li><button type="button" data-ask="축복후보자 서류는 무엇이 필요한가요?"><span class="stop"></span>
+                <span class="st-name">축복후보자 서류</span><span class="st-sub">공통 서류와 유형별 추가 서류</span>
+                <span class="st-docs">축복후보자 등록 안내 v2.1</span></button></li>
+              <li><button type="button" data-ask="40일 정성은 무엇인가요?"><span class="stop"></span>
+                <span class="st-name">40일 정성</span><span class="st-sub">의미와 실제 진행 방식</span>
+                <span class="st-docs">축복 행정 규정집 · 2026 개정</span></button></li>
+              <li><button type="button" data-ask="봉헌식과 탕감봉은 어떻게 하나요?"><span class="stop"></span>
+                <span class="st-name">봉헌식과 탕감봉</span><span class="st-sub">시행 방법과 준비물</span>
+                <span class="st-docs">봉헌식 시행 안내 v1.0</span></button></li>
+              <li><button type="button" data-ask="매칭 이후 교류는 어떻게 진행되나요?"><span class="stop"></span>
+                <span class="st-name">교류 기간</span><span class="st-sub">매칭 이후의 과정</span>
+                <span class="st-docs">교류 기간 운영 지침 v1.2</span></button></li>
+            </ol>
+          </div>
+
+          <div class="sec">
+            <h2>지나는 문서</h2>
+            <p class="n">현행으로 승인된 문서만 지납니다. 폐기된 문서는 노선에서 빠집니다.</p>
+            <ul class="docline">
+              <li><span class="t">축복 행정 규정집</span><span class="v">2026 개정 · 07.14</span></li>
+              <li><span class="t">축복후보자 등록 안내</span><span class="v">v2.1 · 06.02</span></li>
+              <li><span class="t">가정 정책 해설</span><span class="v">v1.4 · 05.20</span></li>
+              <li><span class="t">봉헌식 시행 안내</span><span class="v">v1.0 · 03.11</span></li>
+              <li><span class="t">교류 기간 운영 지침</span><span class="v">v1.2 · 04.28</span></li>
+              <li><span class="t">승인 FAQ 모음</span><span class="v">35건 · 07.30</span></li>
+            </ul>
+          </div>
+
+          <div class="sec">
+            <h2>이런 판단은 하지 않습니다</h2>
+            <ul class="nolist">
+              <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span>개인의 축복 자격 여부를 판정하지 않습니다.</span></li>
+              <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span>관계를 유지할지 정리할지 대신 결정하지 않습니다.</span></li>
+              <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span>공식 자료에 없는 내용은 추측해서 말하지 않습니다.</span></li>
+              <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span>현행 문서끼리 충돌하면 임의로 섞지 않고 확답을 보류합니다.</span></li>
+            </ul>
+          </div>
+
+          <div class="cta-row">
+            <button class="btn btn-go" type="button" data-go="start">이 노선으로 출발</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 대화 시작 ════════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="start" aria-label="대화 시작">
+  <div style="display:grid;grid-template-rows:auto 1fr;min-height:0">
+    <div class="bar">
+      <button class="iconbtn" type="button" aria-label="뒤로" data-go="home">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="emblem" style="width:24px;height:24px" role="img" aria-label="블레싱 네비게이션"></div>
+      <span class="wm">블레싱 네비게이션</span>
+      <span class="sp"></span>
+      <button class="iconbtn" type="button" aria-label="노선 안내" data-go="bot">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+      </button>
+    </div>
+    <div class="conv">
+      <div class="scroll">
+        <div class="pad">
+          <div class="start">
+            <h1 class="dsp">무엇부터<br>확인해 볼까요</h1>
+            <p class="lede">역을 고르셔도 되고 그냥 물어보셔도 됩니다. 답변 옆에는 어떤 문서를 지나왔는지가 함께 남습니다.</p>
+            <div class="line" data-kind="info">
+              <ol class="stations">
+                <li><button type="button" data-ask="축복식 준비 절차가 궁금해요"><span class="stop"></span>
+                  <span class="st-name">축복식 준비 절차가 궁금해요</span><span class="st-docs">축복 행정 규정집 · 2026 개정</span></button></li>
+                <li><button type="button" data-ask="축복후보자 서류는 무엇이 필요한가요?"><span class="stop"></span>
+                  <span class="st-name">축복후보자 서류는 무엇이 필요한가요</span><span class="st-docs">축복후보자 등록 안내 v2.1</span></button></li>
+                <li><button type="button" data-ask="40일 정성은 무엇인가요?"><span class="stop"></span>
+                  <span class="st-name">40일 정성은 무엇인가요</span><span class="st-docs">축복 행정 규정집 · 2026 개정</span></button></li>
+                <li><button type="button" data-ask="준비 과정이 막막하게 느껴져요"><span class="stop"></span>
+                  <span class="st-name">준비 과정이 막막하게 느껴져요</span><span class="st-docs">근거 없이, 마음부터 듣습니다</span></button></li>
+              </ol>
+            </div>
+            <button class="guide" type="button" data-go="guide">
+              <div>
+                <h3>처음 오셨나요</h3>
+                <p>경로 표시와 근거 읽는 법을 3분이면 알 수 있습니다</p>
+              </div>
+              <span class="go" aria-hidden="true"><svg class="ico ico-sm" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="composer">
+        <div class="in">
+          <div class="box">
+            <textarea rows="1" placeholder="무엇이든 물어보세요" aria-label="질문 입력" data-composer></textarea>
+            <button class="send" type="button" aria-label="보내기" data-go="thread">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+            </button>
+          </div>
+          <p class="d">문서 기반 안내는 공식 자료를 바탕으로 하며, 개인 사정에 따라 달라질 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 대화 진행 ════════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="thread" aria-label="대화">
+  <div style="display:grid;grid-template-rows:auto 1fr;min-height:0">
+    <div class="bar">
+      <button class="iconbtn" type="button" aria-label="뒤로" data-go="home">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <div class="emblem" style="width:24px;height:24px" role="img" aria-label="블레싱 네비게이션"></div>
+      <span class="wm">블레싱 네비게이션</span>
+      <span class="sp"></span>
+      <button class="iconbtn" type="button" aria-label="경로 다시 재생" id="replay">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 1 2.3 5.6"/><path d="M4 19v-5h5"/></svg>
+      </button>
+    </div>
+    <div class="conv">
+      <div class="scroll"><div class="msgs" id="msgs"></div></div>
+      <div class="composer">
+        <div class="in">
+          <div class="box">
+            <textarea rows="1" placeholder="이어서 물어보세요" aria-label="질문 입력" data-composer></textarea>
+            <button class="send" type="button" aria-label="보내기">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+            </button>
+          </div>
+          <p class="d">문서 기반 안내는 공식 자료를 바탕으로 하며, 개인 사정에 따라 달라질 수 있습니다.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 마이페이지 ═══════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="mypage" aria-label="마이페이지">
+  <div style="display:grid;grid-template-rows:auto 1fr;min-height:0">
+    <div class="bar">
+      <button class="iconbtn" type="button" aria-label="뒤로" data-go="home">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <span class="wm">내 정보</span><span class="sp"></span>
+    </div>
+    <div class="scroll">
+      <div class="pad">
+        <div class="narrow">
+          <h1 class="dsp" style="font-size:clamp(24px,3.8cqw,34px);margin-bottom:28px">내 정보</h1>
+          <h2 style="font-size:15px;margin-bottom:10px">계정</h2>
+          <dl class="kv">
+            <div><dt>하나로 아이디</dt><dd class="mono">hj.chung</dd></div>
+            <div><dt>소속</dt><dd>서울교구 · 강서가정교회</dd></div>
+            <div><dt>연동 상태</dt><dd><span class="tagline">연동됨</span></dd></div>
+          </dl>
+          <h2 style="font-size:15px;margin:36px 0 10px">알림</h2>
+          <dl class="kv">
+            <div><dt style="color:var(--ink);font-size:14px">문서가 갱신되면 알리기</dt>
+              <dd><button class="switch" type="button" role="switch" aria-checked="true" aria-label="문서 갱신 알림"></button></dd></div>
+            <div><dt style="color:var(--ink);font-size:14px">근거가 늦게 도착하면 알리기</dt>
+              <dd><button class="switch" type="button" role="switch" aria-checked="false" aria-label="근거 도착 알림"></button></dd></div>
+          </dl>
+          <h2 style="font-size:15px;margin:36px 0 10px">지나온 대화</h2>
+          <dl class="kv">
+            <div><dt style="color:var(--ink);font-size:14px"><a href="#thread">축복후보자 서류 문의</a></dt><dd class="mono" style="font-size:12px;color:var(--ink-3)">08.05</dd></div>
+            <div><dt style="color:var(--ink);font-size:14px"><a href="#thread">등록 신청 일정 확인</a></dt><dd class="mono" style="font-size:12px;color:var(--ink-3)">08.04</dd></div>
+            <div><dt style="color:var(--ink);font-size:14px"><a href="#thread">가정 공과금 기준</a></dt><dd class="mono" style="font-size:12px;color:var(--ink-3)">08.02</dd></div>
+          </dl>
+          <div style="margin-top:40px;padding-top:20px;border-top:1px solid var(--hair)">
+            <button class="btn btn-line btn-danger" type="button">로그아웃</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 안내자료 ═════════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="guide" aria-label="안내자료">
+  <div style="display:grid;grid-template-rows:auto 1fr;min-height:0">
+    <div class="bar">
+      <button class="iconbtn" type="button" aria-label="뒤로" data-go="start">
+        <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+      </button>
+      <span class="wm">안내자료</span><span class="sp"></span>
+    </div>
+    <div class="scroll">
+      <div class="pad">
+        <div class="narrow">
+          <h1 class="dsp" style="font-size:clamp(24px,3.8cqw,34px)">읽는 법</h1>
+          <p class="lede" style="font-size:14.5px;line-height:1.85;color:var(--ink-2);margin-top:14px;max-width:44ch">
+            답변 옆 경로와 근거 표시를 어떻게 읽으면 되는지 순서대로 정리했습니다.
+          </p>
+          <div class="guides">
+            <button class="grow" type="button">
+              <span class="no">01</span>
+              <span><h3>경로는 무엇을 말하나요</h3><p>질문에서 답변까지 어떤 문서를 지났는지 보여 줍니다. 처리 방식은 담지 않습니다.</p></span>
+              <span class="m">3분</span>
+            </button>
+            <button class="grow" type="button">
+              <span class="no">02</span>
+              <span><h3>형광펜과 각주 읽는 법</h3><p>답변 옆 번호를 누르면 그 문장을 뒷받침한 대목으로 이동합니다.</p></span>
+              <span class="m">카드 6장</span>
+            </button>
+            <button class="grow" type="button">
+              <span class="no">03</span>
+              <span><h3>근사 출처는 무엇인가요</h3><p>표시된 답변이 직접 인용한 대목이 아니라 같은 질문으로 다시 검색한 결과라는 뜻입니다.</p></span>
+              <span class="m">2분</span>
+            </button>
+            <button class="grow" type="button">
+              <span class="no">04</span>
+              <span><h3>답을 못 찾았다고 할 때</h3><p>추측하지 않겠다는 뜻입니다. 대신 누구에게 무엇을 여쭈면 되는지 정리해 드립니다.</p></span>
+              <span class="m">2분</span>
+            </button>
+            <button class="grow" type="button">
+              <span class="no">05</span>
+              <span><h3>자주 묻는 질문 35건</h3><p>검수와 승인을 마친 FAQ입니다. 같은 질문은 바로 답변드립니다.</p></span>
+              <span class="m">FAQ</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ 상태 갤러리 ══════════════════════════════════════════════════════ -->
+<section class="screen" data-screen="states" aria-label="상태 갤러리">
+  <div style="display:grid;grid-template-rows:auto 1fr;min-height:0">
+    <div class="bar"><span class="wm">상태 갤러리</span><span class="sp"></span><span class="tagline">검토용</span></div>
+    <div class="scroll">
+      <div class="pad">
+
+        <div class="st-sec" style="margin-top:0">
+          <h2>경로가 보여 주는 것과 보여 주지 않는 것</h2>
+          <p class="n">운영 원칙 §6은 시스템 프롬프트, 내부 분류, RAG 동작 방식을 공개하지 않도록 정하고 있습니다.
+            그래서 경로의 역 이름은 사용자 언어로만 씁니다.</p>
+          <div class="g2">
+            <div class="demo">
+              <p class="c">보여 준다</p>
+              <ul class="nolist">
+                <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5 9 17l11-11"/></svg><span>어떤 문서를 확인했는지</span></li>
+                <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5 9 17l11-11"/></svg><span>그중 몇 종을 실제로 인용했는지</span></li>
+                <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5 9 17l11-11"/></svg><span>문서의 판본과 쪽수</span></li>
+                <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5 9 17l11-11"/></svg><span>근거를 아직 확인 중인지</span></li>
+              </ul>
+            </div>
+            <div class="demo">
+              <p class="c">보여 주지 않는다</p>
+              <ul class="nolist">
+                <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span>FAQ 즉답인지 문서 검색인지 같은 내부 분기</span></li>
+                <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span>검색 단계나 파이프라인 이름</span></li>
+                <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span>시스템 프롬프트와 내부 분류 결과</span></li>
+                <li><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8 12h8"/></svg><span>비공개 문서의 존재 여부</span></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <div class="st-sec">
+          <h2>봇이 하나뿐일 때</h2>
+          <div class="rule">
+            <h4>로그인하면 노선도를 건너뛴다</h4>
+            <p>공개된 봇이 1개면 노선도를 보여 주지 않고 그 노선의 대화 시작 화면으로 바로 들어갑니다.
+              봇이 2개 이상이 되면 노선도가 자동으로 다시 나타납니다. 고를 것이 없을 때 고르는 화면을 보여 주지 않습니다.</p>
+            <p style="color:var(--ink-3)">전환 기준 <code>bots.length === 1</code> → <code>/chat/new/{botId}</code></p>
+          </div>
+        </div>
+
+        <div class="st-sec">
+          <h2>경로의 네 가지 상태</h2>
+          <p class="n">근거는 답변보다 늦게 도착합니다. 기다리는 동안 화면이 비어 있으면 사용자는 근거가 없다고 오해합니다.</p>
+          <div class="g2" id="route-states"></div>
+        </div>
+
+        <div class="st-sec">
+          <h2>로그인 오류</h2>
+          <p class="n">오류는 입력 아래에 붙이고, 무엇을 하면 되는지까지 적습니다.</p>
+          <div class="g2">
+            <div class="demo">
+              <p class="c">401 · 불일치</p>
+              <div class="field" data-invalid>
+                <label for="s401">하나로 아이디</label>
+                <div class="ctrl"><input id="s401" type="text" value="hj.chung"></div>
+                <p class="err" role="alert"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg> 아이디 또는 비밀번호가 맞지 않습니다. 다시 확인해 주세요.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <p class="c">429 · 시도 초과</p>
+              <div class="field" data-invalid>
+                <label for="s429">하나로 아이디</label>
+                <div class="ctrl"><input id="s429" type="text" value="hj.chung"></div>
+                <p class="err" role="alert"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> 로그인 시도가 많습니다. 약 5분 뒤에 다시 시도해 주세요.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <p class="c">403 · 비활성 계정</p>
+              <div class="field" data-invalid>
+                <label for="s403">하나로 아이디</label>
+                <div class="ctrl"><input id="s403" type="text" value="hj.chung"></div>
+                <p class="err" role="alert"><svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg> 사용이 중지된 계정입니다. 소속 기관 담당자에게 문의해 주세요.</p>
+              </div>
+            </div>
+            <div class="demo">
+              <p class="c">전송 중</p>
+              <button class="btn btn-go" type="button" disabled style="width:100%">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true" style="animation:spin calc(var(--motion)*900ms + 1ms) linear infinite"><path d="M12 3a9 9 0 1 0 9 9"/></svg> 출발 준비 중
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="st-sec">
+          <h2>대화 상태</h2>
+          <div class="g2">
+            <div class="demo">
+              <p class="c">답변 생성 중</p>
+              <div style="display:grid;gap:9px">
+                <div class="skel" style="height:15px;width:92%"></div>
+                <div class="skel" style="height:15px;width:76%"></div>
+                <div class="skel" style="height:15px;width:54%"></div>
+              </div>
+            </div>
+            <div class="demo">
+              <p class="c">대화 없음</p>
+              <p style="font-size:13.5px;line-height:1.75;color:var(--ink-2)">아직 지나온 대화가 없습니다.</p>
+              <button class="btn btn-line btn-sm" type="button" style="margin-top:14px">첫 질문 시작</button>
+            </div>
+            <div class="demo">
+              <p class="c">연결 실패</p>
+              <p style="font-size:13.5px;line-height:1.75;color:var(--ink-2)">답변을 받지 못했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.</p>
+              <button class="btn btn-line btn-sm" type="button" style="margin-top:14px">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 1 1 2.3 5.6"/><path d="M4 19v-5h5"/></svg> 다시 시도
+              </button>
+            </div>
+            <div class="demo">
+              <p class="c">피드백 저장 · aria-live="polite"</p>
+              <div class="toast" role="status" aria-live="polite">
+                <svg class="ico ico-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12.5 9 17l11-11"/></svg>
+                피드백을 보냈습니다 <button class="u" type="button">취소</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+</div></div></div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* 예시 데이터. 실제 규정이 아니다. */
+  var LINES = [
+    { kind:'info', name:'정보선', desc:'공식 문서에 기준이 있는 질문', badge:'실선',
+      stations:[
+        { n:'축복식 절차', s:'준비 시작부터 당일까지', d:'축복 행정 규정집 2026 개정', q:'축복식 준비 절차가 궁금해요' },
+        { n:'축복후보자 서류', s:'공통 서류와 추가 서류', d:'축복후보자 등록 안내 v2.1', q:'축복후보자 서류는 무엇이 필요한가요?' },
+        { n:'40일 정성', s:'의미와 진행 방식', d:'축복 행정 규정집 2026 개정', q:'40일 정성은 무엇인가요?' },
+        { n:'봉헌식과 탕감봉', s:'시행 방법과 준비물', d:'봉헌식 시행 안내 v1.0', q:'봉헌식과 탕감봉은 어떻게 하나요?' },
+        { n:'교류 기간', s:'매칭 이후의 과정', d:'교류 기간 운영 지침 v1.2', q:'매칭 이후 교류는 어떻게 진행되나요?' }
+      ]},
+    { kind:'care', name:'고민선', desc:'결론을 대신 내리지 않는 질문', badge:'점선',
+      stations:[
+        { n:'준비가 막막할 때', s:'어디부터 정리하면 좋을지', d:'근거 없이, 마음부터 듣습니다', q:'준비 과정이 막막하게 느껴져요' },
+        { n:'매칭과 교류의 고민', s:'마음이 복잡할 때', d:'필요할 때만 규정을 연결합니다', q:'매칭 이후 마음이 복잡해요' },
+        { n:'부모님과의 대화', s:'말을 꺼내기 어려울 때', d:'대신 여쭐 문장을 정리해 드립니다', q:'부모님께 이야기를 꺼내기 어려워요' },
+        { n:'지난 일이 마음에 남을 때', s:'혼자 결론 내리지 않도록', d:'한 번에 하나만 여쭙니다', q:'예전에 있었던 일 때문에 축복을 받을 수 있을지 걱정돼요' },
+        { n:'지금 많이 힘들 때', s:'안전이 먼저입니다', d:'규정 안내를 멈춥니다', q:'요즘 너무 힘들어서 사라지고 싶다는 생각이 자꾸 들어요' }
+      ]}
+  ];
+
+  var BOTS = [
+    { name:'블레싱 네비게이션', emblem:true, official:true, seg:'축복식 절차 · 서류 · 가정 정책', docs:6, ed:'2026 정본' },
+    { name:'가정 행정 안내', mark:'행', seg:'등록 신청 · 양식 · 일정', docs:8, ed:'2026 정본' },
+    { name:'가정 정책 길잡이', mark:'정', seg:'가정 정책 · 생활 규정', docs:9, ed:'2026 정본' },
+    { name:'청년 안내', mark:'청', seg:'2세 청년 준비 과정', docs:6, ed:'2026 정본' },
+    { name:'일본어 안내', mark:'日', seg:'일본어 안내 전 구간', docs:5, ed:'2022 승인' }
+  ];
+
+  var ANSWERS = {
+    admin: {
+      q:'축복후보자 서류는 무엇이 필요한가요?',
+      lead:'축복후보자 서류는 공통 3종이 기본이고, 재혼 축복이나 국제 축복처럼 유형에 따라 서류가 더 붙습니다.',
+      secs:[
+        { h:'근거', html:'<strong>축복 행정 규정집 2026 개정판</strong> 4장과 <strong>축복후보자 등록 안내 v2.1</strong>에 공통 서류와 유형별 추가 서류가 나뉘어 있습니다.<sup data-cite="1"></sup>' },
+        { h:'절차', steps:[
+          '소속 교구 가정부에 등록 의사를 전합니다.',
+          '공통 서류 3종을 준비합니다. 등록신청서, 신앙생활 확인서, 보호자 동의서입니다.<sup data-cite="1"></sup>',
+          '본인 유형에 해당하는 추가 서류가 있는지 확인합니다.<sup data-cite="2"></sup>',
+          '담당자 검토를 거쳐 접수합니다.'
+        ]},
+        { h:'다음', html:'어떤 유형에 해당하는지는 개인 사정에 따라 달라집니다. 소속 교구 가정부나 부모님과 함께 확인해 보세요.' }
+      ],
+      fups:['공통 서류 3종을 자세히 알려주세요','재혼 축복은 서류가 어떻게 다른가요','보호자 동의서 양식은 어디서 받나요'],
+      checked:[
+        { t:'축복 행정 규정집 2026 개정 · 38쪽', cited:1 },
+        { t:'축복후보자 등록 안내 v2.1 · 6쪽', cited:2 },
+        { t:'축복 행정 규정집 2026 개정 · 12쪽' },
+        { t:'축복 행정 규정집 2026 개정 · 51쪽' },
+        { t:'가정 정책 해설 v1.4' },
+        { t:'봉헌식 시행 안내 v1.0' },
+        { t:'교류 기간 운영 지침 v1.2' },
+        { t:'승인 FAQ 모음' }
+      ],
+      snips:[
+        { n:1, t:'축복 행정 규정집', v:'2026 개정 · 4장 · 38쪽',
+          s:'축복후보자 등록 시 공통으로 제출하는 서류는 등록신청서, 신앙생활 확인서, 보호자 동의서 세 가지로 한다. 서류는 소속 교구 가정부를 통해 접수한다.',
+          e:'공통으로 제출하는 서류는 등록신청서, 신앙생활 확인서, 보호자 동의서' },
+        { n:2, t:'축복후보자 등록 안내', v:'v2.1 · 6쪽',
+          s:'재혼 축복 및 국제 축복의 경우 유형별 추가 서류가 있으며, 해당 여부는 소속 교구 가정부를 통해 확인한다.',
+          e:'유형별 추가 서류가 있으며',
+          w:'표시된 답변이 직접 인용한 대목이 아니라, 같은 질문으로 다시 검색한 결과입니다.' }
+      ]
+    },
+    context: {
+      q:'예전에 있었던 일 때문에 축복을 받을 수 있을지 걱정돼요',
+      lead:'오래 마음에 담아 두고 계셨겠어요. 혼자 결론 내리기 어려운 일이라 더 무거우셨을 것 같습니다.',
+      secs:[{ h:'확인', html:'도움이 될 만한 내용을 찾으려면 한 가지만 여쭙고 싶습니다. 자세한 내용은 말씀하지 않으셔도 괜찮습니다. 지금은 준비 단계 중 어디에 가까우신가요?' }],
+      chips:['준비 전이에요','매칭 준비 중이에요','교류 중이에요','축복 이후예요'],
+      fups:[], checked:[], snips:[], noRoute:true
+    },
+    norag: {
+      q:'온라인으로 신청한 걸 취소하면 환불은 언제 되나요?',
+      /* 정해진 거절 문장. 매번 다르게 얼버무리면 사용자는 경계를 배우지 못한다. */
+      lead:'이 질문은 공식 자료로 확인할 수 없습니다. 없는 기준을 지어내지 않겠습니다.',
+      secs:[],
+      callout:{ title:'부모님 또는 가정부장님께 여쭐 질문',
+        items:['신청 취소는 어디로 접수하나요?','취소 시점에 따라 처리가 달라지나요?','환불 절차와 걸리는 기간은 어떻게 되나요?'],
+        action:'질문 복사' },
+      fups:['다른 방법으로 확인할 수 있을까요','비슷한 사례가 문서에 있나요'],
+      checked:[
+        { t:'축복 행정 규정집 2026 개정 · 62쪽' },
+        { t:'축복후보자 등록 안내 v2.1' },
+        { t:'가정 정책 해설 v1.4' },
+        { t:'승인 FAQ 모음' }
+      ],
+      snips:[]
+    },
+    safety: {
+      q:'요즘 너무 힘들어서 사라지고 싶다는 생각이 자꾸 들어요',
+      lead:'지금 많이 힘드시군요. 무엇보다 지금 안전이 가장 먼저입니다.',
+      secs:[{ h:'지금', html:'지금 혼자 계신가요? 위험할 수 있는 물건이나 장소에서 잠시 떨어져 계실 수 있을까요?' }],
+      safe:{ title:'지금 곁에 있어 줄 수 있는 사람',
+        items:['부모님','믿을 수 있는 가정부장님','공직자, 목회자, 사모님','내가 신뢰하는 가까운 어른'],
+        after:'부모님께 알리기 어렵거나 안전하지 않다고 느끼신다면, 다른 안전한 어른에게 지금 연락해 주세요.',
+        hot:'자살예방 상담전화 <b>109</b> · 24시간 · 무료' },
+      fups:[], checked:[], snips:[], noRoute:true
+    }
+  };
+
+  var root=document.documentElement;
+  var screens=Array.prototype.slice.call(document.querySelectorAll('[data-screen]'));
+  var reduceQuery=window.matchMedia('(prefers-reduced-motion: reduce)');
+  function motionOff(){ var a=root.getAttribute('data-motion'); if(a==='off')return true; if(a==='on')return false; return reduceQuery.matches; }
+  function store(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
+  function el(t,c,h){ var n=document.createElement(t); if(c)n.className=c; if(h!=null)n.innerHTML=h; return n; }
+  function svg(d,cls){ return '<svg class="ico '+(cls||'')+'" viewBox="0 0 24 24" aria-hidden="true"><path d="'+d+'"/></svg>'; }
+  var DOC_ICO='M6 3h8l4 4v14H6z';
+
+  /* ── 노선도 ────────────────────────────────────────────────────────── */
+  document.getElementById('map').innerHTML = LINES.map(function(L){
+    return '<section class="line" data-kind="'+L.kind+'">' +
+      '<div class="line-h"><span class="nm">'+L.name+'</span>' +
+      '<span class="ds">'+L.desc+'</span><span class="badge">'+L.badge+'</span></div>' +
+      '<ol class="stations" style="--n:' + L.stations.length + '">' + L.stations.map(function(s){
+        return '<li><button type="button" data-ask="'+s.q+'"><span class="stop"></span>' +
+          '<span class="st-name">'+s.n+'</span><span class="st-sub">'+s.s+'</span>' +
+          '<span class="st-docs">'+s.d+'</span></button></li>';
+      }).join('') + '</ol></section>';
+  }).join('');
+
+  document.getElementById('bot-lines').innerHTML = BOTS.map(function(b){
+    var mark = b.emblem ? '<span class="lmark"><span class="emblem"></span></span>'
+                        : '<span class="lmark">'+b.mark+'</span>';
+    var old = b.ed !== '2026 정본';
+    return '<a class="lrow" href="#bot">'+mark+
+      '<span><span class="lname">'+b.name+(b.official?' <span class="tagline">공식</span>':'')+'</span>'+
+      '<span class="lseg">'+b.seg+'</span></span>'+
+      '<span class="lprov'+(old?' old':'')+'">문서 '+b.docs+'종 · '+b.ed+'</span></a>';
+  }).join('');
+
+  /* ── 라우팅 ────────────────────────────────────────────────────────── */
+  var current=null, abort=null;
+  function show(n){
+    if(!screens.some(function(s){return s.dataset.screen===n;})) n='home';
+    if(abort){abort.abort();abort=null;}
+    screens.forEach(function(s){ if(s.dataset.screen===n) s.setAttribute('data-active',''); else s.removeAttribute('data-active'); });
+    current=n; document.getElementById('pt-screen').value=n;
+    if(n==='thread') renderThread();
+    if(n==='states') renderRouteStates();
+  }
+  function go(n){ if(location.hash.slice(1)===n) show(n); else location.hash=n; }
+  window.addEventListener('hashchange',function(){ show(location.hash.slice(1)||'home'); });
+  document.addEventListener('click',function(e){ var t=e.target.closest('[data-go]'); if(t){e.preventDefault();go(t.dataset.go);} });
+  document.getElementById('pt-screen').addEventListener('change',function(){ go(this.value); });
+  document.getElementById('replay').addEventListener('click',function(){ renderThread(); });
+
+  /* ── 툴바 ──────────────────────────────────────────────────────────── */
+  function segSet(g,v,attr,key){
+    document.querySelectorAll('['+g+']').forEach(function(b){ b.setAttribute('aria-pressed',String(b.getAttribute(g)===v)); });
+    if(v==='auto'){ root.removeAttribute(attr); try{localStorage.removeItem(key);}catch(e){} }
+    else { root.setAttribute(attr,v); store(key,v); }
+  }
+  document.querySelectorAll('[data-vp]').forEach(function(b){ b.addEventListener('click',function(){
+    document.querySelectorAll('[data-vp]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+    root.setAttribute('data-viewport',b.dataset.vp);
+  });});
+  document.querySelectorAll('[data-theme-set]').forEach(function(b){ b.addEventListener('click',function(){ segSet('data-theme-set',b.dataset.themeSet,'data-theme','bn-theme'); });});
+  document.querySelectorAll('[data-motion-set]').forEach(function(b){ b.addEventListener('click',function(){
+    segSet('data-motion-set',b.dataset.motionSet,'data-motion','bn-motion');
+    if(current==='thread') renderThread(); if(current==='states') renderRouteStates();
+  });});
+  (function(){
+    var th=root.getAttribute('data-theme')||'auto';
+    document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.themeSet===th));});
+    var mo=root.getAttribute('data-motion')||'on';
+    document.querySelectorAll('[data-motion-set]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.motionSet===mo));});
+  })();
+
+  /* ── 로그인 ────────────────────────────────────────────────────────── */
+  document.getElementById('pw-toggle').addEventListener('click',function(){
+    var i=document.getElementById('pw'), on=i.type==='password';
+    i.type=on?'text':'password';
+    this.setAttribute('aria-pressed',String(on));
+    this.setAttribute('aria-label',on?'비밀번호 숨기기':'비밀번호 표시');
+  });
+  document.getElementById('login-form').addEventListener('submit',function(e){ e.preventDefault(); go('home'); });
+
+  /* ── 질문 프리필 ───────────────────────────────────────────────────── */
+  document.addEventListener('click',function(e){
+    var t=e.target.closest('[data-ask]'); if(!t) return;
+    go('start');
+    var ta=document.querySelector('[data-screen="start"] [data-composer]');
+    if(ta){ ta.value=t.dataset.ask; ta.focus(); }
+  });
+
+  /* ══════════════════════════════════════════════════════════════════
+     시그니처: 답변 경로 레일
+     역은 사용자 언어로만. 내부 분기나 파이프라인 단계는 역이 되지 않는다.
+     ══════════════════════════════════════════════════════════════════ */
+  function buildRoute(data, opts){
+    opts = opts || {};
+    var cited = data.snips.length;
+    var checked = data.checked.length;
+    var wrap = el('div','route');
+    var ol = el('ol');
+
+    // 1역 질문
+    ol.appendChild(el('li','', '<span class="dot"></span><span class="lbl">질문</span>' +
+      '<span class="val">' + data.q + '</span>'));
+
+    // 2역 확인한 문서. 근거가 늦게 오는 30초가 바로 이 역의 상태다.
+    var mid = el('li','',
+      '<span class="dot"></span><span class="lbl">확인한 문서</span>' +
+      '<span class="val" data-mid-val>확인 중</span>');
+    ol.appendChild(mid);
+
+    // 3역 답변
+    ol.appendChild(el('li','', '<span class="dot"></span><span class="lbl">답변</span>' +
+      '<span class="val">' + (cited ? '근거 ' + cited + '종을 달아 드렸습니다' : '문서 근거 없이 드리는 답입니다') + '</span>'));
+
+    wrap.appendChild(ol);
+    wrap.appendChild(el('p','route-note',
+      '경로는 어떤 문서를 지났는지만 보여 줍니다. 내부 처리 방식은 담지 않습니다.'));
+
+    var lis = ol.children;
+    lis[0].setAttribute('data-on','');
+
+    function settle(){
+      var v = mid.querySelector('[data-mid-val]');
+      if(checked === 0){
+        mid.removeAttribute('data-wait'); mid.setAttribute('data-on','');
+        v.textContent = '지난 문서 없음. 마음을 먼저 듣습니다.';
+      } else {
+        mid.removeAttribute('data-wait'); mid.setAttribute('data-on','');
+        v.innerHTML = '<span class="mono">' + checked + '종</span> 확인 · <span class="mono">' + cited + '종</span> 인용' +
+          '<button class="open" type="button" aria-expanded="false">문서 보기' + svg('M6 9l6 6 6-6','ico-sm') + '</button>' +
+          '<ul class="docs">' + data.checked.map(function(d){
+            return '<li' + (d.cited ? ' data-cited' : '') + '>' + svg(DOC_ICO,'ico-sm') +
+              '<span>' + (d.cited ? '<span class="n">[' + d.cited + ']</span> ' : '') + d.t + '</span></li>';
+          }).join('') + '</ul>';
+        var btn = v.querySelector('.open'), docs = v.querySelector('.docs');
+        btn.addEventListener('click', function(){
+          var open = docs.hasAttribute('data-open');
+          if(open) docs.removeAttribute('data-open'); else docs.setAttribute('data-open','');
+          btn.setAttribute('aria-expanded', String(!open));
+        });
+      }
+      lis[2].setAttribute('data-on','');
+      wrap.style.setProperty('--drawn','100%');
+      wrap.setAttribute('data-drawn','');
+    }
+
+    if(opts.frozen){
+      // 상태 갤러리용 정지 화면
+      if(opts.frozen === 'wait'){
+        mid.setAttribute('data-wait','');
+        wrap.style.setProperty('--drawn','50%');
+        wrap.setAttribute('data-drawn','');
+      } else settle();
+      return wrap;
+    }
+
+    mid.setAttribute('data-wait','');
+    wrap.style.setProperty('--drawn', motionOff() ? '100%' : '50%');
+    wrap.setAttribute('data-drawn','');
+    setTimeout(settle, motionOff() ? 0 : 2600);
+    return wrap;
+  }
+
+  /* ── 대화 ──────────────────────────────────────────────────────────── */
+  var msgs=document.getElementById('msgs');
+  var answerKind='admin';
+  document.getElementById('pt-answer').addEventListener('change',function(){
+    answerKind=this.value; if(current==='thread') renderThread(); else go('thread');
+  });
+  function citeSup(h){
+    return h.replace(/<sup data-cite="(\d+)"><\/sup>/g,
+      '<button class="cite-ref" type="button" data-cite="$1" aria-label="근거 $1번 보기">[$1]</button>');
+  }
+
+  function renderThread(){
+    if(abort) abort.abort();
+    abort=new AbortController();
+    var signal=abort.signal;
+    var data=ANSWERS[answerKind];
+    msgs.innerHTML='';
+    msgs.appendChild(el('div','m-user',data.q));
+
+    var bot=el('div','m-bot');
+    var railCol=el('div');
+    var body=el('div');
+    bot.appendChild(railCol); bot.appendChild(body);
+    msgs.appendChild(bot);
+
+    var lead=el('p','a-lead');
+    body.appendChild(lead);
+    var rest=el('div');
+    body.appendChild(rest);
+
+    function finish(){
+      if(signal.aborted) return;
+      rest.innerHTML='';
+
+      (data.secs||[]).forEach(function(s){
+        var sec=el('div','a-sec','<div class="h">'+s.h+'</div>');
+        if(s.steps){
+          sec.appendChild(el('ol','b a-steps',
+            s.steps.map(function(x){ return '<li><span>'+citeSup(x)+'</span></li>'; }).join('')));
+        } else {
+          sec.appendChild(el('div','b',citeSup(s.html)));
+        }
+        rest.appendChild(sec);
+      });
+
+      if(data.chips){
+        var w=el('div','fups');
+        data.chips.forEach(function(c){ var b=el('button','chip',c); b.type='button'; w.appendChild(b); });
+        rest.appendChild(w);
+      }
+
+      if(data.callout){
+        var co=el('div','callout','<h4>'+data.callout.title+'</h4><ul>'+
+          data.callout.items.map(function(i,idx){ return '<li><i>'+(idx+1)+'</i><span>'+i+'</span></li>'; }).join('')+'</ul>');
+        var cb=el('button','btn btn-line btn-sm',data.callout.action); cb.type='button'; cb.style.marginTop='14px';
+        co.appendChild(cb); rest.appendChild(co);
+      }
+
+      if(data.safe){
+        rest.appendChild(el('div','callout safe','<h4>'+data.safe.title+'</h4><ul>'+
+          data.safe.items.map(function(i,idx){ return '<li><i>'+(idx+1)+'</i><span>'+i+'</span></li>'; }).join('')+'</ul>'+
+          '<p class="after">'+data.safe.after+'</p><p class="hot">'+data.safe.hot+'</p>'));
+      }
+
+      if(data.snips.length){
+        var sn=el('div','snips');
+        data.snips.forEach(function(c){
+          var s=c.s; if(c.e) s=s.replace(c.e,'<mark>'+c.e+'</mark>');
+          var d=el('div','snip','<div class="h"><span class="n">['+c.n+']</span><span class="t">'+c.t+'</span>'+
+            '<span class="v">'+c.v+'</span></div><p class="s">'+s+'</p>'+
+            (c.w?'<p class="w">'+c.w+'</p>':''));
+          d.dataset.cite=c.n;
+          sn.appendChild(d);
+        });
+        rest.appendChild(sn);
+      }
+
+      if(data.fups && data.fups.length){
+        var f=el('div','fups');
+        data.fups.forEach(function(x){ var b=el('button','chip',x); b.type='button'; b.dataset.ask=x; f.appendChild(b); });
+        rest.appendChild(f);
+      }
+
+      if(answerKind!=='safety') rest.appendChild(actions());
+
+      rest.querySelectorAll('[data-cite]').forEach(function(b){
+        if(b.classList.contains('cite-ref')){
+          b.addEventListener('click',function(){
+            var s=rest.querySelector('.snip[data-cite="'+b.dataset.cite+'"]');
+            if(!s) return;
+            s.scrollIntoView({block:'center',behavior:motionOff()?'auto':'smooth'});
+            s.setAttribute('data-flash','');
+            setTimeout(function(){ s.removeAttribute('data-flash'); },1200);
+          });
+        }
+      });
+
+      // 경로 레일은 답변이 다 흐른 뒤에 그린다. 답이 먼저, 경로는 그 뒤.
+      if(!data.noRoute) railCol.appendChild(buildRoute(data));
+      else railCol.appendChild(el('p','route-note',
+        answerKind==='safety'
+          ? '안전이 우선인 대화에서는 경로와 근거 표시를 멈춥니다.'
+          : '규정을 설명하는 답이 아니라 경로를 표시하지 않습니다.'));
+    }
+
+    if(motionOff()){ lead.textContent=data.lead; finish(); return; }
+    var seg;
+    try{ seg=Array.from(new Intl.Segmenter('ko',{granularity:'grapheme'}).segment(data.lead),function(s){return s.segment;}); }
+    catch(e){ seg=data.lead.split(''); }
+    var i=0;
+    (function tick(){
+      if(signal.aborted) return;
+      lead.textContent=seg.slice(0,i).join('');
+      i+=2;
+      if(i<=seg.length+2) setTimeout(tick,18);
+      else { lead.textContent=data.lead; finish(); }
+    })();
+  }
+
+  function actions(){
+    var wrap=el('div');
+    var bar=el('div','acts');
+    var up=el('button','act',svg('M7 20V10l4-6 1 1v5h6l-2 10z','ico-sm'));
+    var down=el('button','act',svg('M17 4v10l-4 6-1-1v-5H6l2-10z','ico-sm'));
+    var copy=el('button','act',svg('M9 9h11v11H9zM5 15V6a2 2 0 0 1 2-2h9','ico-sm')+' 복사');
+    up.type=down.type=copy.type='button';
+    up.setAttribute('aria-label','도움이 됐어요'); down.setAttribute('aria-label','아쉬워요');
+    bar.appendChild(up); bar.appendChild(down); bar.appendChild(el('span','act-div')); bar.appendChild(copy);
+    var form=el('div','fb');
+    wrap.appendChild(bar); wrap.appendChild(form);
+    function open(kind){
+      var rs = kind==='up' ? ['정확함','도움 됨','친절함','명확함','기타']
+                           : ['부정확함','도움 안 됨','근거 부족','너무 김','부적절','기타'];
+      form.innerHTML='<p class="t">'+(kind==='up'?'어떤 점이 좋았나요':'무엇이 아쉬웠나요')+'</p>'+
+        '<div class="cs">'+rs.map(function(r){return '<button class="chip" type="button" aria-pressed="false">'+r+'</button>';}).join('')+'</div>'+
+        '<textarea placeholder="더 알려주실 내용이 있으면 적어 주세요" aria-label="피드백 내용"></textarea><div class="r"></div>';
+      var r=form.querySelector('.r');
+      var c=el('button','btn btn-line btn-sm','취소'); c.type='button';
+      var s=el('button','btn btn-go btn-sm','보내기'); s.type='button';
+      r.appendChild(c); r.appendChild(s);
+      form.setAttribute('data-open','');
+      form.querySelectorAll('.cs .chip').forEach(function(x){
+        x.addEventListener('click',function(){ x.setAttribute('aria-pressed',String(x.getAttribute('aria-pressed')!=='true')); });
+      });
+      c.addEventListener('click',function(){ form.removeAttribute('data-open'); });
+      s.addEventListener('click',function(){ form.removeAttribute('data-open'); });
+    }
+    up.addEventListener('click',function(){
+      var on=up.getAttribute('aria-pressed')==='true';
+      up.setAttribute('aria-pressed',String(!on)); down.setAttribute('aria-pressed','false');
+      if(!on) open('up'); else form.removeAttribute('data-open');
+    });
+    down.addEventListener('click',function(){
+      var on=down.getAttribute('aria-pressed')==='true';
+      down.setAttribute('aria-pressed',String(!on)); up.setAttribute('aria-pressed','false');
+      if(!on) open('down'); else form.removeAttribute('data-open');
+    });
+    return wrap;
+  }
+
+  /* ── 상태 갤러리: 경로 네 가지 ─────────────────────────────────────── */
+  function renderRouteStates(){
+    var host=document.getElementById('route-states');
+    host.innerHTML='';
+    [
+      { c:'확인 중 · 근거가 아직 오지 않음', k:'admin', frozen:'wait' },
+      { c:'도착 · 8종 확인, 2종 인용', k:'admin', frozen:'done' },
+      { c:'검색은 했지만 인용 0건', k:'norag', frozen:'done' },
+      { c:'경로 없음 · 안전이 먼저', k:'safety', frozen:'done' }
+    ].forEach(function(x){
+      var d=el('div','demo','<p class="c">'+x.c+'</p>');
+      var data=ANSWERS[x.k];
+      if(data.noRoute){
+        d.appendChild(el('p','route-note','안전이 우선인 대화에서는 경로와 근거 표시를 멈춥니다. 규정 안내와 긴 설명도 중단합니다.'));
+      } else {
+        d.appendChild(buildRoute(data,{frozen:x.frozen}));
+      }
+      host.appendChild(d);
+    });
+  }
+
+  /* ── 스위치 / 컴포저 ───────────────────────────────────────────────── */
+  document.addEventListener('click',function(e){
+    var s=e.target.closest('.switch'); if(!s) return;
+    s.setAttribute('aria-checked',String(s.getAttribute('aria-checked')!=='true'));
+  });
+  document.querySelectorAll('[data-composer]').forEach(function(ta){
+    ta.addEventListener('input',function(){ ta.style.height='auto'; ta.style.height=Math.min(ta.scrollHeight,140)+'px'; });
+  });
+
+  reduceQuery.addEventListener('change',function(){ if(current==='thread') renderThread(); });
+  show(location.hash.slice(1)||'home');
+})();
+</script>
+
+<style>
+  /* 엠블럼: 참고 시안에서 잘라낸 마크를 휘도 알파로 바꾼 마스크. 테마에 따라 색만 바뀐다. */
+  :root{ --emblem:url("data:image/png;base64,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") }
+</style>
+</body>
+</html>

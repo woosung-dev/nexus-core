@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 네비게이션 — ui-b · 근거가 보이는 답 (ui-ux-pro-max)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ================================================================
+   ui-b · 방향 C 「근거가 보이는 답」 — ui-ux-pro-max 해석
+   명제: 인용 구조 자체가 미학이다.
+   골격: Exaggerated Minimalism(대형 타이포·여백·고대비)
+         × 검색이 곧 CTA(디렉토리) × 원문 뷰어 병치(실험 수위)
+   ================================================================ */
+:root{
+  --bg:#FCFCFA;
+  --panel:#F6F5F2;
+  --ink:#17121F;
+  --body:#3B3547;
+  --muted:#6E6879;
+  --faint:#A29CAD;
+  --hair:#E5E2DC;
+  --hair-dark:#CFCBC3;
+  --act:#53398A;
+  --act-deep:#3F2A6C;
+  --act-wash:#EEE9F6;
+  --mark:#EFE7FB;          /* 근거 하이라이트: 보라 워시 */
+  --mark-line:#B49BDE;
+  --focus:#8A6CC4;
+  --mono:"JetBrains Mono",ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif;
+  background:var(--bg);color:var(--body);
+  font-size:16px;line-height:1.7;
+  word-break:keep-all;overflow-wrap:break-word;
+  min-height:100dvh;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.mono{font-family:var(--mono);letter-spacing:0}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
+}
+.view{display:none}
+.view.on{display:block}
+.scrim2{display:none} /* 데스크톱에서 그리드 아이템으로 잡히지 않도록 */
+
+/* ================= 랜딩 ================= */
+.frame{max-width:1240px;margin:0 auto;padding:0 40px}
+.top{
+  display:flex;align-items:center;gap:14px;
+  padding:20px 0;border-bottom:1px solid var(--ink);
+}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink)}
+.brand img{width:26px;height:26px}
+.brand b{font-weight:800;font-size:15.5px;letter-spacing:-.2px}
+.top .tag{font-size:12px;color:var(--muted)}
+.top .sp{flex:1}
+.top a.plain{font-size:14px;color:var(--muted);padding:8px 2px}
+.top a.plain:hover{color:var(--ink)}
+.btn-login{
+  border:1px solid var(--ink);padding:8px 20px;font-size:14px;font-weight:600;color:var(--ink);
+  transition:background .18s,color .18s;
+}
+.btn-login:hover{background:var(--ink);color:var(--bg)}
+
+.hero{padding:96px 0 0}
+.hero .kicker{font-size:13px;color:var(--muted);letter-spacing:.16em}
+.hero h1{
+  margin-top:18px;
+  font-size:clamp(44px,7.4vw,96px);
+  line-height:1.14;font-weight:800;color:var(--ink);
+  letter-spacing:-.045em;
+}
+.hero h1 .u{
+  box-shadow:inset 0 -0.14em var(--act-wash);
+}
+.hero .sub{margin-top:28px;font-size:17px;color:var(--muted);max-width:520px;line-height:1.85}
+
+/* 검색 = CTA */
+.search{margin-top:52px;max-width:860px}
+.search-bar{
+  display:flex;align-items:center;gap:14px;
+  border:1.5px solid var(--ink);background:#fff;
+  padding:6px 6px 6px 22px;
+  transition:box-shadow .2s;
+}
+.search-bar:focus-within{box-shadow:6px 6px 0 var(--act-wash)}
+.search-bar svg{width:20px;height:20px;stroke:var(--muted);flex:none}
+.search-bar input{flex:1;border:0;background:none;outline:none;font-size:17px;min-height:52px}
+.search-bar input::placeholder{color:var(--faint)}
+.search-go{
+  background:var(--ink);color:#fff;font-weight:700;font-size:15px;
+  padding:0 28px;height:52px;flex:none;
+  transition:background .18s;
+}
+.search-go:hover{background:var(--act-deep)}
+.hot{margin-top:22px;max-width:860px}
+.hot-row{
+  display:flex;align-items:center;gap:14px;width:100%;text-align:left;
+  padding:14px 4px;border-bottom:1px solid var(--hair);
+  font-size:15.5px;color:var(--body);
+  transition:color .15s,padding-left .2s;min-height:48px;
+}
+.hot-row:hover{color:var(--act);padding-left:10px}
+.hot-row .n{font-family:var(--mono);font-size:12px;color:var(--faint);width:22px;flex:none}
+.hot-row .sp{flex:1}
+.hot-row svg{width:15px;height:15px;stroke:currentColor;opacity:.55}
+
+/* 문서 색인 */
+.section{padding:120px 0 0}
+.sec-title{
+  display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;
+  border-bottom:1px solid var(--ink);padding-bottom:16px;
+}
+.sec-title h2{font-size:clamp(24px,3vw,34px);font-weight:800;color:var(--ink);letter-spacing:-.03em}
+.sec-title p{font-size:14px;color:var(--muted)}
+.sec-title .sp{flex:1}
+.sec-title .count{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.index{width:100%;border-collapse:collapse}
+.index th{
+  text-align:left;font-size:12px;font-weight:500;color:var(--faint);
+  letter-spacing:.08em;padding:14px 4px;border-bottom:1px solid var(--hair);
+}
+.index td{padding:17px 4px;border-bottom:1px solid var(--hair);font-size:15px;vertical-align:baseline}
+.index .doc{font-weight:700;color:var(--ink)}
+.index .ed,.index .up{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.index .st{font-size:12.5px;color:var(--muted)}
+.index .st.warn{color:var(--act);font-weight:600}
+.index tr:hover td{background:var(--panel)}
+.index-note{margin-top:16px;font-size:13.5px;color:var(--muted);max-width:640px;line-height:1.8}
+
+/* 답이 만들어지는 길: 단선 파이프라인 */
+.pipe{margin-top:44px;position:relative;padding-bottom:8px}
+.pipe-line{position:absolute;left:0;right:0;top:26px;height:1px;background:var(--hair-dark)}
+.pipe-row{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;position:relative}
+.stage .dot{
+  width:11px;height:11px;border-radius:999px;background:var(--bg);
+  border:2px solid var(--ink);margin:21px 0 16px;
+}
+.stage.hot .dot{background:var(--act);border-color:var(--act)}
+.stage .k{font-family:var(--mono);font-size:11px;color:var(--faint);letter-spacing:.1em}
+.stage h3{font-size:16.5px;font-weight:700;color:var(--ink);margin-top:8px;letter-spacing:-.2px}
+.stage p{font-size:13.5px;color:var(--muted);margin-top:8px;line-height:1.75;max-width:220px}
+
+.foot{
+  margin-top:130px;border-top:1px solid var(--ink);
+  padding:26px 0 48px;display:flex;flex-wrap:wrap;gap:8px 26px;
+  font-size:13px;color:var(--muted);
+}
+.foot .sp{flex:1}
+
+/* ================= 채팅 (3단: 세션 / 스레드 / 근거) ================= */
+.chat{display:grid;grid-template-columns:232px minmax(0,1fr) 384px;height:100dvh}
+.rail{
+  border-right:1px solid var(--hair);display:flex;flex-direction:column;
+  background:var(--bg);padding:18px 12px;gap:4px;min-height:0;
+}
+.rail .brand{padding:2px 8px 14px}
+.rail .brand b{font-size:14px}
+.btn-new{
+  display:flex;align-items:center;gap:9px;
+  border:1px solid var(--ink);padding:10px 13px;
+  font-size:13.5px;font-weight:700;color:var(--ink);
+  transition:background .15s,color .15s;min-height:42px;
+}
+.btn-new:hover{background:var(--ink);color:var(--bg)}
+.btn-new svg{width:14px;height:14px;stroke:currentColor}
+.rail-label{font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.14em;padding:16px 8px 6px}
+.sess{
+  text-align:left;padding:9px 10px;font-size:13.5px;color:var(--body);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  border-left:2px solid transparent;transition:background .15s;min-height:38px;
+}
+.sess:hover{background:var(--panel)}
+.sess[aria-current="true"]{border-left-color:var(--act);background:var(--panel);color:var(--ink);font-weight:600}
+.rail .sp{flex:1}
+.rail-foot{border-top:1px solid var(--hair);padding:12px 8px 0;font-size:13px;color:var(--muted)}
+
+.mid{display:flex;flex-direction:column;min-width:0;min-height:0}
+.chat-head{
+  display:flex;align-items:center;gap:12px;
+  padding:0 24px;height:58px;border-bottom:1px solid var(--hair);flex:none;
+}
+.chat-head .menu{display:none}
+.chat-head h1{font-size:15px;font-weight:700;color:var(--ink)}
+.chat-head .scope{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.chat-head .sp{flex:1}
+.ghost{font-size:13px;color:var(--muted);padding:8px 10px;min-height:38px}
+.ghost:hover{color:var(--act)}
+
+.thread{flex:1;overflow-y:auto;min-height:0}
+.thread-inner{max-width:680px;margin:0 auto;padding:36px 28px 20px}
+
+.u-msg{display:flex;justify-content:flex-end;margin:22px 0 30px}
+.u-msg p{
+  background:var(--ink);color:var(--bg);
+  padding:11px 18px;max-width:78%;font-size:15px;line-height:1.7;
+  border-radius:2px 2px 2px 14px;
+}
+
+/* 검색 타임라인 */
+.trace{border:1px solid var(--hair);background:#fff;margin-bottom:26px}
+.trace-head{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:11px 14px;min-height:44px;
+}
+.trace-head .led{width:7px;height:7px;border-radius:999px;background:var(--act);flex:none}
+.trace-head b{font-size:13px;color:var(--ink);font-weight:600}
+.trace-head .t{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.trace-head .sp{flex:1}
+.trace-head .caret{width:15px;height:15px;stroke:var(--faint);transition:transform .2s}
+.trace.open .caret{transform:rotate(180deg)}
+.trace-body{display:none;border-top:1px solid var(--hair);padding:14px 16px 16px}
+.trace.open .trace-body{display:block}
+.t-step{display:grid;grid-template-columns:64px 1fr;gap:12px;padding:7px 0;font-size:13px}
+.t-step .k{font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.1em;padding-top:3px}
+.t-chips{display:flex;flex-wrap:wrap;gap:6px}
+.t-chip{
+  font-size:12px;border:1px solid var(--hair-dark);padding:3px 10px;color:var(--body);border-radius:999px;
+}
+.t-chip.doc{border-color:var(--mark-line);background:var(--mark);color:var(--act-deep)}
+.t-note{color:var(--muted)}
+
+/* 답변 본문 + 인용 칩 */
+.a-doc{font-size:15.8px;line-height:1.9}
+.a-doc .lead{font-size:18px;font-weight:700;color:var(--ink);line-height:1.75;letter-spacing:-.2px}
+.a-doc .para{margin-top:16px}
+.cite{
+  display:inline-flex;align-items:center;gap:5px;vertical-align:baseline;
+  font-size:11.5px;font-weight:600;color:var(--act-deep);
+  background:var(--mark);border:1px solid transparent;border-radius:999px;
+  padding:1px 9px;margin:0 3px;transform:translateY(-1px);
+  transition:border-color .15s,background .15s;
+}
+.cite:hover{border-color:var(--mark-line)}
+.cite.on{background:var(--act);color:#fff}
+.cite .no{font-family:var(--mono);font-size:10px}
+.a-doc ul{margin:14px 0 0;padding-left:0;list-style:none}
+.a-doc ul li{
+  padding:10px 0 10px 18px;border-left:1px solid var(--hair-dark);margin-left:6px;
+  position:relative;
+}
+.a-doc ul li::before{
+  content:"";position:absolute;left:-4px;top:1.05em;
+  width:7px;height:7px;border-radius:999px;background:var(--act);
+}
+.a-doc ul li b{color:var(--ink)}
+.gap-note{
+  margin-top:22px;border:1px dashed var(--hair-dark);padding:13px 16px;
+  font-size:13.5px;color:var(--muted);line-height:1.8;
+}
+.gap-note b{color:var(--ink);font-weight:600}
+
+.act-row{display:flex;gap:2px;margin-top:22px}
+.icon-btn{width:36px;height:36px;display:grid;place-items:center;color:var(--faint)}
+.icon-btn:hover{color:var(--act)}
+.icon-btn svg{width:16px;height:16px;stroke:currentColor}
+.follow{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+.follow button{
+  border:1px solid var(--hair-dark);padding:8px 15px;font-size:13.5px;color:var(--body);
+  transition:border-color .15s,color .15s;min-height:38px;
+}
+.follow button:hover{border-color:var(--act);color:var(--act)}
+
+.composer{border-top:1px solid var(--hair);flex:none;background:var(--bg)}
+.composer-inner{max-width:680px;margin:0 auto;padding:14px 28px 10px}
+.c-bar{
+  display:flex;align-items:center;gap:10px;
+  border:1.5px solid var(--ink);background:#fff;padding:4px 4px 4px 16px;
+}
+.c-bar input{flex:1;border:0;background:none;outline:none;font-size:15px;min-height:44px}
+.c-bar button{background:var(--ink);color:#fff;height:44px;padding:0 20px;font-weight:700;font-size:14px}
+.c-bar button:hover{background:var(--act-deep)}
+.c-note{text-align:center;font-family:var(--mono);font-size:10.5px;color:var(--faint);padding:9px 0 5px;letter-spacing:.06em}
+
+/* 근거 패널 */
+.evid{
+  border-left:1px solid var(--hair);background:var(--panel);
+  display:flex;flex-direction:column;min-height:0;
+}
+.evid-tabs{display:flex;border-bottom:1px solid var(--hair);flex:none;background:var(--bg)}
+.evid-tab{
+  flex:1;padding:0 8px;height:58px;font-size:13px;color:var(--muted);
+  border-bottom:2px solid transparent;font-weight:600;
+}
+.evid-tab .ct{font-family:var(--mono);font-size:10.5px;margin-left:5px;color:var(--faint)}
+.evid-tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--act)}
+.evid-scroll{flex:1;overflow-y:auto;padding:18px 16px 24px;min-height:0}
+.evid-pane{display:none}
+.evid-pane.on{display:block}
+
+.passage{
+  background:#fff;border:1px solid var(--hair);margin-bottom:12px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.passage.on{border-color:var(--act);box-shadow:4px 4px 0 var(--act-wash)}
+.passage-head{
+  display:flex;align-items:baseline;gap:8px;padding:12px 14px 0;
+}
+.passage-head .no{
+  font-family:var(--mono);font-size:10px;font-weight:500;color:#fff;
+  background:var(--act);border-radius:999px;padding:1px 7px;flex:none;transform:translateY(-1px);
+}
+.passage-head b{font-size:13.5px;color:var(--ink)}
+.passage-head .loc{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.passage-body{padding:10px 14px 12px;font-size:13.5px;line-height:1.95;color:var(--body)}
+.passage-body .hl{
+  background:var(--mark);box-shadow:inset 0 -1px var(--mark-line);
+  padding:0 .1em;
+}
+.passage-foot{
+  border-top:1px solid var(--hair);padding:8px 14px;
+  display:flex;gap:10px;align-items:center;
+  font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.05em;
+}
+.passage-foot .sp{flex:1}
+.passage-foot .open-doc{font-size:11px;color:var(--act);letter-spacing:0;font-family:inherit;font-weight:600}
+.found-item{
+  display:flex;gap:10px;align-items:baseline;
+  padding:11px 4px;border-bottom:1px solid var(--hair);font-size:13.5px;color:var(--body);
+}
+.found-item b{color:var(--ink);font-weight:600}
+.found-item .why{font-size:12px;color:var(--muted);display:block;margin-top:2px}
+.found-note{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.8}
+.evid-legend{
+  margin-bottom:14px;font-size:12px;color:var(--muted);line-height:1.7;
+  padding:10px 12px;background:var(--bg);border:1px solid var(--hair);
+}
+
+/* ================= 반응형 ================= */
+.evid-mobile-toggle{display:none}
+@media (max-width:1180px){
+  .chat{grid-template-columns:208px minmax(0,1fr)}
+  .evid{
+    position:fixed;top:0;right:0;bottom:0;width:min(400px,92vw);z-index:70;
+    transform:translateX(100%);transition:transform .25s ease-out;
+    box-shadow:-24px 0 60px rgba(23,18,31,.18);
+  }
+  .evid.open{transform:none}
+  .evid-mobile-toggle{
+    display:inline-flex;align-items:center;gap:7px;
+    border:1px solid var(--hair-dark);padding:7px 13px;font-size:12.5px;color:var(--body);
+    min-height:38px;
+  }
+  .evid-mobile-toggle b{font-family:var(--mono);font-size:11px;color:var(--act)}
+  .scrim2{position:fixed;inset:0;background:rgba(23,18,31,.35);z-index:60;display:none}
+  .scrim2.on{display:block}
+}
+@media (max-width:920px){
+  .chat{grid-template-columns:1fr}
+  .rail{
+    position:fixed;inset:0 96px 0 0;z-index:70;transform:translateX(-100%);
+    transition:transform .25s ease-out;box-shadow:24px 0 60px rgba(23,18,31,.18);
+  }
+  .rail.open{transform:none}
+  .chat-head .menu{display:grid}
+  .pipe-line{display:none}
+  .pipe-row{grid-template-columns:1fr;gap:6px}
+  .stage{display:grid;grid-template-columns:40px 1fr;gap:0 14px;align-items:start}
+  .stage .dot{margin:8px 0 0 12px}
+  .stage .k{grid-column:2}
+  .stage h3{grid-column:2;margin-top:2px}
+  .stage p{grid-column:2;max-width:none}
+}
+@media (max-width:640px){
+  .frame{padding:0 22px}
+  .hero{padding:64px 0 0}
+  .search{margin-top:36px}
+  .search-go{padding:0 18px}
+  .section{padding:84px 0 0}
+  .index .up-col{display:none}
+  .thread-inner,.composer-inner{padding-left:18px;padding-right:18px}
+  .u-msg p{max-width:88%}
+  .foot{margin-top:84px}
+}
+</style>
+</head>
+<body>
+
+<!-- ================================================= 랜딩 -->
+<section class="view on" id="view-home">
+<div class="frame">
+  <header class="top">
+    <a class="brand" href="#" onclick="return false">
+      <img src="assets/emblem.svg" alt="블레싱 네비게이션 엠블럼">
+      <b>블레싱 네비게이션</b>
+    </a>
+    <span class="tag">문서기반 안내 창구</span>
+    <span class="sp"></span>
+    <a class="plain" href="#index">문서 색인</a>
+    <a class="btn-login" href="#" onclick="return false">하나로 로그인</a>
+  </header>
+
+  <div class="hero">
+    <p class="kicker mono">EVIDENCE-FIRST · 축복·가정 정책 안내</p>
+    <h1>근거 없이<br><span class="u">답하지 않습니다.</span></h1>
+    <p class="sub">모든 답변의 문장 옆에는 출처가 붙고, 출처를 누르면 규정 원문의
+    바로 그 대목이 열립니다. 근거가 없으면 — 그렇게 말씀드립니다.</p>
+  </div>
+
+  <div class="search">
+    <div class="search-bar">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+      <input id="home-q" type="text" placeholder="규정집에 물어보세요" aria-label="질문 입력" enterkeyhint="search">
+      <button class="search-go" onclick="goChat()">질문</button>
+    </div>
+  </div>
+  <div class="hot" role="list" aria-label="많이 찾는 질문">
+    <button class="hot-row" onclick="goChat(this.textContent)"><span class="n">01</span>축복식 준비 절차가 궁금해요<span class="sp"></span><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+    <button class="hot-row" onclick="goChat(this.textContent)"><span class="n">02</span>40일 정성은 무엇인가요?<span class="sp"></span><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+    <button class="hot-row" onclick="goChat(this.textContent)"><span class="n">03</span>축복후보자 서류는 무엇이 필요한가요?<span class="sp"></span><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+    <button class="hot-row" onclick="goChat(this.textContent)"><span class="n">04</span>봉헌식은 어떻게 준비하나요?<span class="sp"></span><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+  </div>
+
+  <section class="section" id="index">
+    <div class="sec-title">
+      <h2>문서 색인</h2>
+      <p>이 창구가 근거로 삼는 문서 전부입니다.</p>
+      <span class="sp"></span>
+      <span class="count mono">8 DOCS · UPDATED 2026-07</span>
+    </div>
+    <table class="index">
+      <thead><tr><th>문서</th><th>판</th><th class="up-col">최근 갱신</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr><td class="doc">축복 안내서</td><td class="ed">2026 정본</td><td class="up up-col">2026-07</td><td class="st">—</td></tr>
+        <tr><td class="doc">가정 생활 문답</td><td class="ed">2026</td><td class="up up-col">2026-06</td><td class="st">—</td></tr>
+        <tr><td class="doc">축복식 준비 지침</td><td class="ed">2026</td><td class="up up-col">2026-05</td><td class="st">—</td></tr>
+        <tr><td class="doc">후보자 등록 안내</td><td class="ed">2026</td><td class="up up-col">2026-05</td><td class="st">—</td></tr>
+        <tr><td class="doc">40일 정성 안내</td><td class="ed">2025</td><td class="up up-col">2025-11</td><td class="st warn">개정 이전 판본</td></tr>
+        <tr><td class="doc">봉헌식 안내</td><td class="ed">2025</td><td class="up up-col">2025-09</td><td class="st">—</td></tr>
+        <tr><td class="doc">자주 묻는 질문</td><td class="ed">수시</td><td class="up up-col">2026-08</td><td class="st">—</td></tr>
+        <tr><td class="doc">용어 풀이집</td><td class="ed">수시</td><td class="up up-col">2026-07</td><td class="st">—</td></tr>
+      </tbody>
+    </table>
+    <p class="index-note">비고에 표시가 없는 문서는 현행 판입니다. 표시는 확인이 필요한 경우에만 붙습니다 —
+    색인에 없는 내용을 물으시면, 답을 지어내는 대신 색인 밖임을 알려드립니다.</p>
+  </section>
+
+  <section class="section" aria-label="답이 만들어지는 길">
+    <div class="sec-title">
+      <h2>답이 만들어지는 길</h2>
+      <p>모든 답은 이 길을 지나고, 지나온 길은 답마다 열어볼 수 있습니다.</p>
+    </div>
+    <div class="pipe">
+      <div class="pipe-line" aria-hidden="true"></div>
+      <div class="pipe-row">
+        <div class="stage"><div class="dot"></div><span class="k">QUESTION</span><h3>질문</h3><p>질문을 그대로 받습니다. 짐작으로 바꿔 읽지 않습니다.</p></div>
+        <div class="stage"><div class="dot"></div><span class="k">SEARCH</span><h3>색인 검색</h3><p>위 색인의 문서 안에서만 근거를 찾습니다.</p></div>
+        <div class="stage hot"><div class="dot"></div><span class="k">GROUND</span><h3>원문 대조</h3><p>찾은 대목을 원문과 대조해, 문장 단위로 근거를 붙입니다.</p></div>
+        <div class="stage"><div class="dot"></div><span class="k">ANSWER</span><h3>답 + 출처</h3><p>근거가 붙은 답만 내보냅니다. 근거가 없으면, 없다고 알립니다.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    <span>블레싱 네비게이션</span>
+    <span>공식 문서 기반 안내 · 상황에 따라 소속 담당자 확인이 필요할 수 있습니다</span>
+    <span class="sp"></span>
+    <span class="mono">HANARO SSO</span>
+  </footer>
+</div>
+</section>
+
+<!-- ================================================= 채팅 -->
+<section class="view" id="view-chat">
+<div class="chat">
+  <aside class="rail" id="rail">
+    <a class="brand" href="#home" onclick="goHome();return false">
+      <img src="assets/emblem.svg" alt="">
+      <b>블레싱 네비게이션</b>
+    </a>
+    <button class="btn-new">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      새 질문
+    </button>
+    <p class="rail-label">RECENT</p>
+    <button class="sess" aria-current="true">축복식 준비 절차</button>
+    <button class="sess">40일 정성 기간</button>
+    <button class="sess">후보자 서류 목록</button>
+    <div class="sp"></div>
+    <div class="rail-foot">마이페이지</div>
+  </aside>
+  <div class="scrim2" id="scrim2" onclick="closeOverlays()"></div>
+
+  <div class="mid">
+    <header class="chat-head">
+      <button class="icon-btn menu" aria-label="대화 목록 열기" onclick="openRail()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div>
+        <h1>축복식 준비 절차</h1>
+        <p class="scope mono">SCOPE: 색인 8권 · 2026 정본 우선</p>
+      </div>
+      <span class="sp"></span>
+      <button class="evid-mobile-toggle" onclick="openEvid()">근거 <b>3</b></button>
+      <button class="ghost" onclick="goHome()">처음으로</button>
+    </header>
+
+    <div class="thread">
+      <div class="thread-inner">
+        <div class="u-msg"><p>축복식 준비 절차가 궁금해요. 어디서부터 시작해야 할까요?</p></div>
+
+        <div class="trace open">
+          <button class="trace-head" onclick="this.parentElement.classList.toggle('open')" aria-expanded="true">
+            <span class="led" aria-hidden="true"></span>
+            <b>답이 지나온 길</b>
+            <span class="t mono">검색 0.8s · 근거 3곳</span>
+            <span class="sp"></span>
+            <svg class="caret" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+          </button>
+          <div class="trace-body">
+            <div class="t-step"><span class="k">SEARCH</span><span class="t-chips"><span class="t-chip">축복식 준비</span><span class="t-chip">후보자 등록</span></span></div>
+            <div class="t-step"><span class="k">FOUND</span><span class="t-chips"><span class="t-chip doc">축복 안내서 §4·2</span><span class="t-chip doc">준비 지침 §2</span><span class="t-chip doc">준비 지침 §3</span><span class="t-chip">문답 7항 — 인용 안 됨</span></span></div>
+            <div class="t-step"><span class="k">GROUND</span><span class="t-note">3개 대목을 원문과 대조해 문장에 연결했습니다 → 오른쪽 근거 패널</span></div>
+          </div>
+        </div>
+
+        <article class="a-doc">
+          <p class="lead">축복식 준비는 소속 가정 교회를 통한 후보자 등록에서 시작합니다.<button class="cite" data-ev="1" onclick="pick(this)"><span class="no">1</span>축복 안내서</button></p>
+          <p class="para">등록 뒤의 준비는 문서에 안내된 순서대로 세 갈래입니다.</p>
+          <ul>
+            <li><b>후보자 등록</b> — 소속 교회의 추천을 받아 등록 서류를 제출합니다.<button class="cite" data-ev="1" onclick="pick(this)"><span class="no">1</span>§4·2</button></li>
+            <li><b>준비 교육 이수</b> — 등록 후 안내되는 교육 과정을 이수합니다.<button class="cite" data-ev="2" onclick="pick(this)"><span class="no">2</span>지침 §2</button></li>
+            <li><b>정성 기간</b> — 축복식 전 정해진 기간의 정성을 드립니다.<button class="cite" data-ev="3" onclick="pick(this)"><span class="no">3</span>지침 §3</button></li>
+          </ul>
+          <p class="para">회차별 등록 기간과 서류는 공문으로 달라질 수 있습니다. 이 부분은 문서에 확정 값이 없어, 소속 가정부장님께 확인을 권해 드립니다.</p>
+          <div class="gap-note"><b>색인 밖 안내 —</b> "올해 등록 마감일"은 색인 문서에 없는 정보입니다. 근거 없이 날짜를 답하지 않으며, 회차 공문 또는 가정부장님 확인이 필요합니다.</div>
+
+          <div class="act-row">
+            <button class="icon-btn" aria-label="도움이 됐어요"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9M3 13v5a2 2 0 0 0 2 2h2V11H5a2 2 0 0 0-2 2zM7 11l4-7a2.4 2.4 0 0 1 2.4 2.4V10h5a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 17.2 20H7"/></svg></button>
+            <button class="icon-btn" aria-label="아쉬워요"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(180deg)"><path d="M7 11v9M3 13v5a2 2 0 0 0 2 2h2V11H5a2 2 0 0 0-2 2zM7 11l4-7a2.4 2.4 0 0 1 2.4 2.4V10h5a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 17.2 20H7"/></svg></button>
+            <button class="icon-btn" aria-label="복사"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>
+          </div>
+          <div class="follow">
+            <button>축복후보자 서류는 무엇이 필요한가요?</button>
+            <button>준비 교육은 얼마나 걸리나요?</button>
+          </div>
+        </article>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer-inner">
+        <div class="c-bar">
+          <input type="text" placeholder="이어서 물어보세요" aria-label="질문 입력" enterkeyhint="send">
+          <button>질문</button>
+        </div>
+        <p class="c-note">GROUNDED IN 8 DOCS · 근거 없는 답변은 내보내지 않습니다</p>
+      </div>
+    </div>
+  </div>
+
+  <aside class="evid" id="evid" aria-label="근거 패널">
+    <div class="evid-tabs" role="tablist">
+      <button class="evid-tab" role="tab" aria-selected="true" onclick="tab(this,'pane-cited')">인용된 원문<span class="ct">3</span></button>
+      <button class="evid-tab" role="tab" aria-selected="false" onclick="tab(this,'pane-found')">검색만 됨<span class="ct">1</span></button>
+    </div>
+    <div class="evid-scroll">
+      <div class="evid-pane on" id="pane-cited">
+        <p class="evid-legend">본문의 출처 칩을 누르면 해당 원문이 이 자리에서 켜집니다. 형광펜은 답변이 실제로 참고한 대목입니다.</p>
+        <div class="passage on" id="ev-1">
+          <div class="passage-head"><span class="no">1</span><b>축복 안내서</b><span class="loc">§4·2</span></div>
+          <p class="passage-body">축복을 희망하는 가정은 먼저 소속 교회와 상의한다.
+          <span class="hl">축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록을 마쳐야 한다.</span>
+          등록에 필요한 서류와 기간은 회차별 공문으로 안내한다.</p>
+          <div class="passage-foot">2026 정본<span class="sp"></span><button class="open-doc">문서 전체 보기</button></div>
+        </div>
+        <div class="passage" id="ev-2">
+          <div class="passage-head"><span class="no">2</span><b>축복식 준비 지침</b><span class="loc">§2</span></div>
+          <p class="passage-body">등록을 마친 후보자에게는 교육 일정이 개별 안내된다.
+          <span class="hl">후보자는 축복식에 앞서 소정의 준비 교육을 이수한다.</span></p>
+          <div class="passage-foot">2026<span class="sp"></span><button class="open-doc">문서 전체 보기</button></div>
+        </div>
+        <div class="passage" id="ev-3">
+          <div class="passage-head"><span class="no">3</span><b>축복식 준비 지침</b><span class="loc">§3</span></div>
+          <p class="passage-body"><span class="hl">축복식에 앞서 각 가정은 정해진 기간의 정성을 준비한다.</span>
+          정성의 구체적 방법은 「40일 정성 안내」를 따른다.</p>
+          <div class="passage-foot">2026<span class="sp"></span><button class="open-doc">문서 전체 보기</button></div>
+        </div>
+      </div>
+      <div class="evid-pane" id="pane-found">
+        <p class="evid-legend">검색에는 걸렸지만 이번 답변에 인용되지 않은 문서입니다 — 무엇을 읽고 무엇을 쓰지 않았는지까지 공개합니다.</p>
+        <div class="found-item">
+          <span><b>가정 생활 문답</b> 7항
+            <span class="why">축복식 일반 소개 대목 — 질문(절차)과 직접 관련이 낮아 인용하지 않음</span>
+          </span>
+        </div>
+        <p class="found-note">인용되지 않았다고 틀린 문서가 아닙니다. 질문과의 관련도가 낮았을 뿐입니다.</p>
+      </div>
+    </div>
+  </aside>
+</div>
+</section>
+
+<script>
+function show(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  window.scrollTo(0,0);
+}
+function goChat(q){show('view-chat');history.replaceState(null,'','#chat')}
+function goHome(){show('view-home');history.replaceState(null,'','#home');closeOverlays()}
+function openRail(){document.getElementById('rail').classList.add('open');document.getElementById('scrim2').classList.add('on')}
+function openEvid(){document.getElementById('evid').classList.add('open');document.getElementById('scrim2').classList.add('on')}
+function closeOverlays(){
+  document.getElementById('rail').classList.remove('open');
+  document.getElementById('evid').classList.remove('open');
+  document.getElementById('scrim2').classList.remove('on');
+}
+function pick(chip){
+  document.querySelectorAll('.cite').forEach(c=>c.classList.remove('on'));
+  chip.classList.add('on');
+  document.querySelectorAll('.passage').forEach(p=>p.classList.remove('on'));
+  const t=document.getElementById('ev-'+chip.dataset.ev);
+  /* 인용 탭으로 전환 후 해당 원문 켬 */
+  document.querySelectorAll('.evid-tab')[0].click();
+  t.classList.add('on');
+  if(window.matchMedia('(max-width:1180px)').matches)openEvid();
+  t.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
+function tab(btn,pane){
+  document.querySelectorAll('.evid-tab').forEach(t=>t.setAttribute('aria-selected','false'));
+  btn.setAttribute('aria-selected','true');
+  document.querySelectorAll('.evid-pane').forEach(p=>p.classList.remove('on'));
+  document.getElementById(pane).classList.add('on');
+}
+document.getElementById('home-q').addEventListener('keydown',e=>{if(e.key==='Enter')goChat(e.target.value)});
+if(location.hash==='#chat')show('view-chat');
+</script>
+</body>
+</html>

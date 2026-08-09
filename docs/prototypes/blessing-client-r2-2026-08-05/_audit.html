@@ -1,0 +1,38 @@
+<!doctype html><meta charset="utf-8"><title>audit</title>
+<body style="margin:0;background:#111;color:#eee;font:12px/1.6 ui-monospace,monospace">
+<iframe id="f" style="position:fixed;left:-9999px;top:0;border:0"></iframe><pre id="o">running…</pre>
+<script>
+var CASES=[];
+[['desk.html',['login/light','home/light','chat/admin/light','chat/nobasis/dark','chat/safety/light','source/light','me/light']],
+ ['stacks.html',['login/light','home/light','chat/admin/light','chat/nobasis/dark','chat/safety/light','source/light','me/light']],
+ ['letter.html',['login/light','home/light','chat/admin/light','chat/nobasis/dark','chat/safety/light','source/light','me/light']]
+].forEach(function(pair){
+  pair[1].forEach(function(h){ CASES.push([pair[0],h,1400]); CASES.push([pair[0],h,390]); });
+});
+var f=document.getElementById('f'), o=document.getElementById('o'), out=[], i=0;
+function next(){
+  if(i>=CASES.length){ o.textContent=out.join('\n')+'\nDONE'; document.title='DONE'; return; }
+  var c=CASES[i++];
+  f.width=c[2]; f.height=1200;
+  f.onload=function(){ setTimeout(function(){
+    var d,r=[],docW=0,scrollW=0,err='';
+    try{
+      d=f.contentDocument; docW=d.documentElement.clientWidth; scrollW=d.documentElement.scrollWidth;
+      d.querySelectorAll('*').forEach(function(el){
+        var b=el.getBoundingClientRect();
+        if(b.right>docW+1&&b.width>0){
+          var k=el.tagName.toLowerCase()+(typeof el.className==='string'&&el.className?'.'+el.className.trim().split(/\s+/).join('.'):'');
+          if(r.indexOf(k)<0)r.push(k);
+        }
+      });
+    }catch(e){err=' ERR:'+e.message}
+    out.push((scrollW>docW?'FAIL':'ok  ')+' '+c[0]+' #'+c[1]+' @'+c[2]+
+             '  vw='+docW+' sw='+scrollW+(r.length?'  ['+r.slice(0,4).join(', ')+']':'')+err);
+    o.textContent=out.join('\n');
+    next();
+  },700); };
+  f.src='about:blank';
+  setTimeout(function(){ f.src=c[0]+'#'+c[1]; }, 40);
+}
+next();
+</script>

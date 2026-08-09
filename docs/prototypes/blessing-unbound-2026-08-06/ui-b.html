@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ui-b 선반 · 궁금한 만큼, 꺼내 보세요</title>
+<!-- ui-ux-pro-max 2안 중 B. 방향: 선반(Shelf) — 봇·문서·데모가 크기 다른 타일로 놓인
+     액티브 벤토. 파스텔 + 잉크 보더의 소프트 브루탈리즘. 콘텐츠는 전부 UI 검토용 목데이터. -->
+<style>
+@font-face{font-family:"SUIT Variable";src:url("https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/variable/woff2/SUIT-Variable.woff2") format("woff2-variations");font-weight:100 900;font-display:swap}
+:root{
+  --paper:#faf8f1; --tile:#ffffff; --butter:#f6ecc7; --sage:#e2ead7; --cloud:#e4e9ee;
+  --ink:#23221c;
+  --t1:var(--ink);
+  --t2:color-mix(in oklab, var(--ink) 78%, transparent);
+  --t3:color-mix(in oklab, var(--ink) 58%, transparent);
+  --t4:color-mix(in oklab, var(--ink) 40%, transparent);
+  --line:var(--ink);
+  --hair:color-mix(in oklab, var(--ink) 14%, transparent);
+  --r-ctl:10px; --r-card:16px; --r-pill:999px;
+  --bw:1.5px;
+  --sh:4px 4px 0 var(--ink);
+  --sh-big:7px 7px 0 var(--ink);
+  --ease:cubic-bezier(.4,0,.2,1); --dur:150ms;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{font-family:"SUIT Variable","Pretendard Variable",Pretendard,-apple-system,system-ui,"Apple SD Gothic Neo",sans-serif}
+body{background:var(--paper);color:var(--t2);font-size:15.5px;line-height:1.7;letter-spacing:0;
+  word-break:keep-all;overflow-wrap:break-word;-webkit-font-smoothing:antialiased;min-height:100dvh}
+::selection{background:var(--butter)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1240px;margin:0 auto;padding:0 32px}
+.view{display:none}.view.on{display:block}
+.scrim{display:none}
+:where(a,button,input):focus-visible{outline:2.5px solid var(--ink);outline-offset:2px;border-radius:var(--r-ctl)}
+
+/* 타입 세트 — SUIT는 여백이 넉넉해 디스플레이 자간을 조금 더 조인다 */
+.t-display{font-size:56px;line-height:1.22;letter-spacing:-.028em;font-weight:800;color:var(--t1);white-space:pre-wrap}
+.t-h2{font-size:28px;line-height:1.38;letter-spacing:-.02em;font-weight:800;color:var(--t1)}
+.t-label{font-size:12px;line-height:1.4;letter-spacing:.05em;font-weight:700;color:var(--t3);text-transform:uppercase}
+.t-num{font-variant-numeric:tabular-nums}
+
+/* ── 헤더 ─────────────────────────────────────────── */
+header.site{position:sticky;top:0;z-index:40;background:var(--paper);border-bottom:var(--bw) solid var(--ink)}
+.site-in{display:flex;align-items:center;gap:26px;height:66px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;letter-spacing:-.015em;color:var(--t1)}
+.brand .mark{width:26px;height:26px;border:var(--bw) solid var(--ink);border-radius:7px;background:var(--butter);
+  display:grid;place-items:center;box-shadow:2px 2px 0 var(--ink)}
+.brand .mark svg{width:13px;height:13px}
+nav.g{display:flex;gap:2px;margin-left:auto;align-items:center}
+nav.g a{padding:8px 13px;border-radius:var(--r-ctl);font-size:14px;font-weight:600;color:var(--t3);
+  transition:color var(--dur) var(--ease),background var(--dur) var(--ease)}
+nav.g a:hover{color:var(--t1);background:var(--butter)}
+.btn{display:inline-flex;align-items:center;justify-content:center;height:42px;padding:0 20px;
+  border:var(--bw) solid var(--ink);border-radius:var(--r-ctl);font-size:14px;font-weight:700;
+  background:var(--tile);box-shadow:3px 3px 0 var(--ink);
+  transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),background var(--dur) var(--ease)}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+.btn:active{transform:translate(2px,2px);box-shadow:1px 1px 0 var(--ink)}
+.btn-ink{background:var(--ink);color:var(--paper)}
+.btn-ink:hover{background:var(--ink)}
+nav.g a.btn-ink{color:var(--paper);background:var(--ink)}
+nav.g a.btn-ink:hover{color:var(--paper);background:var(--ink)}
+
+/* ── 벤토 ─────────────────────────────────────────── */
+.bento-sec{padding:56px 0 84px}
+.bento{display:grid;grid-template-columns:repeat(12,1fr);gap:18px}
+.tile{border:var(--bw) solid var(--ink);border-radius:var(--r-card);background:var(--tile);padding:28px;
+  position:relative;display:flex;flex-direction:column;
+  transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease)}
+.tile.lift{box-shadow:var(--sh)}
+.tile.lift:hover{transform:translate(-2px,-2px);box-shadow:var(--sh-big)}
+.tile .t-label{margin-bottom:14px}
+
+.tl-hero{grid-column:span 7;grid-row:span 2;background:var(--butter);padding:40px 40px 34px;justify-content:space-between;gap:28px}
+.tl-hero .t-lead{font-size:16.5px;line-height:1.65;color:var(--t2);max-width:420px;margin-top:18px;font-weight:500}
+.ask-row{display:flex;gap:10px;background:var(--tile);border:var(--bw) solid var(--ink);border-radius:12px;
+  padding:7px 7px 7px 18px;box-shadow:3px 3px 0 var(--ink)}
+.ask-row input{flex:1;border:0;background:none;font:inherit;font-size:15px;font-weight:500;color:var(--t1);min-width:0}
+.ask-row input::placeholder{color:var(--t4)}
+.ask-row input:focus{outline:none}
+.ask-row .btn{height:42px;box-shadow:none;border-radius:8px}
+.ask-row .btn:hover{transform:none}
+.ex{display:flex;flex-wrap:wrap;gap:8px;margin-top:13px}
+.ex button{font-size:12.5px;font-weight:600;color:var(--t2);border:var(--bw) solid var(--ink);border-radius:var(--r-pill);
+  padding:6px 13px;background:var(--tile);transition:background var(--dur) var(--ease)}
+.ex button:hover{background:var(--sage)}
+
+.tl-demo{grid-column:span 5;background:var(--tile);gap:0}
+.tl-demo .q{font-size:13px;font-weight:700;color:var(--t1);padding-bottom:12px;border-bottom:var(--bw) dashed var(--hair);margin-bottom:13px}
+.tl-demo p.a{font-size:13.5px;line-height:1.72;color:var(--t2)}
+.cite{display:inline-flex;align-items:center;gap:5px;border:var(--bw) solid var(--ink);border-radius:var(--r-pill);
+  background:var(--sage);padding:1px 9px;font-size:11px;font-weight:700;color:var(--t1);margin:0 2px;vertical-align:1px;
+  transition:background var(--dur) var(--ease)}
+.cite:hover{background:var(--butter)}
+.tl-demo .more{margin-top:14px;background:var(--sage);border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.66;color:var(--t2);
+  opacity:.85;transition:opacity var(--dur) var(--ease)}
+.tl-demo:hover .more{opacity:1}
+.tl-demo .more mark{background:var(--butter);padding:1px 3px;border-radius:3px;color:var(--t1)}
+.tl-demo .more .src{display:block;margin-top:7px;font-size:11px;font-weight:700;color:var(--t3)}
+
+.tl-receipt{grid-column:span 5;background:var(--sage)}
+.rline{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:var(--bw) dashed color-mix(in oklab, var(--ink) 30%, transparent);font-size:13px;font-weight:600;color:var(--t2)}
+.rline:first-of-type{border-top:0}
+.rline .bx{flex:none;width:17px;height:17px;border:var(--bw) solid var(--ink);border-radius:5px;background:var(--tile);display:grid;place-items:center}
+.rline .bx svg{width:9px;height:9px}
+.rline em{font-style:normal;margin-left:auto;font-size:11.5px;color:var(--t3);font-weight:700}
+
+.tl-bot{grid-column:span 3;gap:8px;cursor:pointer}
+.tl-bot .nm{font-size:17px;font-weight:800;letter-spacing:-.015em;color:var(--t1)}
+.tl-bot .doc{font-size:12.5px;font-weight:600;color:var(--t3)}
+.tl-bot .flag{margin-top:auto;padding-top:14px;font-size:11px;font-weight:700;color:var(--t3)}
+.tl-bot .flag i{font-style:normal;border:var(--bw) solid var(--hair);border-radius:var(--r-pill);padding:2px 9px;display:inline-block}
+.tl-bot.b1{background:var(--tile)} .tl-bot.b2{background:var(--cloud)}
+.tl-bot.b3{background:var(--tile)} .tl-bot.b4{background:var(--butter)}
+.tl-all{grid-column:span 3;background:var(--ink);color:var(--paper);cursor:pointer;gap:8px}
+.tl-all b{font-size:17px;font-weight:800;letter-spacing:-.015em}
+.tl-all span{font-size:12.5px;color:color-mix(in oklab, var(--paper) 70%, transparent);font-weight:500}
+.tl-all .arrow{margin-top:auto;font-size:20px;transition:transform var(--dur) var(--ease)}
+.tl-all:hover .arrow{transform:translateX(4px)}
+
+.tl-shelf{grid-column:span 6;background:var(--cloud)}
+.shelf{display:flex;flex-direction:column;gap:6px;margin-top:4px}
+.sp{height:26px;border:var(--bw) solid var(--ink);border-radius:6px;background:var(--tile);
+  display:flex;align-items:center;gap:10px;padding:0 12px;font-size:11.5px;font-weight:700;color:var(--t2);
+  transition:transform var(--dur) var(--ease)}
+.sp:hover{transform:translateX(4px)}
+.sp i{font-style:normal;margin-left:auto;font-weight:600;color:var(--t4)}
+.sp.w80{width:86%}.sp.w70{width:72%}.sp.w90{width:94%}.sp.w60{width:63%}
+.tl-shelf .sum{margin-top:14px;font-size:12.5px;font-weight:600;color:var(--t3)}
+
+.tl-vow{grid-column:span 6;background:var(--tile);justify-content:center;padding:34px 36px}
+.tl-vow p{font-size:22px;line-height:1.45;letter-spacing:-.018em;font-weight:800;color:var(--t1);white-space:pre-wrap}
+.tl-vow span{margin-top:12px;font-size:13.5px;font-weight:500;color:var(--t3)}
+
+/* ── 약속 ─────────────────────────────────────────── */
+.vows{padding:0 0 100px}
+.vrow{display:grid;grid-template-columns:56px 1fr 1.4fr;gap:28px;align-items:baseline;
+  padding:24px 4px;border-top:var(--bw) solid var(--ink)}
+.vrow:last-of-type{border-bottom:var(--bw) solid var(--ink)}
+.vrow .no{font-size:15px;font-weight:800;color:var(--t4);font-variant-numeric:tabular-nums}
+.vrow b{font-size:20px;font-weight:800;letter-spacing:-.018em;color:var(--t1)}
+.vrow p{font-size:14.5px;line-height:1.7;color:var(--t3)}
+
+footer.site{border-top:var(--bw) solid var(--ink);padding:30px 0 44px;background:var(--butter)}
+.foot-in{display:flex;flex-wrap:wrap;gap:12px 40px;justify-content:space-between;font-size:12.5px;font-weight:600;color:var(--t3)}
+
+/* ══ 채팅 ═══════════════════════════════════════════ */
+.chat-top{position:sticky;top:0;z-index:40;background:var(--paper);border-bottom:var(--bw) solid var(--ink)}
+.chat-top-in{max-width:860px;margin:0 auto;padding:0 32px;height:60px;display:flex;align-items:center;gap:14px}
+.chat-top .back{font-size:13.5px;font-weight:700;color:var(--t3);padding:6px 10px;border-radius:var(--r-ctl)}
+.chat-top .back:hover{background:var(--butter);color:var(--t1)}
+.bot-chip{display:inline-flex;align-items:center;gap:9px;border:var(--bw) solid var(--ink);border-radius:var(--r-pill);
+  background:var(--sage);padding:6px 15px;font-size:13.5px;font-weight:800;color:var(--t1);box-shadow:2px 2px 0 var(--ink)}
+.bot-chip span{font-weight:600;font-size:11.5px;color:var(--t3)}
+.chat-main{max-width:860px;margin:0 auto;padding:38px 32px 24px;display:flex;flex-direction:column;min-height:calc(100dvh - 61px)}
+.thread{flex:1;display:flex;flex-direction:column;gap:28px}
+.msg-user{align-self:flex-end;max-width:78%;background:var(--butter);border:var(--bw) solid var(--ink);
+  border-radius:14px 14px 4px 14px;padding:12px 17px;font-size:15px;font-weight:500;line-height:1.65;color:var(--t1);
+  box-shadow:3px 3px 0 var(--ink)}
+.msg-ai{width:100%}
+.msg-ai .who{font-size:11.5px;letter-spacing:.05em;font-weight:800;color:var(--t4);margin-bottom:12px;text-transform:uppercase}
+.doc-body{font-size:15.5px;line-height:1.78;color:var(--t2)}
+.doc-body>p{margin-bottom:15px}
+.doc-body b{color:var(--t1);font-weight:800}
+.expand{display:none;margin:10px 0 16px;border:var(--bw) solid var(--ink);border-radius:12px;background:var(--sage);
+  padding:15px 17px;font-size:13px;line-height:1.7;color:var(--t2);box-shadow:3px 3px 0 var(--ink)}
+.expand.on{display:block;animation:pop .24s var(--ease)}
+@keyframes pop{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.expand mark{background:var(--butter);padding:1px 3px;border-radius:3px;color:var(--t1)}
+.expand .src{display:flex;justify-content:space-between;gap:10px;margin-top:9px;font-size:11.5px;font-weight:700;color:var(--t3)}
+.expand .src i{font-style:normal;font-weight:600;color:var(--t4);font-variant-numeric:tabular-nums}
+.aside-note{margin:4px 0 0;border:var(--bw) dashed var(--hair);border-radius:12px;padding:13px 16px;font-size:13.5px;line-height:1.7;color:var(--t3)}
+.msg-tools{display:flex;gap:7px;margin-top:16px}
+.msg-tools button{font-size:12.5px;font-weight:700;color:var(--t3);padding:7px 13px;border:var(--bw) solid var(--hair);
+  border-radius:var(--r-pill);transition:all var(--dur) var(--ease);transition-property:color,border-color,background}
+.msg-tools button:hover{color:var(--t1);border-color:var(--ink);background:var(--butter)}
+.followups{display:flex;flex-wrap:wrap;gap:9px}
+.followups button{font-size:13px;font-weight:700;color:var(--t1);border:var(--bw) solid var(--ink);border-radius:var(--r-pill);
+  padding:8px 15px;background:var(--tile);box-shadow:2px 2px 0 var(--ink);
+  transition:transform var(--dur) var(--ease),box-shadow var(--dur) var(--ease),background var(--dur) var(--ease)}
+.followups button:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink);background:var(--sage)}
+.composer{position:sticky;bottom:0;padding:14px 0 20px;background:linear-gradient(to top, var(--paper) 74%, transparent)}
+.composer .note{margin-top:9px;font-size:11.5px;font-weight:600;color:var(--t4);text-align:center}
+
+/* ── 반응형 ───────────────────────────────────────── */
+@media (max-width:1080px){
+  .tl-hero{grid-column:span 12}
+  .tl-demo,.tl-receipt{grid-column:span 6}
+  .tl-bot,.tl-all{grid-column:span 4}
+  .tl-shelf,.tl-vow{grid-column:span 6}
+}
+@media (max-width:760px){
+  .wrap{padding:0 20px}
+  .bento-sec{padding:34px 0 60px}
+  .bento{gap:14px}
+  .tile{grid-column:span 12 !important;padding:24px 22px}
+  .tl-hero{padding:30px 24px 26px}
+  .t-display{font-size:33px;line-height:1.3;letter-spacing:-.02em}
+  .t-h2{font-size:23px}
+  nav.g a:not(.btn){display:none}
+  .vrow{grid-template-columns:40px 1fr;gap:8px 16px}
+  .vrow p{grid-column:2}
+  .chat-main{padding:26px 20px 18px}
+  .chat-top-in{padding:0 20px}
+  .bot-chip span{display:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ 랜딩 ═══════════ -->
+<div class="view v-landing on" id="view-landing">
+<header class="site">
+  <div class="wrap site-in">
+    <a class="brand" href="#">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 14 14" fill="none"><path d="M2 11.5V4l5-2 5 2v7.5" stroke="#23221c" stroke-width="1.6" stroke-linejoin="round"/><path d="M4.6 11.5V6.6h4.8v4.9" stroke="#23221c" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+      블레싱
+    </a>
+    <nav class="g">
+      <a href="#roster">창구</a>
+      <a href="#vows">약속</a>
+      <a href="#chat" class="btn btn-ink" style="margin-left:10px;height:38px">질문하기</a>
+    </nav>
+  </div>
+</header>
+
+<section class="bento-sec">
+  <div class="wrap bento">
+
+    <div class="tile tl-hero">
+      <div>
+        <h1 class="t-display">궁금한 만큼,
+꺼내 보세요</h1>
+        <p class="t-lead">필요한 답이 담긴 문서를, 블레싱이 대신 펼쳐요.
+모든 답에는 어느 문서 몇 쪽인지 함께 적어 드려요.</p>
+      </div>
+      <div>
+        <form class="ask-row" onsubmit="location.hash='chat';return false">
+          <input type="text" placeholder="축복식 준비 절차가 궁금해요" aria-label="질문 입력">
+          <button class="btn btn-ink" type="submit">질문</button>
+        </form>
+        <div class="ex" aria-label="질문 예시">
+          <button onclick="location.hash='chat'">후보자 서류는 무엇이 필요한가요?</button>
+          <button onclick="location.hash='chat'">교류 기간에는 무엇을 하나요?</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="tile tl-demo lift">
+      <span class="t-label">답변 미리보기</span>
+      <p class="q">Q. 축복식 준비, 어디서부터 시작하나요?</p>
+      <p class="a">소속 가정 교회를 통한 <strong>후보자 등록</strong>에서 시작해요
+        <button class="cite" type="button">축복 안내서 4장</button>
+        그다음 준비 교육을 이수해요 <button class="cite" type="button">준비 지침 2장</button></p>
+      <div class="more">
+        "축복을 희망하는 가정은 먼저 <mark>소속 교회와 상의한다</mark>."
+        <span class="src">축복 안내서(2026 정본) · 4장 2절 · p.41</span>
+      </div>
+    </div>
+
+    <div class="tile tl-receipt lift">
+      <span class="t-label">근거 영수증</span>
+      <div>
+        <div class="rline"><span class="bx"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5.2 4 7.8 8.5 2.4" stroke="#23221c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>문서 2권 검색<em>4개 구절</em></div>
+        <div class="rline"><span class="bx"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5.2 4 7.8 8.5 2.4" stroke="#23221c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>원문 대조<em>완료</em></div>
+        <div class="rline"><span class="bx"><svg viewBox="0 0 10 10" fill="none"><path d="M1.5 5.2 4 7.8 8.5 2.4" stroke="#23221c" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>인용 3건 확정<em class="t-num">0.8초</em></div>
+      </div>
+    </div>
+
+    <a class="tile tl-bot b1 lift" href="#chat" id="roster">
+      <span class="nm">블레싱 네비게이션</span>
+      <span class="doc">담당 문서 7종</span>
+      <span class="flag"><i>근거 못 찾으면 답하지 않음</i></span>
+    </a>
+    <a class="tile tl-bot b2 lift" href="#chat">
+      <span class="nm">가정 행정 안내</span>
+      <span class="doc">담당 문서 5종</span>
+      <span class="flag"></span>
+    </a>
+    <a class="tile tl-bot b3 lift" href="#chat">
+      <span class="nm">청년 안내</span>
+      <span class="doc">담당 문서 4종</span>
+      <span class="flag"></span>
+    </a>
+    <a class="tile tl-all lift" href="#chat">
+      <b>창구 전체 보기</b>
+      <span>봉헌식·의례 안내, 용어 사전, 日本語 안내까지 8곳</span>
+      <span class="arrow" aria-hidden="true">→</span>
+    </a>
+
+    <div class="tile tl-shelf lift">
+      <span class="t-label">근거 선반 · 문서 17종</span>
+      <div class="shelf">
+        <div class="sp w90">축복 안내서 (2026 정본)<i>규정집</i></div>
+        <div class="sp w80">축복식 준비 지침<i>지침</i></div>
+        <div class="sp w70">가정 행정 편람<i>안내</i></div>
+        <div class="sp w60">가정 생활 문답<i>FAQ</i></div>
+      </div>
+      <p class="sum">승인 문서만 근거로 써요. 웹 검색은 섞지 않아요</p>
+    </div>
+
+    <div class="tile tl-vow">
+      <p>문서에 없으면,
+없다고 말해요</p>
+      <span>추측 대신, 확인할 수 있는 곳을 안내해요.</span>
+    </div>
+
+  </div>
+</section>
+
+<section class="vows wrap" id="vows">
+  <div class="vrow"><span class="no">01</span><b>모든 답에 출처를 남겨요</b><p>문서 이름과 조항, 쪽수까지 함께 적어요. 원문 발췌를 바로 펼쳐 확인할 수 있어요.</p></div>
+  <div class="vrow"><span class="no">02</span><b>창구마다 담당 문서가 달라요</b><p>어느 창구에 물어야 할지 몰라도 괜찮아요. 질문을 보고 담당 창구를 안내해요.</p></div>
+  <div class="vrow"><span class="no">03</span><b>마지막 확인은 사람이 해요</b><p>중요한 결정은 소속 교회 담당자와 상의하도록, 답변 끝에 문의처를 함께 안내해요.</p></div>
+</section>
+
+<footer class="site">
+  <div class="wrap foot-in">
+    <span>이 서비스는 승인 문서를 근거로 안내해요 · 최종 확인은 소속 교회를 통해 해 주세요</span>
+    <span>블레싱, UI 검토용 시안. 콘텐츠는 예시입니다</span>
+  </div>
+</footer>
+</div>
+
+<!-- ═══════════ 채팅 ═══════════ -->
+<div class="view v-chat" id="view-chat">
+<div class="chat-top">
+  <div class="chat-top-in">
+    <a class="back" href="#">← 홈</a>
+    <span class="bot-chip">블레싱 네비게이션 <span>· 문서 7종</span></span>
+    <a class="btn" style="margin-left:auto;height:36px;font-size:13px;box-shadow:2px 2px 0 var(--ink)" href="#chat">새 대화</a>
+  </div>
+</div>
+<main class="chat-main">
+  <div class="thread">
+    <div class="msg-user">축복식 준비 절차가 궁금해요. 어디서부터 시작해야 하나요?</div>
+    <div class="msg-ai">
+      <p class="who">Blessing Navigation · 근거 3건</p>
+      <div class="doc-body">
+        <p>축복식 준비는 <b>소속 가정 교회를 통한 후보자 등록</b>에서 시작해요.
+          <button class="cite" data-x="x1" type="button">축복 안내서 4장</button></p>
+        <div class="expand" id="x1">
+          "축복을 희망하는 가정은 먼저 <mark>소속 교회와 상의한다</mark>. 축복 후보자는 소속 교회의 추천을 받아 <mark>정해진 기간 안에 등록한다</mark>."
+          <span class="src">축복 안내서(2026 정본) · 4장 2절<i>p.41</i></span>
+        </div>
+        <p>등록을 마친 뒤에는 <b>준비 교육</b>을 이수해요.
+          <button class="cite" data-x="x2" type="button">준비 지침 2장</button>
+          교육 일정은 교구별로 공지돼요.</p>
+        <div class="expand" id="x2">
+          "축복식에 앞서 <mark>소정의 준비 교육을 이수한다</mark>."
+          <span class="src">축복식 준비 지침 · 2장<i>p.12</i></span>
+        </div>
+        <p>마지막으로 각 가정은 <b>정해진 기간의 정성</b>을 준비해요.
+          <button class="cite" data-x="x3" type="button">준비 지침 3장</button></p>
+        <div class="expand" id="x3">
+          "축복식에 앞서 각 가정은 <mark>정해진 기간의 정성을 준비한다</mark>."
+          <span class="src">축복식 준비 지침 · 3장<i>p.18</i></span>
+        </div>
+        <p class="aside-note">서류 목록은 교구마다 안내 시기가 달라요. 소속 교회 담당자에게
+확인하시는 것이 가장 정확해요.</p>
+      </div>
+      <div class="msg-tools">
+        <button type="button">도움됐어요</button>
+        <button type="button">아쉬워요</button>
+        <button type="button">복사</button>
+      </div>
+    </div>
+    <div class="followups" aria-label="이어서 묻기">
+      <button type="button">후보자 등록 서류가 궁금해요</button>
+      <button type="button">준비 교육 일정은 어디서 보나요</button>
+      <button type="button">정성 기간은 얼마나 되나요</button>
+    </div>
+  </div>
+  <form class="composer" onsubmit="return false">
+    <div class="ask-row">
+      <input type="text" placeholder="이어서 질문해 주세요" aria-label="질문 입력">
+      <button class="btn btn-ink" type="submit">보내기</button>
+    </div>
+    <p class="note">답변은 승인 문서를 근거로 해요 · 최종 확인은 소속 교회를 통해 해 주세요</p>
+  </form>
+</main>
+</div>
+
+<script>
+(function(){
+  var vl=document.getElementById('view-landing'), vc=document.getElementById('view-chat');
+  function route(){
+    var chat=location.hash.indexOf('chat')>-1;
+    vl.classList.toggle('on',!chat); vc.classList.toggle('on',chat);
+    window.scrollTo(0,0);
+  }
+  addEventListener('hashchange',route); route();
+  // 인용 칩 → 문장 아래 원문 카드 펼침
+  document.querySelectorAll('.cite[data-x]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var x=document.getElementById(b.dataset.x); if(!x) return;
+      x.classList.toggle('on');
+    });
+  });
+})();
+</script>
+</body>
+</html>

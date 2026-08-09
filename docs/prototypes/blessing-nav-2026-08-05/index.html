@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 네비게이션 클라이언트 UI 시안 3종</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  color-scheme:light dark;
+  --paper:#FBFAFC; --surface:#FFFFFF; --ink:#171219; --ink-2:#4E4757; --ink-3:#837B8E;
+  --hair:#E5E1EA; --hair-2:#D0CADA; --brand:#603B94; --brand-soft:#F1EBF8; --brand-ink:#4A2C77;
+  --ok:#2C6A4A;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --paper:#131019; --surface:#1A1622; --ink:#EEEAF3; --ink-2:#B9B1C5; --ink-3:#8B8298;
+    --hair:#2C2637; --hair-2:#40384F; --brand:#B694E6; --brand-soft:#251C34; --brand-ink:#C9AEF0;
+    --ok:#7FCBA4;
+  }
+}
+body{
+  font-family:'Pretendard Variable',Pretendard,'Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+  background:var(--paper);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.6;
+}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
+.mono{font-family:'JetBrains Mono',ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+
+.wrap{max-width:960px;margin:0 auto;padding:56px 24px 96px}
+@media (max-width:640px){ .wrap{padding:36px 20px 64px} }
+
+.kicker{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;color:var(--ink-3)}
+h1{font-size:clamp(28px,5vw,40px);font-weight:800;letter-spacing:-.035em;line-height:1.2;margin-top:14px}
+.lede{font-size:15px;line-height:1.85;color:var(--ink-2);margin-top:18px;max-width:60ch}
+
+.warn{
+  margin-top:26px;padding:14px 16px;border-radius:10px;border:1px solid var(--hair-2);
+  font-size:13px;line-height:1.7;color:var(--ink-2);background:var(--surface)
+}
+.warn b{color:var(--ink)}
+
+.shared{margin-top:44px;padding-top:26px;border-top:1px solid var(--hair)}
+.shared h2{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.shared > p{font-size:13.5px;color:var(--ink-3);margin-top:6px;max-width:62ch}
+.pts{margin-top:18px;border-top:1px solid var(--hair)}
+.pts li{list-style:none;display:grid;grid-template-columns:26px 1fr;gap:14px;padding:13px 2px;
+  border-bottom:1px solid var(--hair);font-size:14px;line-height:1.7;color:var(--ink-2)}
+.pts li span.n{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--brand);padding-top:5px}
+.pts li b{color:var(--ink);font-weight:600}
+
+.cards{display:grid;gap:18px;margin-top:44px}
+@media (min-width:820px){ .cards{grid-template-columns:repeat(3,1fr)} }
+.card{
+  display:grid;grid-template-rows:auto auto 1fr auto;gap:14px;
+  background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:22px;
+  transition:border-color .18s ease,box-shadow .18s ease,transform .18s ease
+}
+.card:hover{border-color:var(--brand);box-shadow:0 12px 32px -18px rgba(60,30,100,.4);transform:translateY(-2px)}
+.card .tag{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:var(--brand-ink);
+  background:var(--brand-soft);padding:4px 9px;border-radius:99px;justify-self:start}
+.card h3{font-size:19px;font-weight:800;letter-spacing:-.03em}
+.card h3 em{font-style:normal;display:block;font-size:12px;font-weight:500;color:var(--ink-3);
+  letter-spacing:0;margin-top:4px}
+.card p{font-size:13.5px;line-height:1.75;color:var(--ink-2)}
+.card dl{display:grid;gap:6px;font-size:12.5px;margin-top:2px}
+.card dl > div{display:grid;grid-template-columns:52px 1fr;gap:10px}
+.card dt{color:var(--ink-3)}
+.card dd{color:var(--ink-2)}
+.card .open{display:inline-flex;align-items:center;gap:7px;min-height:42px;padding:0 16px;border-radius:9px;
+  background:var(--brand);color:#fff;font-size:14px;font-weight:600;justify-self:start}
+@media (prefers-color-scheme:dark){ .card .open{color:#180F24} }
+
+.tbl{width:100%;border-collapse:collapse;margin-top:18px;font-size:13.5px}
+.tbl th{text-align:left;font-weight:600;color:var(--ink-3);font-size:12px;padding:0 12px 9px 0;border-bottom:1px solid var(--hair-2)}
+.tbl td{padding:11px 12px 11px 0;border-bottom:1px solid var(--hair);vertical-align:top;line-height:1.65;color:var(--ink-2)}
+.tbl td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
+.wrapt{overflow-x:auto;margin-top:18px}
+
+.how{margin-top:44px;padding-top:26px;border-top:1px solid var(--hair)}
+.how h2{font-size:16px;font-weight:700;letter-spacing:-.02em}
+.how ul{margin-top:14px;display:grid;gap:9px}
+/* grid 로 하면 li 안의 텍스트 노드와 인라인 요소가 각각 별개의 그리드 아이템이 되어
+   한 글자씩 세로로 쪼개진다. 불릿은 절대 위치로 붙인다. */
+.how li{list-style:none;font-size:13.5px;line-height:1.75;color:var(--ink-2);position:relative;padding-left:17px}
+.how li::before{content:"";position:absolute;left:0;top:9px;width:6px;height:6px;border-radius:50%;background:var(--brand)}
+.how code{font-family:'JetBrains Mono',monospace;font-size:12px;background:var(--surface);
+  border:1px solid var(--hair);padding:2px 6px;border-radius:5px}
+
+footer{margin-top:56px;padding-top:22px;border-top:1px solid var(--hair);font-size:12.5px;color:var(--ink-3);line-height:1.8}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="kicker">CLIENT UI PROPOSAL · 2026.08.05</p>
+  <h1>블레싱 네비게이션<br>클라이언트 화면 시안 3종</h1>
+  <p class="lede">
+    관리자 시안의 색상과 엠블럼만 이어받고, 정보 구조와 디자인 언어는 다시 설계했습니다.
+    세 안 모두 같은 8화면, 같은 예시 데이터, 같은 반응형 규칙을 씁니다.
+    다른 것은 <b>디자인 언어</b>와 <b>메인 화면의 논리</b>, 그리고 <b>근거를 보여주는 방식</b>입니다.
+  </p>
+
+  <div class="warn">
+    <b>화면의 봇 이름, 문서명, 규정 내용, 인용문은 전부 UI 검토용 예시입니다.</b>
+    실제 규정이나 승인 문서가 아닙니다. 시안의 오타는 바로잡아 실제 용어를 썼습니다.
+    속박식 → 축복식, 40일 정성훈 → 40일 정성, 블레싱과 헌장활동 → 봉헌식과 탕감봉.
+  </div>
+
+  <section class="shared">
+    <h2>세 안이 공통으로 푸는 문제</h2>
+    <p>시안에는 없지만 이 제품에 이미 있는 것, 그리고 지금 화면이 놓치고 있는 것입니다.</p>
+    <ul class="pts">
+      <li><span class="n">01</span><span><b>근거가 답변보다 늦게 온다.</b> 인용은 2초 간격으로 최대 15회, 30초까지 걸립니다. 지금은 기다리는 동안 화면에 아무 표시가 없어 사용자가 근거 없는 답으로 오해합니다. 세 안 모두 이 30초를 설계했습니다.</span></li>
+      <li><span class="n">02</span><span><b>인용 0건과 검색 실패는 다른 상태입니다.</b> 문서를 찾아봤지만 답을 뒷받침하지 못한 경우와, 애초에 근거가 없는 경우를 구분해서 보여줍니다.</span></li>
+      <li><span class="n">03</span><span><b>답변 유형이 네 가지고 화면 처리가 각각 다릅니다.</b> 행정 확답 · 맥락 확인 · 근거 없음 · 안전 우선. 뒤 두 가지는 어떤 시안에도 없었지만 운영 원칙이 요구하는 상태입니다. 상단 툴바에서 바로 전환해 비교할 수 있습니다.</span></li>
+      <li><span class="n">04</span><span><b>첫 화면의 두 진입점은 운영 원칙에 이미 정해져 있습니다.</b> 축복 정보 알아보기와 고민 나누기. 두 진입점은 서로 다른 봇이 아니라 같은 봇이 답변 순서를 바꾸는 것입니다.</span></li>
+      <li><span class="n">05</span><span><b>카드 위의 숫자를 전부 문서에 관한 사실로 바꿨습니다.</b> 캐릭터 AI 서비스가 대화 수를 놓는 자리에 근거 문서 수와 판본을 넣었습니다. 별점, 인기순, 팔로워는 이 제품에서 아무것도 증명하지 못합니다.</span></li>
+      <li><span class="n">06</span><span><b>한글 웹폰트를 실제로 싣습니다.</b> 현재 앱은 Geist 만 로드해 한글이 시스템 폴백으로 떨어집니다. 자간과 굵기가 통제되지 않는 것이 지금 화면이 저렴해 보이는 가장 큰 원인입니다.</span></li>
+    </ul>
+  </section>
+
+  <div class="cards">
+    <a class="card" href="a-register.html">
+      <span class="tag">A · taste-skill</span>
+      <h3>색인<em>The Register</em></h3>
+      <p>카드 격자를 버리고 헤어라인 색인으로 갑니다. 대화 화면은 3분할이고 <b>근거 패널이 항상 열려 있습니다.</b> 가장 조용하고 기관다운 안입니다.</p>
+      <dl>
+        <div><dt>메인</dt><dd>두 진입점 + 봇 색인 행</dd></div>
+        <div><dt>근거</dt><dd>우측 상시 패널</dd></div>
+        <div><dt>타입</dt><dd>Paperlogy + Pretendard</dd></div>
+        <div><dt>모션</dt><dd>절제</dd></div>
+      </dl>
+      <span class="open">A안 열기</span>
+    </a>
+
+    <a class="card" href="b-system.html">
+      <span class="tag">B · ui-ux-pro-max</span>
+      <h3>시스템<em>Shipping System</em></h3>
+      <p>지금 바로 Tailwind v4 <span class="mono">@theme</span> 로 옮길 수 있는 형태입니다. 토큰 11단계, 대비비 실측값, 모든 인터랙션 상태를 화면에 같이 싣습니다. <b>세 안 중 가장 안전한 선택입니다.</b></p>
+      <dl>
+        <div><dt>메인</dt><dd>진입점 세그먼트 + 가로 레일</dd></div>
+        <div><dt>근거</dt><dd>답변 하단 접이식 · 인용/검색 분리</dd></div>
+        <div><dt>타입</dt><dd>Pretendard 단일</dd></div>
+        <div><dt>모션</dt><dd>표준</dd></div>
+      </dl>
+      <span class="open">B안 열기</span>
+    </a>
+
+    <a class="card" href="c-route.html">
+      <span class="tag">C · frontend-design</span>
+      <h3>경로<em>Route</em></h3>
+      <p>제품 이름이 네비게이션입니다. 답이 <b>어떤 문서를 지나 왔는지를 노선으로 보여줍니다.</b> 메인은 디렉터리가 아니라 노선도입니다. 가장 모험적인 안입니다.</p>
+      <dl>
+        <div><dt>메인</dt><dd>정보선 · 고민선 노선도</dd></div>
+        <div><dt>근거</dt><dd>답변 옆 경로 레일</dd></div>
+        <div><dt>타입</dt><dd>Freesentation + Pretendard</dd></div>
+        <div><dt>모션</dt><dd>경로 레일에 집중</dd></div>
+      </dl>
+      <span class="open">C안 열기</span>
+    </a>
+  </div>
+
+  <section class="shared">
+    <h2>고르는 기준</h2>
+    <div class="wrapt">
+      <table class="tbl">
+        <thead><tr><th>이럴 때</th><th>고를 안</th><th>이유</th></tr></thead>
+        <tbody>
+          <tr><td>부모 세대 실무자가 주 사용자다</td><td>A</td><td>장식이 가장 적고 문서가 화면의 주인공이다. 근거 패널이 항상 열려 있어 규정을 확인하러 온 사람에게 가장 빠르다.</td></tr>
+          <tr><td>이번 분기 안에 실제로 붙여야 한다</td><td>B</td><td>토큰과 상태가 그대로 코드로 옮겨진다. 다크모드와 접근성 수치까지 이미 정리돼 있어 구현 위험이 가장 낮다.</td></tr>
+          <tr><td>다른 챗봇과 확실히 구별돼야 한다</td><td>C</td><td>경로 레일은 이 제품에서만 성립하는 장치다. 다른 서비스에 붙여넣을 수 없다.</td></tr>
+          <tr><td>2세 청년 유입을 늘리고 싶다</td><td>C 또는 B</td><td>C는 인상이 강하고, B는 익숙한 앱 문법이라 학습 비용이 낮다.</td></tr>
+          <tr><td>정하기 어렵다</td><td>B + C 조합</td><td>B의 토큰 위에 C의 경로 레일만 얹는 조합이 실현 가능하다. A의 상시 근거 패널은 데스크톱 옵션으로 추가할 수 있다.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="how">
+    <h2>보는 방법</h2>
+    <ul>
+      <li>각 파일 상단의 <b>검은 툴바는 제품 화면이 아니라 검토용 도구</b>입니다. 실제 화면에는 나오지 않습니다.</li>
+      <li><b>화면</b> 드롭다운으로 8개 화면을 이동합니다. 주소창 해시로도 되니 <code>a-register.html#thread</code> 처럼 특정 화면을 바로 공유할 수 있습니다.</li>
+      <li><b>답변 유형</b> 드롭다운으로 행정 확답 · 맥락 확인 · 근거 없음 · 안전 우선 네 가지를 비교합니다. 근거가 늦게 도착하는 연출은 대화 진행 화면에 들어가면 자동으로 재생됩니다.</li>
+      <li><b>Desktop / Mobile</b> 토글은 창 크기와 무관하게 동작합니다. 컨테이너 쿼리를 써서 27인치에서도 모바일 화면이 정확히 390px 로 보입니다.</li>
+      <li><b>라이트 / 다크 / 자동</b>, <b>모션 On / Off</b> 도 세 안 모두 동작합니다. 자동은 OS 설정을 따릅니다.</li>
+      <li>인터넷이 없으면 한글 웹폰트가 시스템 폰트로 대체됩니다. 레이아웃은 그대로지만 자간이 달라집니다.</li>
+    </ul>
+  </section>
+
+  <footer>
+    작성 2026-08-05 · 자립형 정적 HTML · 빌드 도구 없음 · 외부 의존은 폰트 CDN 뿐<br>
+    엠블럼은 관리자 시안 이미지에서 잘라내 휘도 알파 마스크로 변환한 것이라 테마에 따라 색만 바뀝니다.
+  </footer>
+
+</div>
+</body>
+</html>

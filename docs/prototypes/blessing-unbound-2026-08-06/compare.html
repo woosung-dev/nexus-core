@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>blessing-unbound 대조판 · 6안</title>
+<style>
+:root{--ink:#1e2124;--muted:#6d7278;--hair:#e3e2e0;--act:#c2502e}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",sans-serif;background:#f2f1ef;color:var(--ink);min-height:100dvh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:8px;padding:10px 18px;background:#fff;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+header b{font-size:13.5px;margin-right:8px}
+button{font:inherit;border:1px solid var(--hair);background:#fff;border-radius:7px;padding:7px 13px;font-size:12.5px;cursor:pointer;color:var(--ink)}
+button:hover{border-color:var(--act);color:var(--act)}
+button.on{background:var(--act);border-color:var(--act);color:#fff}
+.sp{flex:1}
+.lbl{font-size:11.5px;color:var(--muted)}
+main{flex:1;display:grid;grid-template-columns:1fr;gap:14px;padding:14px;min-height:0}
+main.two{grid-template-columns:1fr 1fr}
+.pane{display:flex;flex-direction:column;background:#fff;border:1px solid var(--hair);border-radius:10px;overflow:hidden;min-height:0}
+.pane .cap{font-size:12px;color:var(--muted);padding:8px 14px;border-bottom:1px solid var(--hair)}
+.pane .cap b{color:var(--ink)}
+iframe{flex:1;border:0;width:100%;min-height:0}
+.pane.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <b>blessing-unbound · 6안 대조판</b>
+  <button data-f="ui-a" class="on" onclick="pick(this)">ui-a 회로</button>
+  <button data-f="ui-b" onclick="pick(this)">ui-b 선반</button>
+  <button data-f="fd-a" onclick="pick(this)">fd-a 지면</button>
+  <button data-f="fd-b" onclick="pick(this)">fd-b 야간</button>
+  <button data-f="ts-a" onclick="pick(this)">ts-a 선언</button>
+  <button data-f="ts-b" onclick="pick(this)">ts-b 서고</button>
+  <span class="sp"></span>
+  <span class="lbl">화면</span>
+  <button id="v-home" class="on" onclick="setView('')">랜딩</button>
+  <button id="v-chat" onclick="setView('#chat')">채팅</button>
+  <span class="lbl">배치</span>
+  <button id="m-one" class="on" onclick="setMode(1)">1면</button>
+  <button id="m-two" onclick="setMode(2)">2면 비교</button>
+</header>
+<main id="main">
+  <div class="pane" id="p1">
+    <div class="cap" id="c1"><b>ui-a</b> · 회로 (ui-ux-pro-max)</div>
+    <iframe id="f1" src="ui-a.html" title="시안 1"></iframe>
+  </div>
+  <div class="pane hide" id="p2">
+    <div class="cap" id="c2"><b>ui-b</b> · 선반 (ui-ux-pro-max)</div>
+    <iframe id="f2" src="ui-b.html" title="시안 2"></iframe>
+  </div>
+</main>
+<script>
+const NAMES={
+ 'ui-a':'ui-a · 회로 — 질문이 답이 되는 경로 (ui-ux-pro-max)',
+ 'ui-b':'ui-b · 선반 — 파스텔 소프트 브루탈 벤토 (ui-ux-pro-max)',
+ 'fd-a':'fd-a · 지면 — 웜 크림 에디토리얼 + 근거확인 도장 (frontend-design)',
+ 'fd-b':'fd-b · 야간 — 니어블랙 + 램프빛 (frontend-design)',
+ 'ts-a':'ts-a · 선언 — 테라코타 매니페스토 (taste-skill)',
+ 'ts-b':'ts-b · 서고 — 오프블랙 아카이브 (taste-skill)'
+};
+let view='', mode=1, slot=1, cur1='ui-a', cur2='ui-b';
+function load(n,f){
+  document.getElementById('f'+n).src=f+'.html'+view;
+  document.getElementById('c'+n).innerHTML='<b>'+f+'</b> · '+NAMES[f].split('· ')[1];
+}
+function pick(btn){
+  const f=btn.dataset.f;
+  if(mode===1){cur1=f;load(1,f);}
+  else{ if(slot===1){cur1=f;load(1,f);slot=2;} else {cur2=f;load(2,f);slot=1;} }
+  document.querySelectorAll('header [data-f]').forEach(b=>b.classList.toggle('on', b.dataset.f===cur1||(mode===2&&b.dataset.f===cur2)));
+}
+function setView(v){
+  view=v;
+  document.getElementById('v-home').classList.toggle('on',v==='');
+  document.getElementById('v-chat').classList.toggle('on',v!=='');
+  load(1,cur1); if(mode===2) load(2,cur2);
+}
+function setMode(m){
+  mode=m; slot=1;
+  document.getElementById('main').classList.toggle('two',m===2);
+  document.getElementById('p2').classList.toggle('hide',m!==2);
+  document.getElementById('m-one').classList.toggle('on',m===1);
+  document.getElementById('m-two').classList.toggle('on',m===2);
+  if(m===2) load(2,cur2);
+  document.querySelectorAll('header [data-f]').forEach(b=>b.classList.toggle('on', b.dataset.f===cur1||(m===2&&b.dataset.f===cur2)));
+}
+</script>
+</body>
+</html>

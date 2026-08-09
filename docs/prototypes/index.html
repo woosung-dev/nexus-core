@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 프로토타입 색인</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --bg:#141019; --panel:#1D1727; --panel-2:#241C33; --line:#2C2438; --line-2:#3E3450;
+  --fg:#EDE7F5; --fg-2:#B7ABC9; --fg-3:#867A95;
+  --gold:#D9B368; --brand:#C0AAE8; --new:#7FCBA4;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--fg);min-height:100dvh;
+  font-family:'Pretendard Variable',Pretendard,-apple-system,system-ui,sans-serif;
+  font-size:14px;line-height:1.7;word-break:keep-all;
+  padding:34px 20px 70px
+}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1080px;margin:0 auto}
+
+header{border-bottom:1px solid var(--line);padding-bottom:20px;margin-bottom:30px}
+h1{font-size:23px;font-weight:800;letter-spacing:-.6px}
+header p{font-size:13.5px;color:var(--fg-3);margin-top:9px;max-width:70ch}
+header .k{font-family:ui-monospace,monospace;font-size:11px;color:var(--fg-3);
+          letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:7px}
+
+.jump{display:flex;flex-wrap:wrap;gap:5px;margin-top:15px}
+.jump a{font-family:ui-monospace,monospace;font-size:11px;color:var(--fg-3);
+        border:1px solid var(--line);border-radius:5px;padding:4px 9px;min-height:26px;
+        display:inline-flex;align-items:center;transition:border-color .13s ease,color .13s ease}
+.jump a:hover{border-color:var(--brand);color:var(--fg)}
+.jump a[data-cur]{color:var(--new);border-color:var(--new)}
+
+/* ── 밴드: 최근 3세션 / 이전 라운드 ───────────────────────── */
+.band{margin-bottom:44px}
+.band-h{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:9px}
+.band-h .bt{font-family:ui-monospace,monospace;font-size:10.5px;font-weight:700;
+            letter-spacing:.09em;text-transform:uppercase;padding:3px 9px;border-radius:3px}
+.band-h h2{font-size:17px;font-weight:800;letter-spacing:-.4px}
+.band > .sub{font-size:12.5px;color:var(--fg-3);max-width:78ch;line-height:1.75;margin-bottom:22px}
+.band > .sub b{color:var(--fg-2)}
+
+.band[data-new]{border:1px solid rgba(127,203,164,.34);border-left-width:3px;border-radius:10px;
+                background:rgba(127,203,164,.045);padding:20px 20px 4px}
+.band[data-new] .band-h .bt{color:var(--bg);background:var(--new)}
+.band[data-new] .round:last-of-type{margin-bottom:24px}
+
+.band[data-old]{border-top:1px solid var(--line);padding-top:24px}
+.band[data-old] > summary{list-style:none;cursor:pointer;display:flex;align-items:baseline;
+                          gap:11px;flex-wrap:wrap;margin-bottom:20px}
+.band[data-old] > summary::-webkit-details-marker{display:none}
+.band[data-old] > summary .bt{font-family:ui-monospace,monospace;font-size:10.5px;font-weight:700;
+                              letter-spacing:.09em;text-transform:uppercase;padding:3px 9px;
+                              border-radius:3px;color:var(--fg-3);border:1px solid var(--line-2)}
+.band[data-old] > summary h2{font-size:17px;font-weight:800;letter-spacing:-.4px;color:var(--fg-2)}
+.band[data-old] > summary .hint{font-family:ui-monospace,monospace;font-size:11px;
+                                color:var(--fg-3);margin-left:auto}
+.band[data-old] > summary:hover h2{color:var(--fg)}
+.band[data-old][open] > summary .hint::after{content:" ▲"}
+.band[data-old]:not([open]) > summary .hint::after{content:" ▼"}
+.band[data-old] .round-h h2{color:var(--fg-2);font-size:15px}
+.band[data-old] .card .nm{font-size:14px}
+
+.round{margin-bottom:38px}
+.round-h{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;
+         border-bottom:1px solid var(--line-2);padding-bottom:9px}
+.round-h h2{font-size:16px;font-weight:700;letter-spacing:-.3px;white-space:nowrap}
+.round-h .n{font-family:ui-monospace,monospace;font-size:10.5px;color:var(--gold);
+            border:1px solid var(--gold);border-radius:3px;padding:1px 6px}
+.round-h .n[data-cur]{color:var(--new);border-color:var(--new)}
+.round-h .d{font-family:ui-monospace,monospace;font-size:11px;color:var(--fg-3);margin-left:auto}
+.round > p{font-size:13px;color:var(--fg-3);margin-top:10px;max-width:76ch}
+.round > p b{color:var(--fg-2)}
+
+.cards{display:grid;grid-template-columns:minmax(0,1fr);gap:1px;background:var(--line);
+       border:1px solid var(--line);margin-top:14px}
+@media (min-width:760px){ .cards{grid-template-columns:repeat(3,minmax(0,1fr))} }
+.card{background:var(--panel);padding:15px 16px 17px;display:flex;flex-direction:column;gap:9px}
+.card[data-taste]{background:var(--panel-2)}
+.card .top{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.card .id{font-family:ui-monospace,monospace;font-size:11px;font-weight:700;color:var(--gold)}
+.card .nm{font-size:15px;font-weight:700;letter-spacing:-.2px}
+.card .sk{font-family:ui-monospace,monospace;font-size:10px;color:var(--fg-3);margin-left:auto}
+.card[data-taste] .sk{color:var(--new);font-weight:700}
+.card .ax{font-size:12.5px;color:var(--fg-2);line-height:1.6}
+.card .ax b{color:var(--fg)}
+.card .go{margin-top:auto;display:flex;flex-wrap:wrap;gap:5px;padding-top:4px}
+.card .go a{
+  font-size:11.5px;color:var(--fg-2);border:1px solid var(--line-2);border-radius:5px;
+  padding:5px 9px;min-height:29px;display:inline-flex;align-items:center;
+  transition:background .13s ease,border-color .13s ease
+}
+.card .go a:hover{background:var(--bg);border-color:var(--brand);color:var(--fg)}
+.card .go a[data-main]{border-color:var(--brand);color:var(--brand);font-weight:700}
+
+.card .shot{display:block;border:1px solid var(--line);border-radius:6px;overflow:hidden;
+            background:var(--bg);aspect-ratio:16/10;position:relative}
+.card .shot img{width:100%;height:100%;object-fit:cover;object-position:top center;display:block;
+                transition:opacity .15s ease}
+.card .shot:hover{border-color:var(--brand)}
+.card .shot:hover img{opacity:.82}
+.card .shot .cap{position:absolute;left:0;bottom:0;font-family:ui-monospace,monospace;
+                 font-size:9.5px;letter-spacing:.06em;color:var(--fg-2);
+                 background:rgba(20,16,25,.82);padding:2px 7px;border-top-right-radius:5px}
+
+.tools{display:flex;flex-wrap:wrap;gap:6px;margin-top:13px}
+.tools a{
+  font-size:12px;color:var(--fg-2);background:var(--panel);border:1px solid var(--line-2);
+  border-radius:6px;padding:7px 12px;min-height:34px;display:inline-flex;align-items:center;gap:7px;
+  transition:background .13s ease,border-color .13s ease
+}
+.tools a:hover{background:var(--panel-2);border-color:var(--brand);color:var(--fg)}
+.tools a[data-hot]{border-color:var(--new);color:var(--new);font-weight:700}
+
+.note{border-top:1px solid var(--line);margin-top:34px;padding-top:18px;
+      font-size:12.5px;color:var(--fg-3);line-height:1.9;max-width:78ch}
+.note b{color:var(--fg-2)}
+.note ul{margin:8px 0 0;padding:0;list-style:none}
+.note li{padding:2px 0 2px 14px;position:relative}
+.note li::before{content:"";position:absolute;left:0;top:14px;width:6px;height:1px;background:var(--line-2)}
+.note code{font-size:11.5px;color:var(--brand)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="k">docs / prototypes</span>
+  <h1>블레싱 클라이언트 프로토타입 색인</h1>
+  <p>
+    회차별 시안 전체입니다. 각 카드의 「메인」을 누르면 그 안의 첫 화면으로 갑니다.
+    <b>초록 배지</b>가 taste-skill 산출물입니다. 회차마다 있는 「대조판」을 열면 그 회차의 안들을
+    같은 상태로 나란히 볼 수 있습니다.
+    맨 위 <b>초록 테두리 묶음이 최근 3세션</b>(7·8회차, 9안)이고, 그 아래는 이전 라운드입니다.
+  </p>
+  <nav class="jump">
+    <a data-cur href="#r8">8회차 상용 셸</a>
+    <a data-cur href="#r7">7회차 중립 셸</a>
+    <a href="#r6">6회차 무제약</a>
+    <a href="#r5">5회차 리부트</a>
+    <a href="#r4">4회차 만듦새</a>
+    <a href="#r3">3회차 멀티봇</a>
+    <a href="#r2">2회차 정보구조</a>
+    <a href="#r1">1회차 첫 판</a>
+    <a href="#rx">별계열</a>
+  </nav>
+</header>
+
+<!-- ══════ 밴드 1 · 최근 3세션 ═══════════════════════════════════ -->
+<div class="band" data-new>
+  <div class="band-h">
+    <span class="bt">최근 3세션</span>
+    <h2>2026-08-06 ~ 08-07 · 9안</h2>
+  </div>
+  <p class="sub">
+    가장 최근에 돌린 세 세션의 결과물입니다. <b>7회차는 병렬 2세션</b>이 같은 브리프로
+    각자 3안씩(A/B/C, D/E/F) 만든 6안이고, <b>8회차는 그 반려 피드백을 적용한 1세션</b> 3안입니다.
+    아직 선택 대기 중인 것들이라 위로 올려 두었습니다.
+  </p>
+
+<!-- ══ 8회차 ══════════════════════════════════════════════════════ -->
+<section class="round" id="r8">
+  <div class="round-h">
+    <span class="n" data-cur>8회차</span>
+    <h2>상용 셸 3분산 (랜딩+홈+채팅 3안)</h2>
+    <span class="d">blessing-market-2026-08-06</span>
+  </div>
+  <p>
+    반려 피드백("크롬은 중립 셸, 개성은 봇 콘텐츠")을 정면 적용해 <b>셸 장르를 3분산</b>한 라운드.
+    신규 조사 3건(크랙·c.ai·제타·Poe 셸 실측 / NotebookLM·Perplexity·Glean 인용 UI / Pinterest·국내 6곳
+    <code>getComputedStyle</code> 실측) 기반. 각 안이 <b>랜딩 / #home(로스터 N스위치 8·24·60) / #chat</b>
+    3뷰이며, 시드 스퀴클 아바타·"문서 N종" 배지·각주 호버 팝오버·형광펜 근거를 공통 실장.
+  </p>
+  <div class="cards">
+    <div class="card">
+      <a class="shot" href="blessing-market-2026-08-06/a-consumer.html">
+        <img loading="lazy" src="blessing-market-2026-08-06/_shots/a-land-1440.png" alt="A 소비자 앱 셸 랜딩 화면">
+        <span class="cap">1440 · 랜딩</span>
+      </a>
+      <div class="top"><span class="id">A</span><span class="nm">소비자 앱 셸</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">웜 니어화이트+딥코랄. <b>크랙형 카드 그리드</b>의 프리미엄 정련, 파스텔 스퀴클 아바타, 1클릭 채팅 진입.</p>
+      <div class="go">
+        <a data-main href="blessing-market-2026-08-06/a-consumer.html">랜딩</a>
+        <a href="blessing-market-2026-08-06/a-consumer.html#home">홈</a>
+        <a href="blessing-market-2026-08-06/a-consumer.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card">
+      <a class="shot" href="blessing-market-2026-08-06/b-doctool.html">
+        <img loading="lazy" src="blessing-market-2026-08-06/_shots/b-land-1440.png" alt="B 문서 도구 셸 랜딩 화면">
+        <span class="cap">1440 · 랜딩</span>
+      </a>
+      <div class="top"><span class="id">B</span><span class="nm">문서 도구 셸</span><span class="sk">frontend-design</span></div>
+      <p class="ax">순백+니어블랙 4단+파랑 1색, Hahmlet. <b>Poe형 리스트 로스터</b>, 인용 3단 깊이(팝오버→포커스→그룹)와 인용 해부도 랜딩.</p>
+      <div class="go">
+        <a data-main href="blessing-market-2026-08-06/b-doctool.html">랜딩</a>
+        <a href="blessing-market-2026-08-06/b-doctool.html#home">홈</a>
+        <a href="blessing-market-2026-08-06/b-doctool.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card" data-taste>
+      <a class="shot" href="blessing-market-2026-08-06/c-hybrid.html">
+        <img loading="lazy" src="blessing-market-2026-08-06/_shots/c-land-1440.png" alt="C 하이브리드 프리미엄 랜딩 화면">
+        <span class="cap">1440 · 랜딩</span>
+      </a>
+      <div class="top"><span class="id">C</span><span class="nm">하이브리드 프리미엄</span><span class="sk">taste-skill</span></div>
+      <p class="ax">다크 니어블랙+저채도 앰버. <b>대표 카드 1장 4:5 + 가변 그리드</b> 비대칭 로스터, 400↔800 타이포 점프.</p>
+      <div class="go">
+        <a data-main href="blessing-market-2026-08-06/c-hybrid.html">랜딩</a>
+        <a href="blessing-market-2026-08-06/c-hybrid.html#home">홈</a>
+        <a href="blessing-market-2026-08-06/c-hybrid.html#chat">채팅</a>
+      </div>
+    </div>
+  </div>
+  <div class="tools">
+    <a data-hot href="blessing-market-2026-08-06/compare.html">8회차 대조판 (3안 전환 · 랜딩/홈/채팅 · 2면 비교)</a>
+    <a href="blessing-market-2026-08-06/README.md">README</a>
+  </div>
+</section>
+
+<!-- ══ 7회차 ══════════════════════════════════════════════════════ -->
+<section class="round" id="r7">
+  <div class="round-h">
+    <span class="n" data-cur>7회차</span>
+    <h2>중립 셸 3-스킬 (랜딩+채팅 6안)</h2>
+    <span class="d">neutral-triad-2026-08-06</span>
+  </div>
+  <p>
+    기존 구조를 전부 버린 <b>완전 중립 셸</b> 라운드. 계승은 문서기반 챗봇 기능 하나, 서비스명·색까지
+    안별 새 제안("약관·규정·매뉴얼, 읽지 말고 물어보세요" 공통 프레이밍). <b>병렬 2세션이 같은
+    브리프로 스킬당 2안씩, 총 6안</b>. 콘텐츠는 공용 팩으로 동일. 조사 3건 + 별도 시장조사 1건.
+    랜딩 ↔ 채팅은 <code>#chat</code> 전환. "밑줄"이 세 안에서 독립 제안된 네이밍 수렴은 README 참조.
+  </p>
+  <div class="cards">
+    <div class="card">
+      <a class="shot" href="neutral-triad-2026-08-06/ui.html">
+        <img loading="lazy" src="neutral-triad-2026-08-06/_shots/ui-home.png" alt="문답 랜딩 화면">
+        <span class="cap">1차분 · 랜딩</span>
+      </a>
+      <div class="top"><span class="id">ui</span><span class="nm">문답 · 콘솔</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">라이트+코발트. 좌측 <b>참여자 레일이 상주하는 앱 셸</b>, 랜딩이 곧 제품. 각주→우측 소스 시트.</p>
+      <div class="go">
+        <a data-main href="neutral-triad-2026-08-06/ui.html">랜딩</a>
+        <a href="neutral-triad-2026-08-06/ui.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card">
+      <a class="shot" href="neutral-triad-2026-08-06/fd.html">
+        <img loading="lazy" src="neutral-triad-2026-08-06/_shots/fd-home.png" alt="각주 랜딩 화면">
+        <span class="cap">1차분 · 랜딩</span>
+      </a>
+      <div class="top"><span class="id">fd</span><span class="nm">각주 · 서사</span><span class="sk">frontend-design</span></div>
+      <p class="ax">쿨 페이퍼+버건디, 마루부리. 대화 한 벌을 <b>제1~4장 챕터로 재생</b>. 서지형 출처 블록.</p>
+      <div class="go">
+        <a data-main href="neutral-triad-2026-08-06/fd.html">랜딩</a>
+        <a href="neutral-triad-2026-08-06/fd.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card" data-taste>
+      <a class="shot" href="neutral-triad-2026-08-06/ts.html">
+        <img loading="lazy" src="neutral-triad-2026-08-06/_shots/ts-home.png" alt="밑줄 랜딩 화면">
+        <span class="cap">1차분 · 랜딩</span>
+      </a>
+      <div class="top"><span class="id">ts</span><span class="nm">밑줄 · 원문</span><span class="sk">taste-skill</span></div>
+      <p class="ax">잉크 네이비 다크+형광펜 옐로. SUIT 800 <b>모듈러 그리드</b>. 하이라이트↔원문 대조 팝오버.</p>
+      <div class="go">
+        <a data-main href="neutral-triad-2026-08-06/ts.html">랜딩</a>
+        <a href="neutral-triad-2026-08-06/ts.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card">
+      <a class="shot" href="neutral-triad-2026-08-06/ui-product.html">
+        <img loading="lazy" src="neutral-triad-2026-08-06/_shots/ui-product-1440-landing.png" alt="답지 랜딩 화면">
+        <span class="cap">2차분 · 랜딩</span>
+      </a>
+      <div class="top"><span class="id">D</span><span class="nm">답지 · 정공법</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">니어화이트+코발트, SUIT+Pretendard. <b>비대칭 스플릿 히어로</b>에 실물 대화, 분야 칩 로스터. 각주→출처 플래시.</p>
+      <div class="go">
+        <a data-main href="neutral-triad-2026-08-06/ui-product.html">랜딩</a>
+        <a href="neutral-triad-2026-08-06/ui-product.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card">
+      <a class="shot" href="neutral-triad-2026-08-06/fd-editorial.html">
+        <img loading="lazy" src="neutral-triad-2026-08-06/_shots/fd-editorial-1440-landing.png" alt="밑줄 에디토리얼 랜딩 화면">
+        <span class="cap">2차분 · 랜딩</span>
+      </a>
+      <div class="top"><span class="id">E</span><span class="nm">밑줄 · 에디토리얼</span><span class="sk">frontend-design</span></div>
+      <p class="ax">웜 크림+버밀리언, 마루부리. <b>좌 레일 번호 목차</b>의 지면 흐름. 각주 클릭 시 원문에 밑줄이 그어짐.</p>
+      <div class="go">
+        <a data-main href="neutral-triad-2026-08-06/fd-editorial.html">랜딩</a>
+        <a href="neutral-triad-2026-08-06/fd-editorial.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card" data-taste>
+      <a class="shot" href="neutral-triad-2026-08-06/ts-precision.html">
+        <img loading="lazy" src="neutral-triad-2026-08-06/_shots/ts-precision-1440-landing.png" alt="단서 프리시전 랜딩 화면">
+        <span class="cap">2차분 · 랜딩</span>
+      </a>
+      <div class="top"><span class="id">F</span><span class="nm">단서 · 프리시전</span><span class="sk">taste-skill</span></div>
+      <p class="ax">니어블랙 3단 표면+앰버, Wanted Sans+모노. <b>오프센터 히어로+코너 통계</b>, 행 로스터의 플랫 다크.</p>
+      <div class="go">
+        <a data-main href="neutral-triad-2026-08-06/ts-precision.html">랜딩</a>
+        <a href="neutral-triad-2026-08-06/ts-precision.html#chat">채팅</a>
+      </div>
+    </div>
+  </div>
+  <div class="tools">
+    <a data-hot href="neutral-triad-2026-08-06/compare.html">대조판 (6안 전환 · 2면 비교)</a>
+    <a href="neutral-triad-2026-08-06/README.md">README (비교표·QA 로그)</a>
+  </div>
+</section>
+
+</div><!-- /band 최근 3세션 -->
+
+<!-- ══════ 밴드 2 · 이전 라운드 ══════════════════════════════════ -->
+<details class="band" data-old open>
+  <summary>
+    <span class="bt">이전 라운드</span>
+    <h2>1 ~ 6회차 &amp; 별계열 · 24안</h2>
+    <span class="hint">접기</span>
+  </summary>
+
+<!-- ══ 6회차 ══════════════════════════════════════════════════════ -->
+<section class="round" id="r6">
+  <div class="round-h">
+    <span class="n">6회차</span>
+    <h2>무제약 백지 (랜딩+채팅 6안)</h2>
+    <span class="d">blessing-unbound-2026-08-06</span>
+  </div>
+  <p>
+    보라·엠블럼·이전 결정까지 전부 버린 <b>완전 백지</b> 라운드. 유지한 것은 문서기반·멀티봇 둘뿐.
+    조사 5건(캐릭터 챗봇 실접속 · RAG 랜딩 14종 · 무드 갤러리 · 프리미엄 6곳 코드 실측 ·
+    한국어 조판 10곳 실측) 위에서 3스킬이 2안씩 만들었습니다. 랜딩 ↔ 채팅은 <code>#chat</code> 전환.
+  </p>
+  <div class="cards">
+    <div class="card">
+      <div class="top"><span class="id">ui-a</span><span class="nm">회로</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">라이트+딥 틸. 질문이 답이 되는 <b>경로 다이어그램</b>이 히어로. 채팅은 우측 근거 패널.</p>
+      <div class="go">
+        <a data-main href="blessing-unbound-2026-08-06/ui-a.html">랜딩</a>
+        <a href="blessing-unbound-2026-08-06/ui-a.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">ui-b</span><span class="nm">선반</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">파스텔+잉크 보더 <b>소프트 브루탈 벤토</b>. SUIT 400↔800. 인라인 칩 → 원문 카드 펼침.</p>
+      <div class="go">
+        <a data-main href="blessing-unbound-2026-08-06/ui-b.html">랜딩</a>
+        <a href="blessing-unbound-2026-08-06/ui-b.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">fd-a</span><span class="nm">지면</span><span class="sk">frontend-design</span></div>
+      <p class="ax">웜 크림+마루부리. 히어로가 <b>동작하는 답변 지면</b>, 시그니처는 관인풍 근거확인 도장.</p>
+      <div class="go">
+        <a data-main href="blessing-unbound-2026-08-06/fd-a.html">랜딩</a>
+        <a href="blessing-unbound-2026-08-06/fd-a.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">fd-b</span><span class="nm">야간</span><span class="sk">frontend-design</span></div>
+      <p class="ax">니어블랙, 앰버는 <b>램프빛</b>으로만. 라이브 시계 · 오늘 밤의 질문 · 접힌 검색 영수증.</p>
+      <div class="go">
+        <a data-main href="blessing-unbound-2026-08-06/fd-b.html">랜딩</a>
+        <a href="blessing-unbound-2026-08-06/fd-b.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card" data-taste>
+      <div class="top"><span class="id">ts-a</span><span class="nm">선언</span><span class="sk">taste-skill</span></div>
+      <p class="ax">테라코타 풀블리드 <b>매니페스토</b> + 원칙 마퀴. 채팅은 규칙선+각주 스택.</p>
+      <div class="go">
+        <a data-main href="blessing-unbound-2026-08-06/ts-a.html">랜딩</a>
+        <a href="blessing-unbound-2026-08-06/ts-a.html#chat">채팅</a>
+      </div>
+    </div>
+    <div class="card" data-taste>
+      <div class="top"><span class="id">ts-b</span><span class="nm">서고</span><span class="sk">taste-skill</span></div>
+      <p class="ax">오프블랙+웜탄 <b>아카이브</b>. Hahmlet. 흩어진 문서 발췌 카드, 채팅은 여백 종이 카드.</p>
+      <div class="go">
+        <a data-main href="blessing-unbound-2026-08-06/ts-b.html">랜딩</a>
+        <a href="blessing-unbound-2026-08-06/ts-b.html#chat">채팅</a>
+      </div>
+    </div>
+  </div>
+  <div class="tools">
+    <a data-hot href="blessing-unbound-2026-08-06/compare.html">6회차 대조판 (6안 전환 · 랜딩/채팅 · 2면 비교)</a>
+    <a href="blessing-unbound-2026-08-06/README.md">README</a>
+  </div>
+</section>
+
+<!-- ══ 5회차 ══════════════════════════════════════════════════════ -->
+<section class="round" id="r5">
+  <div class="round-h">
+    <span class="n">5회차</span>
+    <h2>리부트 (랜딩+채팅 6안)</h2>
+    <span class="d">blessing-reboot-2026-08-06</span>
+  </div>
+  <p>
+    직전 결정을 계승하지 않은 백지 라운드(보라·엠블럼만 유지). 방향 3안(서재/창구/근거)을
+    3스킬 × 2안이 교차 해석했습니다.
+  </p>
+  <div class="cards">
+    <div class="card">
+      <div class="top"><span class="id">ui-a</span><span class="nm">서재</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">크림+고운바탕 세리프, 책등 서가.</p>
+      <div class="go"><a data-main href="blessing-reboot-2026-08-06/ui-a.html">열기</a></div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">ui-b</span><span class="nm">근거</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">대형 타이포 미니멀, 채팅 3단(검색 타임라인+원문 패널).</p>
+      <div class="go"><a data-main href="blessing-reboot-2026-08-06/ui-b.html">열기</a></div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">fd-a</span><span class="nm">창구</span><span class="sk">frontend-design</span></div>
+      <p class="ax">행정지 모노크롬, 답변이 회신 공문 양식.</p>
+      <div class="go"><a data-main href="blessing-reboot-2026-08-06/fd-a.html">열기</a></div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">fd-b</span><span class="nm">서재·밤</span><span class="sk">frontend-design</span></div>
+      <p class="ax">저녁 서재, Hahmlet+갈피끈.</p>
+      <div class="go"><a data-main href="blessing-reboot-2026-08-06/fd-b.html">열기</a></div>
+    </div>
+    <div class="card" data-taste>
+      <div class="top"><span class="id">ts-a</span><span class="nm">여백근거</span><span class="sk">taste-skill</span></div>
+      <p class="ax">마지널리아 지면, 근거가 문장 옆 여백에.</p>
+      <div class="go"><a data-main href="blessing-reboot-2026-08-06/ts-a.html">열기</a></div>
+    </div>
+    <div class="card" data-taste>
+      <div class="top"><span class="id">ts-b</span><span class="nm">창구·밤</span><span class="sk">taste-skill</span></div>
+      <p class="ax">다크 뉴트럴 절제 시스템.</p>
+      <div class="go"><a data-main href="blessing-reboot-2026-08-06/ts-b.html">열기</a></div>
+    </div>
+  </div>
+  <div class="tools">
+    <a href="blessing-reboot-2026-08-06/compare.html">5회차 대조판</a>
+    <a href="blessing-reboot-2026-08-06/README.md">README</a>
+  </div>
+</section>
+
+<!-- ══ 4회차 ══════════════════════════════════════════════════════ -->
+<section class="round" id="r4">
+  <div class="round-h">
+    <span class="n">4회차</span>
+    <h2>만듦새 (말문 · 자리 · 채광)</h2>
+    <span class="d">blessing-craft-2026-08-06</span>
+  </div>
+  <p>
+    직전 라운드들이 차가웠던 원인(절제=만듦새 오인)을 교정한 회차. 모션·재질·도상을 도입했고
+    세 안의 <b>인용 기전</b>이 서로 다릅니다.
+  </p>
+  <div class="cards">
+    <div class="card" data-taste>
+      <div class="top"><span class="id">A</span><span class="nm">말문</span><span class="sk">taste-skill</span></div>
+      <p class="ax">홈은 말을 여는 자리. 모션 주도, 인용은 우측 레일.</p>
+      <div class="go"><a data-main href="blessing-craft-2026-08-06/a-mal.html">열기</a></div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">B</span><span class="nm">자리</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">홈은 내 진행 상황. 재질·깊이, 인용은 문장 아래 끼움 카드.</p>
+      <div class="go"><a data-main href="blessing-craft-2026-08-06/b-jari.html">열기</a></div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">C</span><span class="nm">채광</span><span class="sk">frontend-design</span></div>
+      <p class="ax">홈은 근거의 장면. 도상 주도, 인용은 왼쪽 여백 방주.</p>
+      <div class="go"><a data-main href="blessing-craft-2026-08-06/c-chaegwang.html">열기</a></div>
+    </div>
+  </div>
+  <div class="tools">
+    <a href="blessing-craft-2026-08-06/compare.html">4회차 대조판</a>
+    <a href="blessing-craft-2026-08-06/README.md">README</a>
+  </div>
+</section>
+
+<!-- ══ 3회차 ══════════════════════════════════════════════════════ -->
+<section class="round" id="r3">
+  <div class="round-h">
+    <span class="n">3회차</span>
+    <h2>멀티봇 확장</h2>
+    <span class="d">blessing-multibot-2026-08-06</span>
+  </div>
+  <p>
+    봇이 여러 개인 것을 정면으로 다룬 회차입니다. 세 안이 <b>무엇으로 봇을 구별하는지</b>가
+    각각 다릅니다. 사이드바 대시보드와 노선도 다이어그램은 쓰지 않았습니다.
+  </p>
+  <div class="cards">
+    <div class="card" data-taste>
+      <div class="top"><span class="id">A</span><span class="nm">권</span><span class="sk">taste-skill</span></div>
+      <p class="ax">축 = <b>표제어</b>. 봇을 고르지 말고 표제어를 골라라. 통합 색인 29개가 14권을 가로지른다.</p>
+      <div class="go">
+        <a data-main href="blessing-multibot-2026-08-06/a-volumes.html#home/light">메인</a>
+        <a href="blessing-multibot-2026-08-06/a-volumes.html#home/n40/light">40권</a>
+        <a href="blessing-multibot-2026-08-06/a-volumes.html#thread/handoff/light">이관</a>
+        <a href="blessing-multibot-2026-08-06/a-volumes.html#states/light">상태</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">B</span><span class="nm">접수</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">축 = <b>질문</b>. 고르는 화면을 없앤다. 한 줄을 적으면 그 한 줄이 담당을 정한다.</p>
+      <div class="go">
+        <a data-main href="blessing-multibot-2026-08-06/b-intake.html#home/light">메인</a>
+        <a href="blessing-multibot-2026-08-06/b-intake.html#home/asked/n40/light">40곳 접수</a>
+        <a href="blessing-multibot-2026-08-06/b-intake.html#thread/handoff/light">이관</a>
+        <a href="blessing-multibot-2026-08-06/b-intake.html#states/light">상태</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">C</span><span class="nm">총람</span><span class="sk">frontend-design</span></div>
+      <p class="ax">축 = <b>문서</b>. 봇이 아니라 문서에서 출발하라. 승인 문서 14종의 서지가 메인이다.</p>
+      <div class="go">
+        <a data-main href="blessing-multibot-2026-08-06/c-colophon.html#home/light">메인</a>
+        <a href="blessing-multibot-2026-08-06/c-colophon.html#home/n40/light">40곳</a>
+        <a href="blessing-multibot-2026-08-06/c-colophon.html#thread/handoff/light">이관</a>
+        <a href="blessing-multibot-2026-08-06/c-colophon.html#states/light">상태</a>
+      </div>
+    </div>
+  </div>
+  <div class="tools">
+    <a data-hot href="blessing-multibot-2026-08-06/compare.html">3회차 대조판 (회색조 실루엣 비교)</a>
+    <a href="blessing-multibot-2026-08-06/README.md">README</a>
+    <a href="blessing-multibot-2026-08-06/_audit.html">가로 넘침 감사</a>
+    <a href="blessing-multibot-2026-08-06/_diag.html?src=a-volumes.html&amp;w=390&amp;h=home/light&amp;bare=1">390px A</a>
+    <a href="blessing-multibot-2026-08-06/_diag.html?src=b-intake.html&amp;w=390&amp;h=home/light&amp;bare=1">390px B</a>
+    <a href="blessing-multibot-2026-08-06/_diag.html?src=c-colophon.html&amp;w=390&amp;h=home/light&amp;bare=1">390px C</a>
+  </div>
+</section>
+
+<!-- ══ 2회차 ══════════════════════════════════════════════════════ -->
+<section class="round" id="r2">
+  <div class="round-h">
+    <span class="n">2회차</span>
+    <h2>메인 정보구조 재설계</h2>
+    <span class="d">blessing-nav-r2-2026-08-05</span>
+  </div>
+  <p>
+    1회차 세 안의 메인 골격이 같았던 문제를 고친 회차입니다.
+    <b>3회차의 기준본</b>이고, 브랜드 언어와 8화면 구성은 여기서 그대로 이어집니다.
+  </p>
+  <div class="cards">
+    <div class="card" data-taste>
+      <div class="top"><span class="id">A</span><span class="nm">색인</span><span class="sk">taste-skill</span></div>
+      <p class="ax">표제어 24개 색인 + 우측 발췌. 봇 5개는 하단 「담당 색인 5권」 각주로 내려감.</p>
+      <div class="go">
+        <a data-main href="blessing-nav-r2-2026-08-05/a-register.html#home/light">메인</a>
+        <a href="blessing-nav-r2-2026-08-05/a-register.html#thread/admin/light">대화</a>
+        <a href="blessing-nav-r2-2026-08-05/a-register.html#states/light">상태</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">B</span><span class="nm">시스템</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">좌 사이드바 + 전폭 행 + 하단 고정 컴포저.</p>
+      <div class="go">
+        <a data-main href="blessing-nav-r2-2026-08-05/b-system.html#home/light">메인</a>
+        <a href="blessing-nav-r2-2026-08-05/b-system.html#thread/admin/light">대화</a>
+        <a href="blessing-nav-r2-2026-08-05/b-system.html#states/light">상태</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">C</span><span class="nm">경로</span><span class="sk">frontend-design</span></div>
+      <p class="ax">노선도 하나. 선은 문서, 역은 질문, 금색은 환승, 파선은 노선 없음.</p>
+      <div class="go">
+        <a data-main href="blessing-nav-r2-2026-08-05/c-route.html#home/light">메인</a>
+        <a href="blessing-nav-r2-2026-08-05/c-route.html#thread/admin/light">대화</a>
+        <a href="blessing-nav-r2-2026-08-05/c-route.html#states/light">상태</a>
+      </div>
+    </div>
+  </div>
+  <div class="tools">
+    <a href="blessing-nav-r2-2026-08-05/compare.html">2회차 대조판</a>
+    <a href="blessing-nav-r2-2026-08-05/README.md">README</a>
+    <a href="blessing-nav-r2-2026-08-05/_audit.html">가로 넘침 감사</a>
+  </div>
+</section>
+
+<!-- ══ 1회차 ══════════════════════════════════════════════════════ -->
+<section class="round" id="r1">
+  <div class="round-h">
+    <span class="n">1회차</span>
+    <h2>클라이언트 시안 첫 판</h2>
+    <span class="d">blessing-nav-2026-08-05</span>
+  </div>
+  <p>
+    세 안의 메인이 <b>큰 제목 → 2칸 진입점 → 봇 5행</b>으로 골격이 같았습니다.
+    표현만 색인 / 카드 / 노선도로 달랐던 회차입니다. 좁게 모드에서 노치 폰 목업이 붙습니다.
+  </p>
+  <div class="cards">
+    <div class="card" data-taste>
+      <div class="top"><span class="id">A</span><span class="nm">색인</span><span class="sk">taste-skill</span></div>
+      <p class="ax">참고서 색인 언어. 규칙선과 활자로만 위계를 만든 첫 시도.</p>
+      <div class="go">
+        <a data-main href="blessing-nav-2026-08-05/a-register.html#home">메인</a>
+        <a href="blessing-nav-2026-08-05/a-register.html#chat">대화</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">B</span><span class="nm">시스템</span><span class="sk">ui-ux-pro-max</span></div>
+      <p class="ax">히어로에 보라 3단 그라디언트가 남아 있는 판.</p>
+      <div class="go">
+        <a data-main href="blessing-nav-2026-08-05/b-system.html#home">메인</a>
+        <a href="blessing-nav-2026-08-05/b-system.html#chat">대화</a>
+      </div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="id">C</span><span class="nm">경로</span><span class="sk">frontend-design</span></div>
+      <p class="ax">노선 은유의 첫 등장.</p>
+      <div class="go">
+        <a data-main href="blessing-nav-2026-08-05/c-route.html#home">메인</a>
+        <a href="blessing-nav-2026-08-05/c-route.html#chat">대화</a>
+      </div>
+    </div>
+  </div>
+  <div class="tools">
+    <a href="blessing-nav-2026-08-05/index.html">1회차 자체 색인</a>
+    <a data-hot href="_compare4.html">1회차 3안 + 2회차 색인 4종 대조판</a>
+  </div>
+</section>
+
+<!-- ══ 별계열 ═════════════════════════════════════════════════════ -->
+<section class="round" id="rx">
+  <div class="round-h">
+    <span class="n">별계열</span>
+    <h2>클라이언트 r2</h2>
+    <span class="d">blessing-client-r2-2026-08-05</span>
+  </div>
+  <p>같은 날 나온 다른 계열 시안 3종입니다. 위 회차 흐름과는 별개입니다.</p>
+  <div class="cards">
+    <div class="card">
+      <div class="top"><span class="nm">desk</span></div>
+      <p class="ax">책상 은유.</p>
+      <div class="go"><a data-main href="blessing-client-r2-2026-08-05/desk.html">열기</a></div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="nm">letter</span></div>
+      <p class="ax">편지 은유.</p>
+      <div class="go"><a data-main href="blessing-client-r2-2026-08-05/letter.html">열기</a></div>
+    </div>
+    <div class="card">
+      <div class="top"><span class="nm">stacks</span></div>
+      <p class="ax">더미 은유.</p>
+      <div class="go"><a data-main href="blessing-client-r2-2026-08-05/stacks.html">열기</a></div>
+    </div>
+  </div>
+  <div class="tools">
+    <a href="blessing-client-r2-2026-08-05/compare.html">별계열 대조판</a>
+  </div>
+</section>
+
+</details><!-- /band 이전 라운드 -->
+
+<div class="note">
+  <b>보실 때 알아 두실 것.</b>
+  <ul>
+    <li>맨 위 <b>초록 테두리 묶음</b>이 최근 3세션(7·8회차)이고, 그 아래 「이전 라운드」는
+      제목줄을 눌러 접을 수 있습니다.</li>
+    <li>최근 3세션 카드 위 썸네일은 <code>_shots/</code> 의 <b>정적 캡처</b>입니다. 눌러서 실물 페이지로
+      들어가야 해시 전환·팝오버 같은 동작을 볼 수 있습니다.</li>
+    <li>3회차와 2회차는 해시가 <code>#home/n40/dark/mobile</code> 처럼 <b>순서 무관 다중 세그먼트</b>입니다.
+      1회차는 <code>#home</code> 한 조각입니다.</li>
+    <li>브라우저가 다크 모드면 자동으로 다크로 뜹니다. 라이트를 보시려면 해시에 <code>/light</code> 를
+      붙이거나 각 화면 왼쪽 프로토타입 패널에서 「라이트」를 누르세요.</li>
+    <li>왼쪽 검정 패널은 <b>검토용 조종판</b>입니다. 제품 UI가 아닙니다.
+      화면 폭이 1100px 미만이면 사라지고 우하단 동그란 버튼으로 열립니다.</li>
+    <li>3회차 세 안은 노치 폰 목업을 쓰지 않습니다. 좁게 모드에서 반응형 실물로 렌더됩니다.</li>
+    <li>봇 이름, 문서명, 판차, 규정 내용, 인용문, 계정 정보는 전부 <b>UI 검토용 예시</b>입니다.
+      실제 규정이나 승인 문서가 아닙니다.</li>
+    <li>README 링크는 마크다운 원문으로 열립니다. 브라우저에서 읽기 불편하시면
+      에디터에서 여시는 편이 낫습니다.</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

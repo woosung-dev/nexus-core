@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>대조판 · 블레싱 네비게이션 시안 3종</title>
+<!--
+  대조판. 랜딩 페이지가 아니라 세 시안을 같은 상태로 나란히 놓고 보는 도구다.
+  위 컨트롤이 세 창을 동시에 움직인다. 각 창은 해시로 상태를 받는다.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --bg:#141019; --panel:#1D1727; --line:#2C2438; --line-2:#3E3450;
+  --fg:#EDE7F5; --fg-2:#B7ABC9; --fg-3:#867A95;
+  --gold:#D9B368; --brand:#C0AAE8;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--fg);
+  font-family:'Pretendard Variable',Pretendard,-apple-system,system-ui,sans-serif;
+  font-size:14px;line-height:1.65;word-break:keep-all;min-height:100dvh
+}
+a{color:var(--brand);text-decoration:none}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+
+/* ── 컨트롤 ── */
+.bar{
+  position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:6px 18px;flex-wrap:wrap;padding:10px 18px
+}
+.bar h1{font-size:13.5px;font-weight:700;letter-spacing:.02em;white-space:nowrap}
+.bar .k{font-size:11px;color:var(--fg-3);letter-spacing:.05em}
+.grp{display:flex;gap:2px;align-items:center;flex-wrap:wrap}
+.grp button{
+  font-size:12.5px;color:var(--fg-2);background:none;border:1px solid transparent;border-radius:6px;
+  padding:5px 9px;min-height:32px;cursor:pointer;white-space:nowrap;
+  transition:background .14s ease,color .14s ease
+}
+.grp button:hover{background:var(--bg)}
+.grp button[aria-pressed="true"]{background:var(--bg);border-color:var(--line-2);color:var(--fg);font-weight:700}
+.bar .push{margin-left:auto}
+.bar .hash{font-family:ui-monospace,monospace;font-size:11.5px;color:var(--fg-3)}
+
+/* ── 세 창 ── */
+.wall{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+@media (max-width:1180px){ .wall{grid-template-columns:minmax(0,1fr)} }
+.pane{background:var(--bg);min-width:0;display:flex;flex-direction:column}
+.pane header{display:flex;align-items:baseline;gap:9px;padding:9px 14px;border-bottom:1px solid var(--line)}
+.pane .no{font-family:ui-monospace,monospace;font-size:11px;color:var(--gold);font-weight:700}
+.pane .nm{font-size:13.5px;font-weight:700}
+.pane .sk{font-size:11px;color:var(--fg-3);font-family:ui-monospace,monospace}
+.pane .open{margin-left:auto;font-size:12px}
+/* 창이 좁으면 각 시안이 자기 모바일 레이아웃으로 접힌다. 그러면 대조가 안 되므로
+   실제 데스크톱 폭(1280px)으로 렌더한 뒤 창 폭에 맞게 축소해 보여준다.
+   기기 목업이 아니라 실제 렌더의 축소다. */
+.shell{position:relative;overflow:hidden;background:var(--bg);height:74vh}
+.frame{
+  width:var(--vw,1280px);height:calc(920px);border:0;display:block;
+  transform:scale(var(--s,1));transform-origin:0 0
+}
+body[data-w="mobile"] .shell{height:74vh;min-height:520px}
+body[data-w="mobile"] .frame{height:calc(74vh / var(--s,1));min-height:calc(520px / var(--s,1))}
+body[data-w="mobile"] .shell{display:grid;place-items:start center}
+.pane .zoom{margin-left:12px;font-family:ui-monospace,monospace;font-size:10.5px;color:var(--fg-3)}
+
+/* ── 대조표 ── */
+.spec{padding:26px 18px 56px;max-width:1500px;margin:0 auto}
+.spec h2{font-size:11.5px;font-weight:700;color:var(--fg-3);letter-spacing:.08em;margin:26px 0 10px}
+.spec h2:first-child{margin-top:0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{text-align:left;padding:9px 12px 9px 0;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.6}
+th{color:var(--fg-3);font-weight:600;font-size:11.5px;white-space:nowrap}
+td:first-child{color:var(--fg-3);white-space:nowrap;width:150px}
+.note{font-size:12.5px;color:var(--fg-3);line-height:1.8;margin-top:16px;max-width:76ch}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>대조판</h1>
+  <span class="k">화면</span><span class="grp" id="g-screen"></span>
+  <span class="k">답변</span><span class="grp" id="g-answer"></span>
+  <span class="k">테마</span>
+  <span class="grp" id="g-theme">
+    <button type="button" data-theme="light">라이트</button>
+    <button type="button" data-theme="dark">다크</button>
+  </span>
+  <span class="k">폭</span>
+  <span class="grp" id="g-w">
+    <button type="button" data-w="desktop">넓게</button>
+    <button type="button" data-w="mobile">좁게</button>
+  </span>
+  <code class="hash push" id="hash">#home/light</code>
+</div>
+
+<div class="wall">
+  <section class="pane">
+    <header>
+      <span class="no">A</span><span class="nm">색인</span><span class="sk">taste-skill</span>
+      <span class="zoom" data-zoom></span><a class="open" href="a-register.html" target="_blank" rel="noopener">따로 열기</a>
+    </header>
+    <div class="shell"><iframe class="frame" data-src="a-register.html" title="A안 색인"></iframe></div>
+  </section>
+  <section class="pane">
+    <header>
+      <span class="no">B</span><span class="nm">시스템</span><span class="sk">ui-ux-pro-max</span>
+      <span class="zoom" data-zoom></span><a class="open" href="b-system.html" target="_blank" rel="noopener">따로 열기</a>
+    </header>
+    <div class="shell"><iframe class="frame" data-src="b-system.html" title="B안 시스템"></iframe></div>
+  </section>
+  <section class="pane">
+    <header>
+      <span class="no">C</span><span class="nm">경로</span><span class="sk">frontend-design</span>
+      <span class="zoom" data-zoom></span><a class="open" href="c-route.html" target="_blank" rel="noopener">따로 열기</a>
+    </header>
+    <div class="shell"><iframe class="frame" data-src="c-route.html" title="C안 경로"></iframe></div>
+  </section>
+</div>
+
+<div class="spec">
+  <h2>메인이 무엇을 하는가</h2>
+  <table>
+    <thead><tr><th></th><th>A 색인</th><th>B 시스템</th><th>C 경로</th></tr></thead>
+    <tbody>
+      <tr><td>메인의 본문</td>
+        <td>표제어 24개 색인</td>
+        <td>진행 중 대화 · 문서 변경 · 담당 범위</td>
+        <td>노선도 하나</td></tr>
+      <tr><td>가장 큰 활자</td>
+        <td>『축복 행정 규정집』 2026 개정판 외 5종의 색인</td>
+        <td>상태 줄 (제목 없음)</td>
+        <td>승인 문서 6종이 6개 노선으로 운행 중입니다</td></tr>
+      <tr><td>봇 5개의 자리</td>
+        <td>하단 「담당 색인 5권」 각주</td>
+        <td>세 번째 행 스택</td>
+        <td>메인에 없음 (노선 안내로 이관)</td></tr>
+      <tr><td>메인에서 바로 묻기</td>
+        <td>표제어 발췌의 「이대로 묻기」</td>
+        <td>하단 고정 컴포저</td>
+        <td>역을 누르면 대화 시작으로</td></tr>
+      <tr><td>회색조 실루엣</td>
+        <td>좌 긴 목록 + 우 발췌</td>
+        <td>좌 사이드바 + 전폭 행 + 하단 입력</td>
+        <td>여백 큰 전면 다이어그램</td></tr>
+    </tbody>
+  </table>
+
+  <h2>대화 화면의 근거 배치</h2>
+  <table>
+    <thead><tr><th></th><th>A 색인</th><th>B 시스템</th><th>C 경로</th></tr></thead>
+    <tbody>
+      <tr><td>근거 위치</td><td>우측 320px 패널</td><td>본문 아래 접이식</td><td>본문 안쪽 좌측 196px 거터</td></tr>
+      <tr><td>무거운 쪽</td><td>오른쪽</td><td>왼쪽</td><td>없음 (크롬 최소)</td></tr>
+      <tr><td>대기 표현</td><td>패널 상단 상태 점 + 스켈레톤</td><td>자리 예약 + 점 세 개</td><td>경로 가운데 역이 맥동</td></tr>
+      <tr><td>검색 · 비인용 문서</td><td>패널 하단 접이식</td><td>인용 블록 안 점선 아래</td><td>「문서 보기」 안</td></tr>
+    </tbody>
+  </table>
+
+  <h2>시각 언어</h2>
+  <table>
+    <thead><tr><th></th><th>A 색인</th><th>B 시스템</th><th>C 경로</th></tr></thead>
+    <tbody>
+      <tr><td>표시 서체</td><td>Paperlogy</td><td>Pretendard 800</td><td>Freesentation</td></tr>
+      <tr><td>유틸 서체</td><td>Geist Mono</td><td>Plus Jakarta Sans · IBM Plex Mono</td><td>JetBrains Mono</td></tr>
+      <tr><td>깊이</td><td>평면 (헤어라인)</td><td>elevation 3단</td><td>평면 (선 굵기)</td></tr>
+      <tr><td>라운드</td><td>0 / 8 / 999</td><td>10 / 8 / 999</td><td>0 / 6 / 999 / 50%</td></tr>
+      <tr><td>아이콘</td><td>최소, 텍스트 라벨 위주</td><td>SVG 세트 1.7px</td><td>기하 표식 (원 · 선)</td></tr>
+      <tr><td>골드가 뜻하는 것</td><td>검증된 근거가 있는 표제어</td><td>2026 정본 · 각주 번호</td><td>환승 (두 문서의 교차)</td></tr>
+      <tr><td>프로토타입 크롬</td><td>좌측 세로 탭</td><td>하단 상태바</td><td>상단 한 줄 + 키보드</td></tr>
+    </tbody>
+  </table>
+
+  <h2>셋이 함께 지키는 것</h2>
+  <table>
+    <tbody>
+      <tr><td>팔레트</td><td>브랜드 보라 <code>#603B94</code> 계열. 액션 <code>#523A82</code>, 골드는 선 전용 <code>#C9A227</code></td></tr>
+      <tr><td>답변 4유형</td><td>행정 확답 · 맥락 확인 · 근거 없음 · 안전 우선. 렌더 규칙과 순서가 셋 다 같다</td></tr>
+      <tr><td>어른 연결</td><td>부모님 → 가정부장님 → 공직자·목회자·사모님 → 신뢰하는 가까운 어른</td></tr>
+      <tr><td>인용 규칙</td><td><code>approximate</code> 가 하나라도 있으면 목록 전체를 근사로 보고 각주 번호를 붙이지 않는다</td></tr>
+      <tr><td>금지</td><td>그라디언트 0 · <code>cite_count</code> 숫자 노출 0 · 숫자 신뢰도 0 · 1인칭 0 · 노치 목업 0</td></tr>
+    </tbody>
+  </table>
+
+  <p class="note">
+    세 창은 위 컨트롤로 동시에 움직입니다. 해시는 순서 무관이라
+    <code>#thread/admin/dark/mobile</code> 과 <code>#dark/mobile/thread/admin</code> 이 같은 상태입니다.
+    「좁게」는 각 시안의 <code>/mobile</code> 상태로, 앱 프레임을 390px 로 바꿉니다.
+    실제 390px 문서에서의 렌더는 <a href="_diag.html?src=a-register.html&amp;h=home/light&amp;w=390&amp;vh=900">_diag.html</a> 로 확인하고,
+    가로 스크롤 검사는 <a href="_audit.html">_audit.html</a> 로 돌립니다.
+  </p>
+</div>
+
+<script>
+(function(){
+  var SCREENS = [['login','로그인'],['home','메인'],['bot','상세'],['start','시작'],
+                 ['thread','대화'],['mypage','내 정보'],['guide','자료'],['states','상태']];
+  var KINDS = [['admin','행정 확답'],['context','맥락 확인'],['norag','근거 없음'],['safety','안전 우선']];
+  var state = { screen:'home', kind:'admin', theme:'light', w:'desktop' };
+  var frames = Array.prototype.slice.call(document.querySelectorAll('.frame'));
+
+  function mk(host, list, key){
+    host.innerHTML = list.map(function(x){
+      return '<button type="button" data-'+key+'="'+x[0]+'">'+x[1]+'</button>';
+    }).join('');
+    host.addEventListener('click', function(e){
+      var b = e.target.closest('[data-'+key+']');
+      if(!b) return;
+      state[key] = b.dataset[key];
+      if(key === 'kind') state.screen = 'thread';
+      apply();
+    });
+  }
+  mk(document.getElementById('g-screen'), SCREENS, 'screen');
+  mk(document.getElementById('g-answer'), KINDS, 'kind');
+
+  document.getElementById('g-theme').addEventListener('click', function(e){
+    var b = e.target.closest('[data-theme]'); if(!b) return;
+    state.theme = b.dataset.theme; apply();
+  });
+  document.getElementById('g-w').addEventListener('click', function(e){
+    var b = e.target.closest('[data-w]'); if(!b) return;
+    state.w = b.dataset.w; apply();
+  });
+
+  function hash(){
+    var p = [state.screen];
+    if(state.screen === 'thread') p.push(state.kind);
+    p.push(state.theme);
+    if(state.w === 'mobile') p.push('mobile');
+    return '#' + p.join('/');
+  }
+
+  function fit(){
+    // 창 폭에 맞춰 축소 배율을 잡는다. 좁게 모드에서는 390px 실물이라 축소하지 않는다.
+    var vw = state.w === 'mobile' ? 390 : 1280;
+    document.querySelectorAll('.pane').forEach(function(p){
+      var w = p.querySelector('.shell').clientWidth;
+      var s = state.w === 'mobile' ? Math.min(1, w / 390) : w / vw;
+      var f = p.querySelector('.frame');
+      f.style.setProperty('--vw', vw + 'px');
+      f.style.setProperty('--s', s.toFixed(4));
+      // 넓게 모드에서 앱 프레임은 920px 로 고정이다. 축소한 만큼만 창 높이를 준다.
+      p.querySelector('.shell').style.height =
+        state.w === 'mobile' ? '' : Math.round(920 * s) + 'px';
+      var z = p.querySelector('[data-zoom]');
+      if(z) z.textContent = vw + 'px · ' + Math.round(s * 100) + '%';
+    });
+  }
+  window.addEventListener('resize', fit);
+
+  function apply(){
+    var h = hash();
+    document.getElementById('hash').textContent = h;
+    document.body.setAttribute('data-w', state.w);
+    fit();
+    frames.forEach(function(f){
+      var next = f.dataset.src + h;
+      // 해시만 바뀌면 iframe 이 다시 로드되지 않아 화면이 안 바뀐다. 강제로 다시 건다.
+      f.src = 'about:blank';
+      setTimeout(function(){ f.src = next; fit(); }, 20);
+    });
+    [['screen','g-screen'],['kind','g-answer']].forEach(function(pair){
+      document.getElementById(pair[1]).querySelectorAll('button').forEach(function(b){
+        var on = b.dataset[pair[0]] === state[pair[0]];
+        if(pair[0] === 'kind') on = on && state.screen === 'thread';
+        b.setAttribute('aria-pressed', String(on));
+      });
+    });
+    document.getElementById('g-theme').querySelectorAll('button').forEach(function(b){
+      b.setAttribute('aria-pressed', String(b.dataset.theme === state.theme));
+    });
+    document.getElementById('g-w').querySelectorAll('button').forEach(function(b){
+      b.setAttribute('aria-pressed', String(b.dataset.w === state.w));
+    });
+  }
+  apply();
+})();
+</script>
+</body>
+</html>

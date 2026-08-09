@@ -1,0 +1,1133 @@
+<!doctype html>
+<html lang="ko" data-screen="login" data-answer="admin" data-view="desktop">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>창구 · 블레싱 네비게이션 시안 1</title>
+<!--
+  시안 1 「창구」 / ui-ux-pro-max
+  참조물: 정부24의 정보 구조를, 토스의 손끝 정밀도로 다시 짠 민원 창구.
+  설계 근거는 desk.DESIGN.md 참조.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<style>
+/* ══ 1. 토큰 ══════════════════════════════════════════════ */
+/*
+  팔레트는 목업이 덧입힌 보라가 아니라 엠블럼에서 실측한 코발트 #003D84 에서 나온다.
+  문장(紋章)·여권·학위기의 색이라 관공서로도 스타트업으로도 읽히지 않는다.
+  골드는 액센트가 아니라 "이 대목이 실제 근거"라는 의미색이고 글자에는 쓰지 않는다.
+*/
+:root{
+  --paper:#F4F7FB; --surface:#FFFFFF; --sunk:#E9EFF7;
+  --ink:#0E1A2E; --ink-2:#33445E; --ink-3:#5A6A82;
+  --brand:#00337A; --brand-press:#00234F; --brand-tint:#E3EBF7; --on-brand:#FFFFFF;
+  --gold:#C08A1E; --gold-ink:#7A5600; --gold-tint:#FAF0D8;
+  --hair:#DCE4EF; --hair-2:#BCC9DB;
+  --danger:#9A1C14; --danger-tint:#FBECEA;
+  --scrim:rgba(14,26,46,.5);
+  --em-field:#F8C800; --em-mark:#003D84;
+
+  --fs:1;             /* 글자 크기 배율 90~150% */
+  --motion:1;         /* 모션 on/off */
+  --r:8px;            /* 반경은 하나뿐 */
+  --dur:calc(var(--motion) * 180ms);
+  --dur-slow:calc(var(--motion) * 260ms);
+  --ease:cubic-bezier(.2,.7,.3,1);
+}
+:root[data-theme="dark"]{
+  --paper:#0B1220; --surface:#131C2E; --sunk:#0E1626;
+  --ink:#E6ECF5; --ink-2:#A9B7CC; --ink-3:#82909F;
+  --brand:#8FB4F0; --brand-press:#B4CDF7; --brand-tint:#182740; --on-brand:#08111F;
+  --gold:#E0B95E; --gold-ink:#EBCE8C; --gold-tint:#2A2313;
+  --hair:#222E44; --hair-2:#33425C;
+  --danger:#F0938B; --danger-tint:#2A1614;
+  --scrim:rgba(0,0,0,.62);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]):not([data-contrast="high"]){
+    --paper:#0B1220; --surface:#131C2E; --sunk:#0E1626;
+    --ink:#E6ECF5; --ink-2:#A9B7CC; --ink-3:#82909F;
+    --brand:#8FB4F0; --brand-press:#B4CDF7; --brand-tint:#182740; --on-brand:#08111F;
+    --gold:#E0B95E; --gold-ink:#EBCE8C; --gold-tint:#2A2313;
+    --hair:#222E44; --hair-2:#33425C;
+    --danger:#F0938B; --danger-tint:#2A1614;
+    --scrim:rgba(0,0,0,.62);
+  }
+}
+/* 선명한 화면 모드 (KRDS 디지털 포용). 헤어라인이 잉크 농도로 올라온다. */
+:root[data-contrast="high"]{
+  --paper:#FFFFFF; --surface:#FFFFFF; --sunk:#EEF1F5;
+  --ink:#000814; --ink-2:#000814; --ink-3:#152033;
+  --brand:#00234F; --brand-press:#000814; --brand-tint:#DCE6F5; --on-brand:#FFFFFF;
+  --gold:#6B4A00; --gold-ink:#4A3300; --gold-tint:#FFF6DC;
+  --hair:#000814; --hair-2:#000814;
+  --danger:#7A1009; --danger-tint:#FFEBE9;
+}
+
+/* ══ 2. 바탕 ══════════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box}
+html{font-size:calc(16px * var(--fs));-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:'Pretendard Variable',Pretendard,-apple-system,'Apple SD Gothic Neo',system-ui,sans-serif;
+  font-size:1.0625rem;line-height:1.7;font-weight:400;letter-spacing:0;
+  word-break:keep-all;overflow-wrap:break-word;
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4,p,ul,ol,figure{margin:0}
+ul,ol{padding:0;list-style:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;letter-spacing:inherit}
+a{color:var(--brand);text-underline-offset:.22em}
+:focus-visible{outline:3px solid var(--brand);outline-offset:2px;border-radius:2px}
+.sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+svg{display:block;flex:none}
+
+/* ══ 3. 프로토타입 유틸리티 바 (관공서 상단 유틸리티 대) ══ */
+.util{
+  background:var(--sunk);border-bottom:1px solid var(--hair);
+  display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;
+  padding:.375rem 1rem;font-size:.8125rem;color:var(--ink-2);
+}
+.util b{font-weight:700;color:var(--ink);letter-spacing:.5px}
+.util .sep{width:1px;height:1rem;background:var(--hair-2)}
+.util .grp{display:flex;align-items:center;gap:.25rem}
+.util .lbl{color:var(--ink-3);font-size:.75rem}
+.util button{
+  min-height:32px;padding:.125rem .5rem;border-radius:var(--r);
+  border:1px solid transparent;color:var(--ink-2);font-size:.8125rem;
+  transition:background var(--dur) var(--ease),color var(--dur) var(--ease);
+}
+.util button:hover{background:var(--surface)}
+.util button[aria-pressed="true"]{background:var(--surface);border-color:var(--hair-2);color:var(--ink);font-weight:700}
+.util .spacer{margin-left:auto}
+
+/* ══ 4. 앱 골격 ═══════════════════════════════════════════ */
+.app{min-height:calc(100dvh - 44px);display:flex;flex-direction:column}
+.appbar{
+  display:flex;align-items:center;gap:1rem;
+  padding:0 1.5rem;height:calc(4.5rem);
+  border-bottom:1px solid var(--hair);background:var(--surface);
+}
+.brandmark{display:flex;align-items:center;gap:.625rem;min-width:0}
+.brandmark img{width:34px;height:34px}
+.brandmark .nm{font-size:1.0625rem;font-weight:700;line-height:1.3;white-space:nowrap}
+.brandmark .sub{font-size:.75rem;color:var(--ink-3);line-height:1.3}
+.appbar .tools{margin-left:auto;display:flex;align-items:center;gap:.5rem}
+
+/* 글자 크기 컨트롤 · 제품 기능 (KRDS 디지털 포용) */
+.fsctl{display:flex;align-items:center;border:1px solid var(--hair-2);border-radius:var(--r);overflow:hidden}
+.fsctl span{font-size:.75rem;color:var(--ink-3);padding:0 .5rem 0 .625rem;white-space:nowrap}
+.fsctl button{
+  min-width:36px;height:38px;border-left:1px solid var(--hair);
+  font-size:.8125rem;color:var(--ink-2);
+  transition:background var(--dur) var(--ease);
+}
+.fsctl button:hover{background:var(--sunk)}
+.fsctl button[aria-pressed="true"]{background:var(--brand);color:var(--on-brand);font-weight:700}
+.iconbtn{
+  width:44px;height:44px;display:grid;place-items:center;border-radius:var(--r);
+  border:1px solid var(--hair-2);color:var(--ink-2);
+  transition:background var(--dur) var(--ease);
+}
+.iconbtn:hover{background:var(--sunk)}
+
+/* ══ 5. 3열 ══════════════════════════════════════════════ */
+.shell{flex:1;display:grid;grid-template-columns:264px minmax(0,1fr) 336px;min-height:0}
+.col{min-width:0;min-height:0}
+.col--docs{border-right:1px solid var(--hair);background:var(--surface);overflow:auto}
+.col--main{overflow:auto;display:flex;flex-direction:column}
+.col--ev{border-left:1px solid var(--hair);background:var(--surface);overflow:auto}
+@media (max-width:1279px){.shell{grid-template-columns:240px minmax(0,1fr) 296px}}
+
+.colhead{
+  position:sticky;top:0;z-index:2;background:inherit;
+  padding:1.125rem 1.25rem .625rem;border-bottom:1px solid var(--hair);
+}
+.colhead h2{font-size:.9375rem;font-weight:700;line-height:1.5}
+.colhead p{font-size:.8125rem;color:var(--ink-3);margin-top:.125rem}
+
+/* ── 문서함 ── */
+.docs{padding:.625rem}
+.doc{
+  display:block;width:100%;text-align:left;padding:.625rem .75rem;border-radius:var(--r);
+  border:1px solid transparent;
+  transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease);
+}
+.doc:hover{background:var(--sunk)}
+.doc[aria-current="true"]{background:var(--sunk);border-color:var(--hair-2)}
+.doc .t{display:block;font-size:.9375rem;font-weight:700;line-height:1.45}
+.doc .m{font-size:.75rem;color:var(--ink-3);margin-top:.125rem;display:flex;gap:.4rem;flex-wrap:wrap}
+.doc .m i{font-style:normal}
+.docs .divider{margin:.75rem .75rem .375rem;font-size:.75rem;color:var(--ink-3);font-weight:700}
+
+/* ── 본문 ── */
+.main-inner{width:100%;max-width:62ch;margin:0 auto;padding:2rem 1.5rem 8rem;flex:1}
+.eyebrow{font-size:.8125rem;color:var(--ink-3);font-weight:700;margin-bottom:.375rem}
+.qline{
+  display:flex;gap:.75rem;align-items:baseline;
+  padding-bottom:1.25rem;border-bottom:1px solid var(--hair);margin-bottom:1.5rem;
+}
+.qline .who{font-size:.8125rem;color:var(--ink-3);font-weight:700;white-space:nowrap;padding-top:.2rem}
+.qline .q{font-size:1.3125rem;font-weight:700;line-height:1.55}
+
+/* 결론 띠 */
+.verdict{
+  border-top:2px solid var(--ink);border-bottom:1px solid var(--hair);
+  padding:1rem 0 1.125rem;margin-bottom:1.5rem;
+}
+.verdict .lab{font-size:.75rem;font-weight:700;color:var(--ink-3);margin-bottom:.25rem}
+.verdict p{font-size:1.1875rem;font-weight:700;line-height:1.6}
+
+.sec{margin-bottom:1.75rem}
+.sec > h3{
+  font-size:.75rem;font-weight:700;color:var(--ink-3);
+  padding-bottom:.375rem;border-bottom:1px solid var(--hair);margin-bottom:.75rem;
+}
+.sec p + p{margin-top:.625rem}
+
+/* 근거 있는 문장 · 시그니처 */
+.claim{
+  border-bottom:2px solid var(--gold);cursor:pointer;
+  background:transparent;padding:0 .05em;
+  transition:background var(--dur) var(--ease);
+}
+.claim:hover,.claim.linked{background:var(--gold-tint)}
+.claim sup{
+  font-size:.6875em;font-weight:700;color:var(--gold-ink);
+  vertical-align:.4em;margin-left:.12em;
+}
+/* 근거 없는 안내 문장 */
+.aside-note{color:var(--ink-2);font-size:1rem}
+
+/* 절차 */
+.steps{counter-reset:s;border-top:1px solid var(--hair)}
+.steps li{
+  counter-increment:s;display:grid;grid-template-columns:2.25rem 1fr;gap:.75rem;
+  padding:.875rem 0;border-bottom:1px solid var(--hair);align-items:start;
+}
+.steps li::before{
+  content:counter(s);grid-row:span 2;
+  font-size:.875rem;font-weight:700;color:var(--brand);
+  border:1px solid var(--hair-2);border-radius:var(--r);
+  width:2.25rem;height:2.25rem;display:grid;place-items:center;
+}
+.steps .st{font-weight:700;line-height:1.55}
+.steps .sd{font-size:.9375rem;color:var(--ink-2);margin-top:.125rem}
+
+/* 다음 행동 */
+.next{
+  border:1px solid var(--hair-2);border-radius:var(--r);padding:1.125rem 1.25rem;background:var(--surface);
+}
+.next h4{font-size:1rem;font-weight:700;margin-bottom:.375rem}
+.next p{font-size:.9375rem;color:var(--ink-2);margin-bottom:.875rem}
+
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  min-height:56px;padding:0 1.25rem;border-radius:var(--r);font-weight:700;font-size:1.0625rem;
+  transition:background var(--dur) var(--ease),border-color var(--dur) var(--ease);
+}
+.btn--pri{background:var(--brand);color:var(--on-brand)}
+.btn--pri:hover{background:var(--brand-press)}
+.btn--pri:active{background:var(--brand-press)}
+.btn--sec{background:var(--surface);color:var(--ink);border:1px solid var(--hair-2)}
+.btn--sec:hover{background:var(--sunk)}
+.btn--block{width:100%}
+
+/* 답변 하단 도구 */
+.acts{display:flex;gap:.375rem;flex-wrap:wrap;margin-top:1.5rem;padding-top:1rem;border-top:1px solid var(--hair)}
+.act{
+  display:inline-flex;align-items:center;gap:.375rem;min-height:44px;padding:0 .75rem;
+  border-radius:var(--r);border:1px solid var(--hair);font-size:.875rem;color:var(--ink-2);
+  transition:background var(--dur) var(--ease);
+}
+.act:hover{background:var(--sunk)}
+.act[aria-pressed="true"]{background:var(--brand-tint);border-color:var(--brand);color:var(--brand);font-weight:700}
+
+/* 후속 질문 */
+.followups{margin-top:1.5rem}
+.followups h3{font-size:.75rem;font-weight:700;color:var(--ink-3);margin-bottom:.5rem}
+.fu{
+  display:flex;width:100%;text-align:left;align-items:center;gap:.75rem;
+  min-height:56px;padding:.625rem 1rem;border:1px solid var(--hair);border-radius:var(--r);
+  background:var(--surface);margin-bottom:.375rem;font-size:.9375rem;
+  transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease);
+}
+.fu:hover{border-color:var(--hair-2);background:var(--sunk)}
+.fu .arw{margin-left:auto;color:var(--ink-3)}
+
+/* ── 근거 열 ── */
+.evlist{padding:.75rem}
+.ev{
+  display:block;width:100%;text-align:left;
+  border:1px solid var(--hair);border-radius:var(--r);padding:.875rem;margin-bottom:.5rem;
+  background:var(--surface);
+  transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease);
+}
+.ev:hover{border-color:var(--hair-2)}
+.ev.linked{background:var(--gold-tint);border-color:var(--gold)}
+.ev.flash{
+  background:var(--gold-tint);border-color:var(--gold);
+  box-shadow:0 0 0 3px var(--gold-tint);
+  transition:box-shadow var(--dur-slow) var(--ease),background var(--dur-slow) var(--ease);
+}
+.ev .go{
+  display:inline-flex;align-items:center;gap:.25rem;margin-top:.5rem;
+  font-size:.75rem;font-weight:700;color:var(--brand);
+}
+.ev .go::after{content:"›"}
+.ev .no{
+  display:inline-grid;place-items:center;min-width:1.375rem;height:1.375rem;padding:0 .3rem;
+  border:1px solid var(--gold);border-radius:4px;color:var(--gold-ink);
+  font-size:.75rem;font-weight:700;margin-right:.4rem;
+}
+.ev .t{font-size:.9375rem;font-weight:700;line-height:1.45;display:inline}
+.ev .m{font-size:.75rem;color:var(--ink-3);margin:.375rem 0 .5rem;display:flex;gap:.4rem;flex-wrap:wrap}
+.ev .x{
+  font-size:.875rem;color:var(--ink-2);line-height:1.65;
+  padding-left:.75rem;border-left:2px solid var(--hair-2);
+}
+.ev mark{background:var(--gold-tint);color:var(--ink);box-shadow:inset 0 -2px 0 var(--gold);padding:.05em 0}
+:root[data-theme="dark"] .ev mark{background:var(--gold-tint);color:var(--ink)}
+.evfoot{padding:.75rem 1rem 1.5rem;font-size:.8125rem;color:var(--ink-3);border-top:1px solid var(--hair);margin-top:.5rem}
+
+/* 인용 대기 */
+.waiting{padding:.875rem;border:1px dashed var(--hair-2);border-radius:var(--r);margin-bottom:.5rem}
+.waiting .h{font-size:.875rem;font-weight:700;display:flex;align-items:center;gap:.5rem}
+.waiting .h::before{
+  content:"";width:.5rem;height:.5rem;border-radius:50%;background:var(--gold);
+  animation:beat calc(var(--motion)*1400ms) ease-in-out infinite;
+}
+@keyframes beat{0%,100%{opacity:.35}50%{opacity:1}}
+.waiting p{font-size:.8125rem;color:var(--ink-3);margin-top:.25rem}
+.bar{height:3px;background:var(--hair);border-radius:2px;margin-top:.625rem;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold);width:34%;animation:crawl calc(var(--motion)*2600ms) var(--ease) infinite}
+@keyframes crawl{0%{transform:translateX(-100%)}100%{transform:translateX(340%)}}
+
+/* ── 입력창 ── */
+.composer{
+  position:sticky;bottom:0;background:var(--paper);border-top:1px solid var(--hair);
+  padding:.875rem 1.5rem 1.125rem;
+}
+.composer .wrap{max-width:62ch;margin:0 auto}
+.field{
+  display:flex;align-items:flex-end;gap:.625rem;
+  border:1px solid var(--hair-2);border-radius:var(--r);background:var(--surface);padding:.5rem .5rem .5rem .875rem;
+  transition:border-color var(--dur) var(--ease);
+}
+.field:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-tint)}
+.field textarea{
+  flex:1;border:0;outline:0;background:none;resize:none;color:inherit;font:inherit;
+  padding:.625rem 0;max-height:8rem;min-height:2.5rem;line-height:1.6;
+}
+.send{width:44px;height:44px;border-radius:var(--r);background:var(--brand);color:var(--on-brand);display:grid;place-items:center;flex:none}
+.send:hover{background:var(--brand-press)}
+.disclaimer{font-size:.75rem;color:var(--ink-3);margin-top:.5rem;text-align:center}
+
+/* ══ 6. 로그인 ═══════════════════════════════════════════ */
+.login{max-width:34rem;margin:0 auto;padding:2.75rem 1.5rem 5rem}
+.login .ident{display:flex;gap:1.125rem;align-items:center;padding-bottom:1.5rem;border-bottom:2px solid var(--ink)}
+.login .ident img{width:76px;height:76px}
+.login .ident h1{font-size:1.625rem;font-weight:700;line-height:1.35;letter-spacing:.5px}
+.login .ident p{font-size:.9375rem;color:var(--ink-2);margin-top:.25rem;line-height:1.6}
+.form{margin-top:1.5rem}
+.f{margin-bottom:1rem}
+.f label{display:block;font-size:.875rem;font-weight:700;margin-bottom:.375rem}
+.f input{
+  width:100%;height:56px;padding:0 .875rem;border:1px solid var(--hair-2);border-radius:var(--r);
+  background:var(--surface);color:var(--ink);font:inherit;
+  transition:border-color var(--dur) var(--ease);
+}
+.f input:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-tint)}
+.f .hint{font-size:.8125rem;color:var(--ink-3);margin-top:.375rem}
+.err{
+  display:flex;gap:.5rem;align-items:flex-start;
+  background:var(--danger-tint);color:var(--danger);border-radius:var(--r);
+  padding:.75rem .875rem;font-size:.875rem;margin-bottom:1rem;
+}
+.corpus{margin-top:2.25rem;border-top:1px solid var(--hair);padding-top:1.25rem}
+.corpus .tag{
+  display:inline-block;font-size:.75rem;font-weight:700;color:var(--gold-ink);
+  border-bottom:2px solid var(--gold);padding-bottom:.15rem;margin-bottom:.625rem;
+}
+.corpus h2{font-size:.9375rem;font-weight:700}
+.corpus > p{font-size:.875rem;color:var(--ink-2);margin:.25rem 0 .875rem}
+.corpus ul li{
+  display:flex;justify-content:space-between;gap:1rem;align-items:baseline;
+  padding:.625rem 0;border-bottom:1px solid var(--hair);font-size:.9375rem;
+}
+.corpus ul li .m{font-size:.8125rem;color:var(--ink-3);white-space:nowrap}
+
+/* ══ 7. 홈 ═══════════════════════════════════════════════ */
+.home{max-width:62ch;margin:0 auto;padding:2.5rem 1.5rem 8rem}
+.home h1{font-size:2.125rem;font-weight:700;line-height:1.4;letter-spacing:.5px}
+.home > p.lede{font-size:1.0625rem;color:var(--ink-2);margin-top:.625rem}
+.gate{display:grid;grid-template-columns:1fr 1fr;gap:.625rem;margin:1.75rem 0 2rem}
+.gate button{
+  text-align:left;padding:1.125rem;border:1px solid var(--hair-2);border-radius:var(--r);
+  background:var(--surface);
+  transition:border-color var(--dur) var(--ease),background var(--dur) var(--ease);
+}
+.gate button:hover{background:var(--sunk)}
+.gate button[aria-pressed="true"]{border-color:var(--brand);background:var(--brand-tint)}
+.gate .t{display:block;font-size:1.0625rem;font-weight:700}
+.gate .d{display:block;font-size:.875rem;color:var(--ink-2);margin-top:.25rem;line-height:1.55}
+.grp-h{font-size:.75rem;font-weight:700;color:var(--ink-3);margin:1.5rem 0 .5rem;padding-bottom:.375rem;border-bottom:1px solid var(--hair)}
+
+/* ══ 8. 근거 열람 ═════════════════════════════════════════ */
+.reader{max-width:66ch;margin:0 auto;padding:2rem 1.5rem 6rem}
+.rhead{border-bottom:2px solid var(--ink);padding-bottom:1rem;margin-bottom:.25rem}
+.rhead h1{font-size:1.4375rem;font-weight:700;line-height:1.45}
+.rmeta{display:flex;flex-wrap:wrap;gap:.375rem .875rem;font-size:.8125rem;color:var(--ink-3);margin-top:.5rem}
+.rmeta b{font-weight:700;color:var(--ink-2)}
+.pagebar{
+  display:flex;align-items:center;gap:.5rem;padding:.75rem 0;border-bottom:1px solid var(--hair);
+  font-size:.8125rem;color:var(--ink-3);margin-bottom:1.5rem;
+}
+.pagebar .pg{
+  min-width:36px;height:36px;border:1px solid var(--hair);border-radius:var(--r);
+  display:grid;place-items:center;font-size:.8125rem;
+}
+.pagebar .pg[aria-current="true"]{background:var(--brand);color:var(--on-brand);border-color:var(--brand);font-weight:700}
+.pagetext p{margin-bottom:1rem;line-height:1.85}
+.pagetext mark{background:var(--gold-tint);color:var(--ink);box-shadow:inset 0 -3px 0 var(--gold);padding:.08em 0}
+.usedby{
+  margin-top:2rem;border:1px solid var(--hair-2);border-radius:var(--r);padding:1.125rem;
+  background:var(--surface);
+}
+.usedby h2{font-size:.75rem;font-weight:700;color:var(--ink-3);margin-bottom:.625rem}
+.usedby blockquote{margin:0;padding-left:.875rem;border-left:2px solid var(--gold);font-size:.9375rem;line-height:1.7}
+
+/* ══ 9. 내정보 ════════════════════════════════════════════ */
+.me{max-width:52ch;margin:0 auto;padding:2.5rem 1.5rem 6rem}
+.me h1{font-size:1.75rem;font-weight:700;letter-spacing:.5px}
+.rows{margin-top:1.5rem;border-top:1px solid var(--hair)}
+.row{display:flex;justify-content:space-between;gap:1rem;align-items:center;padding:1rem 0;border-bottom:1px solid var(--hair)}
+.row .k{font-size:.9375rem;color:var(--ink-3)}
+.row .v{font-weight:700;text-align:right}
+.me h2{font-size:.75rem;font-weight:700;color:var(--ink-3);margin:2rem 0 .5rem}
+.prefgrid{display:flex;gap:.375rem;flex-wrap:wrap}
+.prefgrid button{
+  min-height:48px;padding:0 .875rem;border:1px solid var(--hair-2);border-radius:var(--r);
+  background:var(--surface);font-size:.9375rem;
+}
+.prefgrid button[aria-pressed="true"]{background:var(--brand);color:var(--on-brand);border-color:var(--brand);font-weight:700}
+
+/* ══ 10. 화면 전환 ════════════════════════════════════════ */
+:root[data-chrome="off"] .util{display:none}
+[data-pane]{display:none}
+:root[data-screen="login"] [data-pane="login"],
+:root[data-screen="home"]  [data-pane="home"],
+:root[data-screen="chat"]  [data-pane="chat"],
+:root[data-screen="source"][data-pane="source"],
+:root[data-screen="source"] [data-pane="source"],
+:root[data-screen="me"]    [data-pane="me"]{display:block}
+:root[data-screen="login"] .shell,
+:root[data-screen="me"] .shell{grid-template-columns:minmax(0,1fr)}
+:root[data-screen="login"] .col--docs,:root[data-screen="login"] .col--ev,
+:root[data-screen="me"] .col--docs,:root[data-screen="me"] .col--ev,
+:root[data-screen="home"] .col--ev,:root[data-screen="source"] .col--ev{display:none}
+:root[data-screen="home"] .shell,:root[data-screen="source"] .shell{grid-template-columns:264px minmax(0,1fr)}
+:root[data-screen="login"] .composer,:root[data-screen="me"] .composer,:root[data-screen="source"] .composer{display:none}
+
+[data-ans]{display:none}
+:root[data-answer="admin"]   [data-ans="admin"],
+:root[data-answer="clarify"] [data-ans="clarify"],
+:root[data-answer="nobasis"] [data-ans="nobasis"],
+:root[data-answer="safety"]  [data-ans="safety"]{display:block}
+/* 맥락 확인·근거 없음·안전 우선에는 인용 UI가 없다 */
+:root[data-answer="clarify"] .col--ev,
+:root[data-answer="nobasis"] .col--ev,
+:root[data-answer="safety"] .col--ev{display:none}
+:root[data-answer="clarify"] .shell,
+:root[data-answer="nobasis"] .shell,
+:root[data-answer="safety"] .shell{grid-template-columns:264px minmax(0,1fr)}
+/* 다만 대화 화면에서만 적용한다 */
+:root[data-screen="source"] .shell,
+:root[data-screen="home"] .shell{grid-template-columns:264px minmax(0,1fr)}
+
+/* ══ 11. 안전 우선 ════════════════════════════════════════ */
+.safety{border-top:3px solid var(--danger);padding-top:1.25rem}
+.safety h2{font-size:1.3125rem;font-weight:700;line-height:1.55;margin-bottom:.75rem}
+.safety p{margin-bottom:.875rem}
+.hotline{
+  border:1px solid var(--danger);border-radius:var(--r);padding:1.125rem 1.25rem;background:var(--danger-tint);margin-top:1.25rem;
+}
+.hotline .n{font-size:2rem;font-weight:700;color:var(--danger);line-height:1.2;letter-spacing:1px}
+.hotline .d{font-size:.9375rem;color:var(--ink-2);margin-top:.25rem}
+.ladder{margin-top:1.5rem;border-top:1px solid var(--hair)}
+.ladder li{display:flex;gap:.75rem;align-items:baseline;padding:.75rem 0;border-bottom:1px solid var(--hair)}
+.ladder .o{font-size:.8125rem;font-weight:700;color:var(--ink-3);min-width:1.5rem}
+.ladder .p{font-weight:700}
+.ladder .w{font-size:.875rem;color:var(--ink-2);margin-left:auto;text-align:right}
+
+/* ══ 12. 근거 없음 ════════════════════════════════════════ */
+.effort{border:1px solid var(--hair-2);border-radius:var(--r);padding:1.125rem 1.25rem;background:var(--surface);margin:1.25rem 0}
+.effort h3{font-size:.75rem;font-weight:700;color:var(--ink-3);margin-bottom:.5rem}
+.effort .big{font-size:1.0625rem;font-weight:700;line-height:1.6}
+.effort ul{margin-top:.75rem;font-size:.875rem;color:var(--ink-2)}
+.effort ul li{padding:.3rem 0;display:flex;gap:.5rem}
+.effort ul li::before{content:"";width:.375rem;height:.375rem;border-radius:50%;background:var(--hair-2);margin-top:.6rem;flex:none}
+.askparent{border-top:1px solid var(--hair);padding-top:1rem;margin-top:1.5rem}
+.askparent h3{font-size:.75rem;font-weight:700;color:var(--ink-3);margin-bottom:.5rem}
+.askparent li{padding:.5rem 0;border-bottom:1px solid var(--hair);font-size:.9375rem}
+.askparent li::before{content:"“";color:var(--ink-3)}
+.askparent li::after{content:"”";color:var(--ink-3)}
+
+/* ══ 13. 맥락 확인 ════════════════════════════════════════ */
+.clarify .empath{font-size:1.0625rem;color:var(--ink-2);margin-bottom:1.25rem}
+.clarify .ask{
+  border-top:2px solid var(--ink);border-bottom:1px solid var(--hair);
+  padding:1.125rem 0 1.25rem;
+}
+.clarify .ask .lab{font-size:.75rem;font-weight:700;color:var(--ink-3);margin-bottom:.25rem}
+.clarify .ask p{font-size:1.1875rem;font-weight:700;line-height:1.6}
+.opts{display:flex;gap:.375rem;flex-wrap:wrap;margin-top:1rem}
+.opts button{
+  min-height:56px;padding:0 1rem;border:1px solid var(--hair-2);border-radius:var(--r);
+  background:var(--surface);font-size:.9375rem;
+  transition:background var(--dur) var(--ease);
+}
+.opts button:hover{background:var(--sunk)}
+
+/* ══ 14. 모바일 ═══════════════════════════════════════════ */
+:root[data-view="mobile"] .stage{max-width:400px;margin:0 auto;border-left:1px solid var(--hair);border-right:1px solid var(--hair)}
+@media (max-width:1023px){
+  .shell,:root[data-screen="home"] .shell,:root[data-screen="source"] .shell,
+  :root[data-answer="clarify"] .shell,:root[data-answer="safety"] .shell{grid-template-columns:minmax(0,1fr)}
+  .col--docs{display:none}
+  .col--ev{border-left:0;border-top:1px solid var(--hair)}
+  :root[data-screen="chat"] .col--ev{display:block}
+  .appbar{padding:.5rem 1rem;height:auto;min-height:4rem;flex-wrap:wrap;row-gap:.5rem}
+  .appbar .tools{width:100%;justify-content:flex-end}
+  .brandmark .sub{display:none}
+  .main-inner,.home,.reader,.me{padding-left:1.125rem;padding-right:1.125rem}
+  .gate{grid-template-columns:1fr}
+  .composer{padding:.75rem 1.125rem 1rem}
+  .util{padding:.375rem .75rem;gap:.5rem}
+  .util .sep{display:none}
+}
+:root[data-view="mobile"] .shell{grid-template-columns:minmax(0,1fr) !important}
+:root[data-view="mobile"] .col--docs{display:none}
+:root[data-view="mobile"] .col--ev{border-left:0;border-top:1px solid var(--hair)}
+:root[data-view="mobile"] .gate{grid-template-columns:1fr}
+:root[data-view="mobile"] .appbar{padding:.5rem 1rem;height:auto;min-height:4rem;flex-wrap:wrap;row-gap:.5rem}
+:root[data-view="mobile"] .appbar .tools{width:100%;justify-content:flex-end}
+:root[data-view="mobile"] .brandmark .sub{display:none}
+:root[data-view="mobile"] .main-inner,:root[data-view="mobile"] .home,
+:root[data-view="mobile"] .reader,:root[data-view="mobile"] .me,
+:root[data-view="mobile"] .login{padding-left:1.125rem;padding-right:1.125rem}
+:root[data-view="mobile"] .composer{padding:.75rem 1.125rem 1rem}
+
+@media (prefers-reduced-motion:reduce){:root{--motion:0}}
+</style>
+</head>
+<body>
+
+<!-- 프로토타입 유틸리티 바 -->
+<nav class="util" aria-label="시안 도구">
+  <b>시안 1 · 창구</b>
+  <span class="sep" aria-hidden="true"></span>
+  <span class="grp" role="group" aria-label="화면">
+    <span class="lbl">화면</span>
+    <button data-nav="login" aria-pressed="true">로그인</button>
+    <button data-nav="home" aria-pressed="false">홈</button>
+    <button data-nav="chat" aria-pressed="false">대화</button>
+    <button data-nav="source" aria-pressed="false">근거 열람</button>
+    <button data-nav="me" aria-pressed="false">내정보</button>
+  </span>
+  <span class="sep" aria-hidden="true"></span>
+  <span class="grp" role="group" aria-label="답변 유형">
+    <span class="lbl">답변</span>
+    <button data-ansbtn="admin" aria-pressed="true">행정 확답</button>
+    <button data-ansbtn="clarify" aria-pressed="false">맥락 확인</button>
+    <button data-ansbtn="nobasis" aria-pressed="false">근거 없음</button>
+    <button data-ansbtn="safety" aria-pressed="false">안전 우선</button>
+  </span>
+  <span class="spacer"></span>
+  <span class="grp" role="group" aria-label="뷰포트">
+    <button data-view-btn="desktop" aria-pressed="true">데스크톱</button>
+    <button data-view-btn="mobile" aria-pressed="false">모바일</button>
+  </span>
+  <span class="grp" role="group" aria-label="모션">
+    <span class="lbl">모션</span>
+    <button data-motion="1" aria-pressed="true">켬</button>
+    <button data-motion="0" aria-pressed="false">끔</button>
+  </span>
+</nav>
+
+<div class="stage">
+<div class="app">
+
+  <!-- 앱 헤더 -->
+  <header class="appbar">
+    <span class="brandmark">
+      <img src="assets/emblem.svg" alt="">
+      <span>
+        <span class="nm">블레싱 네비게이션</span>
+        <span class="sub">축복·가정 문서 안내 창구</span>
+      </span>
+    </span>
+    <span class="tools">
+      <span class="fsctl" role="group" aria-label="글자 크기">
+        <span aria-hidden="true">글자</span>
+        <button data-fs=".9" aria-pressed="false">90</button>
+        <button data-fs="1" aria-pressed="true">100</button>
+        <button data-fs="1.1" aria-pressed="false">110</button>
+        <button data-fs="1.3" aria-pressed="false">130</button>
+        <button data-fs="1.5" aria-pressed="false">150</button>
+      </span>
+      <span class="fsctl" role="group" aria-label="화면 모드">
+        <span aria-hidden="true">화면</span>
+        <button data-contrast-btn="normal" aria-pressed="true">기본</button>
+        <button data-contrast-btn="high" aria-pressed="false">선명하게</button>
+      </span>
+      <button class="iconbtn" id="themebtn" aria-label="화면 밝기 전환">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4"/>
+          <circle cx="10" cy="10" r="3.4"/>
+        </svg>
+      </button>
+    </span>
+  </header>
+
+  <div class="shell">
+
+    <!-- ══ 좌: 문서함 ══ -->
+    <aside class="col col--docs" aria-label="근거 문서함">
+      <div class="colhead">
+        <h2>근거로 쓰는 문서</h2>
+        <p>이 서비스는 아래 6종만 근거로 씁니다</p>
+      </div>
+      <div class="docs">
+        <button class="doc" aria-current="true">
+          <span class="t">축복 행정 규정집</span>
+          <span class="m"><i>시행 2026.01.01</i><i>총회 사무국</i><i>84쪽</i></span>
+        </button>
+        <button class="doc">
+          <span class="t">축복후보자 등록 안내</span>
+          <span class="m"><i>개정 2025.11.20</i><i>축복가정국</i><i>22쪽</i></span>
+        </button>
+        <button class="doc">
+          <span class="t">봉헌식 시행 안내</span>
+          <span class="m"><i>시행 2024.03.02</i><i>총회 사무국</i><i>16쪽</i></span>
+        </button>
+        <button class="doc">
+          <span class="t">교류 기간 운영 지침</span>
+          <span class="m"><i>시행 2025.06.15</i><i>축복가정국</i><i>12쪽</i></span>
+        </button>
+        <button class="doc">
+          <span class="t">40일 정성 준비 안내</span>
+          <span class="m"><i>개정 2025.09.01</i><i>축복가정국</i><i>9쪽</i></span>
+        </button>
+        <button class="doc">
+          <span class="t">가정관리 실무 편람</span>
+          <span class="m"><i>시행 2023.04.10</i><i>총회 사무국</i><i>47쪽</i></span>
+        </button>
+        <p class="divider">지난 대화</p>
+        <button class="doc"><span class="t">축복후보자 서류 문의</span><span class="m"><i>오늘</i></span></button>
+        <button class="doc"><span class="t">봉헌식 일정 확인</span><span class="m"><i>어제</i></span></button>
+        <button class="doc"><span class="t">40일 정성 준비</span><span class="m"><i>7월 29일</i></span></button>
+      </div>
+    </aside>
+
+    <!-- ══ 중: 본문 ══ -->
+    <main class="col col--main" id="main">
+
+      <!-- ── 로그인 ── -->
+      <section data-pane="login">
+        <div class="login">
+          <div class="ident">
+            <img src="assets/emblem.svg" alt="블레싱 네비게이션 엠블럼">
+            <div>
+              <h1>블레싱 네비게이션</h1>
+              <p>축복·가정 관련 공식 문서를 근거로 답하는 안내 창구입니다.</p>
+            </div>
+          </div>
+
+          <form class="form" onsubmit="return false">
+            <div class="f">
+              <label for="uid">하나로 계정 아이디</label>
+              <input id="uid" type="text" autocomplete="username" value="">
+            </div>
+            <div class="f">
+              <label for="pw">비밀번호</label>
+              <input id="pw" type="password" autocomplete="current-password">
+              <p class="hint">하나로 계정 정보는 소속 가정 연동에만 쓰입니다.</p>
+            </div>
+            <button type="submit" class="btn btn--pri btn--block">로그인</button>
+          </form>
+
+          <section class="corpus">
+            <p class="tag">근거</p>
+            <h2>이 서비스는 무엇을 근거로 답하나요</h2>
+            <p>아래 6종 문서만 씁니다. 그 밖의 내용은 답하지 않고, 사람에게 연결합니다.</p>
+            <ul>
+              <li><span>축복 행정 규정집</span><span class="m">시행 2026.01.01 · 84쪽</span></li>
+              <li><span>축복후보자 등록 안내</span><span class="m">개정 2025.11.20 · 22쪽</span></li>
+              <li><span>봉헌식 시행 안내</span><span class="m">시행 2024.03.02 · 16쪽</span></li>
+              <li><span>교류 기간 운영 지침</span><span class="m">시행 2025.06.15 · 12쪽</span></li>
+              <li><span>40일 정성 준비 안내</span><span class="m">개정 2025.09.01 · 9쪽</span></li>
+              <li><span>가정관리 실무 편람</span><span class="m">시행 2023.04.10 · 47쪽</span></li>
+            </ul>
+          </section>
+        </div>
+      </section>
+
+      <!-- ── 홈 ── -->
+      <section data-pane="home">
+        <div class="home">
+          <h1>무엇을 확인해 드릴까요</h1>
+          <p class="lede">물어보시면 공식 문서에서 해당 대목을 찾아 쪽수와 함께 보여드립니다.</p>
+
+          <div class="gate" role="group" aria-label="시작 방식">
+            <button aria-pressed="true">
+              <span class="t">축복 정보 알아보기</span>
+              <span class="d">절차·서류·일정처럼 규정으로 정해진 것</span>
+            </button>
+            <button aria-pressed="false">
+              <span class="t">고민 나누기</span>
+              <span class="d">마음이 복잡할 때. 규정보다 먼저 듣습니다</span>
+            </button>
+          </div>
+
+          <h2 class="grp-h">서류와 등록</h2>
+          <button class="fu">축복후보자 서류는 무엇이 필요한가요?<span class="arw" aria-hidden="true">›</span></button>
+          <button class="fu">등록 신청은 언제까지 해야 하나요?<span class="arw" aria-hidden="true">›</span></button>
+
+          <h2 class="grp-h">예식과 정성</h2>
+          <button class="fu">축복식 준비 절차가 궁금해요<span class="arw" aria-hidden="true">›</span></button>
+          <button class="fu">40일 정성은 무엇인가요?<span class="arw" aria-hidden="true">›</span></button>
+          <button class="fu">봉헌식과 탕감봉은 어떻게 하나요?<span class="arw" aria-hidden="true">›</span></button>
+
+          <h2 class="grp-h">매칭과 교류</h2>
+          <button class="fu">매칭 이후 교류는 어떻게 진행되나요?<span class="arw" aria-hidden="true">›</span></button>
+        </div>
+      </section>
+
+      <!-- ── 대화 ── -->
+      <section data-pane="chat">
+        <div class="main-inner">
+
+          <!-- 행정 확답 -->
+          <div data-ans="admin">
+            <div class="qline">
+              <span class="who">질문</span>
+              <span class="q">축복후보자 서류는 무엇이 필요한가요?</span>
+            </div>
+
+            <div class="verdict">
+              <p class="lab">결론</p>
+              <p>축복후보자 등록에는 서류 3종이 필요합니다. 등록 신청서, 가정부장 확인서, 그리고 최근 6개월 이내 발급된 가정 확인 자료입니다.</p>
+            </div>
+
+            <section class="sec">
+              <h3>근거</h3>
+              <p><span class="claim" data-ev="1" tabindex="0" role="button">등록에 필요한 서류는 신청서·확인서·가정 확인 자료 3종으로 정해져 있습니다<sup>1</sup></span>. 이 가운데 가정부장 확인서는 소속 가정부장님만 발급할 수 있습니다.</p>
+              <p><span class="claim" data-ev="2" tabindex="0" role="button">가정 확인 자료는 발급일로부터 6개월이 지나면 다시 받아야 합니다<sup>2</sup></span>.</p>
+              <p class="aside-note">서류 형식이 지역마다 조금씩 다를 수 있으니, 제출 전에 소속 지역에 한 번 확인하시는 편이 좋습니다.</p>
+            </section>
+
+            <section class="sec">
+              <h3>절차와 준비</h3>
+              <ol class="steps">
+                <li><span class="st">등록 신청서를 작성합니다</span><span class="sd">양식은 소속 가정부장님께 요청하시면 받으실 수 있습니다.</span></li>
+                <li><span class="st">가정부장님 확인 서명을 받습니다</span><span class="sd">본인 확인과 소속 확인이 함께 이뤄집니다.</span></li>
+                <li><span class="st">지역 축복가정국에 제출합니다</span><span class="sd"><span class="claim" data-ev="3" tabindex="0" role="button">제출은 등록 마감일 7일 전까지입니다<sup>3</sup></span>.</span></li>
+              </ol>
+            </section>
+
+            <section class="sec">
+              <h3>다음 행동</h3>
+              <div class="next">
+                <h4>소속 가정부장님께 등록 신청서 양식을 요청하세요</h4>
+                <p>세 가지 서류 중 두 가지가 가정부장님을 거칩니다. 여기서 시작하시는 게 가장 빠릅니다.</p>
+                <button class="btn btn--pri">가정부장님께 여쭐 내용 정리하기</button>
+              </div>
+            </section>
+
+            <div class="acts">
+              <button class="act">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.2" y="5.2" width="8.3" height="8.3" rx="1.6"/><path d="M10.8 5.2V3.6a1.6 1.6 0 0 0-1.6-1.6H4a1.6 1.6 0 0 0-1.6 1.6v5.2a1.6 1.6 0 0 0 1.6 1.6h1.2"/></svg>
+                복사
+              </button>
+              <button class="act" aria-pressed="false">도움이 됐어요</button>
+              <button class="act" aria-pressed="false">아쉬워요</button>
+              <button class="act">사람에게 연결</button>
+            </div>
+
+            <div class="followups">
+              <h3>이어서 물어보면 좋을 질문</h3>
+              <button class="fu">가정부장 확인서는 어디서 받나요?<span class="arw" aria-hidden="true">›</span></button>
+              <button class="fu">등록 마감일은 언제인가요?<span class="arw" aria-hidden="true">›</span></button>
+              <button class="fu">서류가 반려되면 어떻게 하나요?<span class="arw" aria-hidden="true">›</span></button>
+            </div>
+          </div>
+
+          <!-- 맥락 확인 -->
+          <div data-ans="clarify">
+            <div class="qline">
+              <span class="who">질문</span>
+              <span class="q">교류 중인데 마음이 정리가 안 돼요</span>
+            </div>
+            <div class="clarify">
+              <p class="empath">마음이 복잡하실 때 규정부터 꺼내면 도움이 되지 않더라고요. 먼저 한 가지만 여쭙겠습니다.</p>
+              <div class="ask">
+                <p class="lab">확인</p>
+                <p>지금 가장 마음에 걸리는 것이 일정 같은 절차 쪽인가요, 아니면 관계 쪽인가요?</p>
+              </div>
+              <div class="opts">
+                <button>절차 쪽이에요</button>
+                <button>관계 쪽이에요</button>
+                <button>둘 다예요</button>
+              </div>
+              <p class="aside-note" style="margin-top:1.5rem">답을 정해두지 않아도 괜찮습니다. 편하신 만큼만 말씀해 주세요.</p>
+            </div>
+          </div>
+
+          <!-- 근거 없음 -->
+          <div data-ans="nobasis">
+            <div class="qline">
+              <span class="who">질문</span>
+              <span class="q">해외 거주자는 축복후보자 등록을 어떻게 하나요?</span>
+            </div>
+            <div class="verdict">
+              <p class="lab">결론</p>
+              <p>제공된 문서에서 이 내용을 찾지 못했습니다.</p>
+            </div>
+
+            <div class="effort">
+              <h3>어디까지 찾아봤는지</h3>
+              <p class="big">6종 문서 190쪽을 검색했습니다.</p>
+              <ul>
+                <li>『축복후보자 등록 안내』 22쪽에 거주지 관련 조항 없음</li>
+                <li>『축복 행정 규정집』 84쪽은 국내 지역 구분만 규정</li>
+                <li>『가정관리 실무 편람』 47쪽에 해당 절 없음</li>
+              </ul>
+            </div>
+
+            <section class="sec">
+              <h3>가까운 내용</h3>
+              <p class="aside-note">『축복후보자 등록 안내』 8쪽에 소속 지역이 불분명할 때의 처리 절차가 있습니다. 다만 이 조항이 해외 거주자에게 그대로 적용되는지는 문서에 적혀 있지 않습니다.</p>
+            </section>
+
+            <div class="askparent">
+              <h3>부모님이나 가정부장님께 이렇게 여쭤 보세요</h3>
+              <ul>
+                <li>해외에 있는 경우 어느 지역 축복가정국으로 접수하나요</li>
+                <li>서류를 우편이나 대리로 제출할 수 있나요</li>
+                <li>가정부장 확인서는 현지에서 받을 수 있나요</li>
+              </ul>
+            </div>
+
+            <section class="sec" style="margin-top:1.75rem">
+              <div class="next">
+                <h4>답을 아는 분에게 바로 연결해 드릴게요</h4>
+                <p>이 질문은 지역 사정에 따라 달라져서, 문서만으로는 정확히 안내드리기 어렵습니다.</p>
+                <button class="btn btn--pri">소속 축복가정국 연락처 보기</button>
+              </div>
+            </section>
+          </div>
+
+          <!-- 안전 우선 -->
+          <div data-ans="safety">
+            <div class="qline">
+              <span class="who">질문</span>
+              <span class="q">다 그만두고 싶어요</span>
+            </div>
+            <div class="safety">
+              <h2>지금 많이 힘드신 것 같아요. 규정 이야기는 잠시 미루겠습니다.</h2>
+              <p>먼저 한 가지만 여쭐게요. 지금 곁에 함께 있는 분이 계신가요?</p>
+              <p>혼자 계신다면, 지금 바로 이야기 나눌 수 있는 곳이 있습니다.</p>
+
+              <div class="hotline">
+                <p class="n">109</p>
+                <p class="d">자살예방 상담전화 · 24시간 · 무료</p>
+              </div>
+
+              <ul class="ladder">
+                <li><span class="o">1</span><span class="p">부모님</span><span class="w">가장 먼저</span></li>
+                <li><span class="o">2</span><span class="p">가정부장님</span><span class="w">소속 가정</span></li>
+                <li><span class="o">3</span><span class="p">공직자·목회자·사모님</span><span class="w">교회</span></li>
+                <li><span class="o">4</span><span class="p">신뢰하는 가까운 어른</span><span class="w">전문 상담 포함</span></li>
+              </ul>
+
+              <p class="aside-note" style="margin-top:1.5rem">천천히 하셔도 됩니다. 준비되시면 그때 다시 여쭤 주세요.</p>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 입력창 -->
+        <div class="composer">
+          <div class="wrap">
+            <div class="field">
+              <label class="sr" for="ask">질문 입력</label>
+              <textarea id="ask" rows="1" placeholder="궁금한 내용을 적어 주세요"></textarea>
+              <button class="send" aria-label="보내기">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 16V4.6M5.4 9.2 10 4.4l4.6 4.8"/></svg>
+              </button>
+            </div>
+            <p class="disclaimer">공식 문서를 근거로 안내합니다. 개인 사정에 따라 다를 수 있으니 최종 확인은 소속 가정에 문의해 주세요.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 근거 열람 ── -->
+      <section data-pane="source">
+        <div class="reader">
+          <div class="rhead">
+            <h1>축복후보자 등록 안내</h1>
+            <div class="rmeta">
+              <span><b>개정</b> 2025.11.20</span>
+              <span><b>발행</b> 축복가정국</span>
+              <span><b>분량</b> 22쪽</span>
+              <span><b>이전 판</b> 2024.02.15</span>
+            </div>
+          </div>
+          <div class="pagebar">
+            <span>쪽</span>
+            <span class="pg">5</span>
+            <span class="pg" aria-current="true">6</span>
+            <span class="pg">7</span>
+            <span class="pg">8</span>
+            <span style="margin-left:auto">답변이 참고한 쪽은 6, 8쪽입니다</span>
+          </div>
+          <div class="pagetext">
+            <h2 style="font-size:1.0625rem;font-weight:700;margin-bottom:.75rem">제3장 등록 서류</h2>
+            <p>제7조(제출 서류) <mark>축복후보자 등록에 필요한 서류는 등록 신청서, 가정부장 확인서, 가정 확인 자료 3종으로 한다.</mark> 각 서류의 양식은 축복가정국이 정하여 배포한다.</p>
+            <p>제8조(유효 기간) <mark>가정 확인 자료는 발급일로부터 6개월 이내의 것이어야 한다.</mark> 기간이 지난 자료는 새로 발급받아 제출한다.</p>
+            <p>제9조(대리 제출) 부득이한 사유가 있을 때에는 직계 가족이 대리하여 제출할 수 있다. 이 경우 대리인의 신분을 확인할 수 있는 자료를 함께 제출한다.</p>
+          </div>
+
+          <div class="usedby">
+            <h2>이 대목이 쓰인 답변 문장</h2>
+            <blockquote>등록에 필요한 서류는 신청서·확인서·가정 확인 자료 3종으로 정해져 있습니다.</blockquote>
+            <button class="btn btn--sec" style="margin-top:1rem" data-nav="chat">답변으로 돌아가기</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 내정보 ── -->
+      <section data-pane="me">
+        <div class="me">
+          <h1>내정보</h1>
+          <div class="rows">
+            <div class="row"><span class="k">이름</span><span class="v">정현주</span></div>
+            <div class="row"><span class="k">하나로 계정</span><span class="v">hj.chung</span></div>
+            <div class="row"><span class="k">소속</span><span class="v">서울 제3지역</span></div>
+            <div class="row"><span class="k">가입일</span><span class="v">2025.04.18</span></div>
+          </div>
+
+          <h2>글자 크기 기본값</h2>
+          <div class="prefgrid" role="group" aria-label="글자 크기 기본값">
+            <button data-fs=".9" aria-pressed="false">90%</button>
+            <button data-fs="1" aria-pressed="true">100%</button>
+            <button data-fs="1.1" aria-pressed="false">110%</button>
+            <button data-fs="1.3" aria-pressed="false">130%</button>
+            <button data-fs="1.5" aria-pressed="false">150%</button>
+          </div>
+
+          <h2>화면</h2>
+          <div class="prefgrid" role="group" aria-label="화면 밝기">
+            <button data-theme-btn="light" aria-pressed="true">밝게</button>
+            <button data-theme-btn="dark" aria-pressed="false">어둡게</button>
+            <button data-theme-btn="auto" aria-pressed="false">기기 설정 따름</button>
+          </div>
+
+          <h2>기록</h2>
+          <div class="rows">
+            <div class="row"><span class="k">주고받은 대화</span><span class="v">27건</span></div>
+            <div class="row"><span class="k">평가를 남긴 답변</span><span class="v">9건</span></div>
+          </div>
+
+          <button class="btn btn--sec btn--block" style="margin-top:2.5rem">로그아웃</button>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ══ 우: 근거 ══ -->
+    <aside class="col col--ev" aria-label="근거 자료">
+      <div class="colhead">
+        <h2>참고한 자료 3건</h2>
+        <p>답변 문장에 마우스를 올리면 해당 대목이 켜집니다</p>
+      </div>
+      <div class="evlist">
+
+        <button class="ev" data-ev="1">
+          <span class="no">1</span><span class="t">축복후보자 등록 안내</span>
+          <span class="m"><i>개정 2025.11.20</i><i>축복가정국</i><i>6쪽</i></span>
+          <span class="x">제7조(제출 서류) <mark>축복후보자 등록에 필요한 서류는 등록 신청서, 가정부장 확인서, 가정 확인 자료 3종으로 한다.</mark> 각 서류의 양식은 축복가정국이 정하여 배포한다.</span>
+          <span class="go">원문 보기</span>
+        </button>
+
+        <button class="ev" data-ev="2">
+          <span class="no">2</span><span class="t">축복후보자 등록 안내</span>
+          <span class="m"><i>개정 2025.11.20</i><i>축복가정국</i><i>6쪽</i></span>
+          <span class="x">제8조(유효 기간) <mark>가정 확인 자료는 발급일로부터 6개월 이내의 것이어야 한다.</mark> 기간이 지난 자료는 새로 발급받아 제출한다.</span>
+          <span class="go">원문 보기</span>
+        </button>
+
+        <button class="ev" data-ev="3">
+          <span class="no">3</span><span class="t">축복 행정 규정집</span>
+          <span class="m"><i>시행 2026.01.01</i><i>총회 사무국</i><i>12쪽</i></span>
+          <span class="x">제14조(접수 기한) 지역 축복가정국은 등록 서류를 접수한다. <mark>제출은 등록 마감일 7일 전까지 완료하여야 한다.</mark></span>
+          <span class="go">원문 보기</span>
+        </button>
+
+        <div class="waiting">
+          <p class="h">근거를 더 확인하고 있습니다</p>
+          <p>답변은 이미 완성됐고, 어느 쪽에서 나온 내용인지 대조하는 중입니다. 보통 15초쯤 걸립니다.</p>
+          <div class="bar" role="progressbar" aria-label="근거 대조 진행"><i></i></div>
+        </div>
+
+        <p class="evfoot">노란 부분이 이 답변에 실제로 참고된 대목입니다. 문서 전체를 보시려면 자료를 눌러 주세요.</p>
+      </div>
+    </aside>
+
+  </div>
+</div>
+</div>
+
+<script>
+(function(){
+  var root = document.documentElement;
+
+  function press(sel, attr, val){
+    document.querySelectorAll(sel).forEach(function(b){
+      b.setAttribute('aria-pressed', String(b.getAttribute(attr) === val));
+    });
+  }
+
+  document.addEventListener('click', function(e){
+    var t = e.target.closest('[data-nav],[data-ansbtn],[data-fs],[data-view-btn],[data-motion],[data-theme-btn]');
+    if(!t) return;
+
+    if(t.hasAttribute('data-nav')){
+      root.setAttribute('data-screen', t.getAttribute('data-nav'));
+      press('[data-nav]','data-nav', t.getAttribute('data-nav'));
+      var m = document.getElementById('main'); if(m) m.scrollTop = 0;
+    }
+    if(t.hasAttribute('data-ansbtn')){
+      root.setAttribute('data-answer', t.getAttribute('data-ansbtn'));
+      press('[data-ansbtn]','data-ansbtn', t.getAttribute('data-ansbtn'));
+    }
+    if(t.hasAttribute('data-fs')){
+      root.style.setProperty('--fs', t.getAttribute('data-fs'));
+      press('[data-fs]','data-fs', t.getAttribute('data-fs'));
+    }
+    if(t.hasAttribute('data-view-btn')){
+      root.setAttribute('data-view', t.getAttribute('data-view-btn'));
+      press('[data-view-btn]','data-view-btn', t.getAttribute('data-view-btn'));
+    }
+    if(t.hasAttribute('data-motion')){
+      root.style.setProperty('--motion', t.getAttribute('data-motion'));
+      press('[data-motion]','data-motion', t.getAttribute('data-motion'));
+    }
+    if(t.hasAttribute('data-theme-btn')){
+      var v = t.getAttribute('data-theme-btn');
+      if(v === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', v);
+      root.removeAttribute('data-contrast');
+      press('[data-theme-btn]','data-theme-btn', v);
+      press('[data-contrast-btn]','data-contrast-btn','');
+    }
+    if(t.hasAttribute('data-contrast-btn')){
+      var c = t.getAttribute('data-contrast-btn');
+      if(c === 'high'){ root.setAttribute('data-contrast','high'); root.removeAttribute('data-theme'); }
+      else root.removeAttribute('data-contrast');
+      press('[data-contrast-btn]','data-contrast-btn', c);
+      if(c === 'high') press('[data-theme-btn]','data-theme-btn','');
+    }
+  });
+
+  document.getElementById('themebtn').addEventListener('click', function(){
+    var cur = root.getAttribute('data-theme');
+    var dark = cur ? cur === 'dark'
+                   : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    root.setAttribute('data-theme', dark ? 'light' : 'dark');
+    press('[data-theme-btn]','data-theme-btn', dark ? 'light' : 'dark');
+  });
+
+  /* 시그니처: 답변 문장 ↔ 근거 카드 양방향 연결 */
+  function link(id, on){
+    document.querySelectorAll('[data-ev="' + id + '"]').forEach(function(el){
+      el.classList.toggle('linked', on);
+    });
+  }
+  ['mouseenter','focusin'].forEach(function(ev){
+    document.addEventListener(ev, function(e){
+      var el = e.target.closest && e.target.closest('[data-ev]');
+      if(el) link(el.getAttribute('data-ev'), true);
+    }, true);
+  });
+  ['mouseleave','focusout'].forEach(function(ev){
+    document.addEventListener(ev, function(e){
+      var el = e.target.closest && e.target.closest('[data-ev]');
+      if(el) link(el.getAttribute('data-ev'), false);
+    }, true);
+  });
+  /* 문장을 누르면 근거 카드로 데려가고, 근거 카드를 누르면 원문으로 간다.
+     둘을 나눠 두면 확인 비용이 한 단계 낮아진다. */
+  function reveal(id){
+    var card = document.querySelector('.ev[data-ev="' + id + '"]');
+    if(!card) return;
+    var smooth = getComputedStyle(root).getPropertyValue('--motion').trim() !== '0';
+    card.scrollIntoView({block:'center', behavior: smooth ? 'smooth' : 'auto'});
+    card.classList.add('flash');
+    setTimeout(function(){ card.classList.remove('flash'); }, 1200);
+  }
+  document.addEventListener('click', function(e){
+    var claim = e.target.closest('.claim');
+    if(claim){ reveal(claim.getAttribute('data-ev')); return; }
+    if(e.target.closest('.ev')){
+      root.setAttribute('data-screen','source');
+      press('[data-nav]','data-nav','source');
+    }
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    var el = e.target.closest && e.target.closest('.claim');
+    if(!el) return;
+    e.preventDefault();
+    reveal(el.getAttribute('data-ev'));
+  });
+
+  /* 해시로 상태 지정: #chat/admin/dark/mobile/fs130 */
+  function applyHash(){
+    var parts = (location.hash || '').replace(/^#/, '').split('/').filter(Boolean);
+    parts.forEach(function(p){
+      if(['login','home','chat','source','me'].indexOf(p) > -1){
+        root.setAttribute('data-screen', p); press('[data-nav]','data-nav', p);
+      } else if(['admin','clarify','nobasis','safety'].indexOf(p) > -1){
+        root.setAttribute('data-answer', p); press('[data-ansbtn]','data-ansbtn', p);
+      } else if(['light','dark'].indexOf(p) > -1){
+        root.setAttribute('data-theme', p); press('[data-theme-btn]','data-theme-btn', p);
+      } else if(p === 'contrast'){
+        root.setAttribute('data-contrast','high'); root.removeAttribute('data-theme');
+        press('[data-contrast-btn]','data-contrast-btn','high');
+      } else if(['desktop','mobile'].indexOf(p) > -1){
+        root.setAttribute('data-view', p); press('[data-view-btn]','data-view-btn', p);
+      } else if(/^fs(\d+)$/.test(p)){
+        var v = String(parseInt(p.slice(2), 10) / 100);
+        root.style.setProperty('--fs', v); press('[data-fs]','data-fs', v);
+      } else if(p === 'nochrome'){
+        root.setAttribute('data-chrome','off');
+      } else if(p === 'nomotion'){
+        root.style.setProperty('--motion', '0'); press('[data-motion]','data-motion','0');
+      }
+    });
+  }
+  applyHash();
+  window.addEventListener('hashchange', applyHash);
+
+  /* 입력창 자동 높이 */
+  var ta = document.getElementById('ask');
+  if(ta) ta.addEventListener('input', function(){
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(ta.scrollHeight, 128) + 'px';
+  });
+})();
+</script>
+</body>
+</html>

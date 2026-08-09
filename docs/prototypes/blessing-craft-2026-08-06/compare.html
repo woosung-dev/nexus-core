@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 시안 3종 대조</title>
+<!--
+  대조판. 랜딩페이지가 아니다. 세 시안을 같은 상태로 동시에 조종하는 도구다.
+  회색조 검사가 붙어 있다: 색을 빼도 레이아웃만으로 셋이 구분되어야 한다.
+  구분되지 않으면 "한 디자인의 3가지 스킨"이므로 실패다.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#131019; --panel:#1C1726; --line:#302840; --fg:#EDE8F4; --fg2:#A79BBA; --fg3:#7A6F8D;
+  --gold:#F8C800; --act:#C3A9E6;
+  --sans:"Pretendard Variable",Pretendard,-apple-system,"Apple SD Gothic Neo",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+*,*::before,*::after{ box-sizing:border-box; }
+html,body{ margin:0; height:100%; }
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--sans); font-size:15px;
+  word-break:keep-all; letter-spacing:0;
+  display:flex; flex-direction:column; height:100dvh; overflow:hidden;
+}
+button{ font:inherit; color:inherit; background:none; border:none; cursor:pointer; }
+:focus-visible{ outline:2px solid var(--act); outline-offset:2px; }
+
+.bar{
+  flex:none; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:10px 16px; border-bottom:1px solid var(--line); background:var(--panel);
+}
+.bar h1{ margin:0; font-size:13.5px; font-weight:650; letter-spacing:-.015em; white-space:nowrap; }
+.bar h1 b{ color:var(--gold); }
+.grp{ display:flex; align-items:center; gap:5px; }
+.grp > .l{ font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--fg3); margin-right:2px; }
+.bar button.t{
+  padding:4px 9px; border-radius:5px; background:#251E32; color:var(--fg2);
+  border:1px solid var(--line); font-size:11.5px;
+}
+.bar button.t:hover{ background:#2E2540; color:var(--fg); }
+.bar button.t[aria-pressed="true"]{ background:var(--fg); color:var(--bg); border-color:var(--fg); font-weight:600; }
+.bar .sp{ flex:1; }
+.bar .hash{ font-family:var(--mono); font-size:10.5px; color:var(--fg3); }
+
+.grid{ flex:1; min-height:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:1px; background:var(--line); }
+/* 3분할이면 한 칸이 태블릿 폭이 되어 세 안의 인용 기전(우측 레일 / 끼움 카드 /
+   왼쪽 방주)이 전부 접힌다. 그러면 무엇을 비교하는지 사라진다.
+   「각 1100px」 은 진짜 데스크톱 레이아웃을 유지하고 가로로 밀어 보게 한다. */
+body[data-fit="wide"] .grid{ grid-template-columns:repeat(3,1100px); overflow-x:auto; }
+.cell{ display:flex; flex-direction:column; min-width:0; min-height:0; background:var(--bg); }
+.cell > header{
+  flex:none; display:flex; align-items:baseline; gap:8px; padding:8px 12px;
+  border-bottom:1px solid var(--line);
+}
+.cell .k{ font-size:12.5px; font-weight:650; }
+.cell .k b{ color:var(--gold); margin-right:4px; }
+.cell .d{ font-size:11px; color:var(--fg3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cell .open{ margin-left:auto; font-size:11px; color:var(--fg3); }
+.cell .open:hover{ color:var(--act); }
+.frame{ flex:1; min-height:0; position:relative; background:#fff; }
+.frame iframe{ position:absolute; inset:0; width:100%; height:100%; border:0; }
+/* 좁게 볼 때는 iframe 폭을 390 으로 잡고 가운데 세운다. */
+body[data-vp="mobile"] .frame{ background:var(--bg); display:grid; place-items:center; overflow:auto; }
+body[data-vp="mobile"] .frame iframe{ position:static; width:390px; height:100%; max-height:100%; }
+
+/* 회색조 검사. 색을 빼도 셋이 구분되어야 한다. */
+body[data-gray="on"] .frame{ filter:grayscale(1) contrast(1.02); }
+
+.note{ flex:none; padding:9px 16px; border-top:1px solid var(--line); background:var(--panel);
+  font-size:11.5px; color:var(--fg3); display:flex; gap:18px; flex-wrap:wrap; }
+.note b{ color:var(--fg2); font-weight:600; }
+
+@media (max-width:1099px){
+  body{ height:auto; overflow:auto; }
+  .grid{ grid-template-columns:minmax(0,1fr); }
+  .frame{ height:70dvh; }
+}
+</style>
+</head>
+<body data-vp="desktop" data-gray="off" data-fit="wide">
+
+<div class="bar">
+  <h1><b>블레싱</b> 시안 3종 대조</h1>
+  <span class="grp"><span class="l">화면</span><span id="c-screen"></span></span>
+  <span class="grp"><span class="l">답변</span><span id="c-type"></span></span>
+  <span class="grp"><span class="l">창구</span><span id="c-scale"></span></span>
+  <span class="grp"><span class="l">테마</span><span id="c-theme"></span></span>
+  <span class="grp"><span class="l">폭</span><span id="c-vp"></span></span>
+  <span class="grp"><span class="l">칸 폭</span><span id="c-fit"></span></span>
+  <span class="grp"><span class="l">회색조</span><span id="c-gray"></span></span>
+  <span class="sp"></span>
+  <span class="hash" id="c-hash"></span>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="note">
+  <span><b>A 말문</b> 홈은 말을 여는 자리 · 시그니처는 답변 조립 안무 · 인용은 우측 레일</span>
+  <span><b>B 자리</b> 홈은 내 진행 상황 · 시그니처는 겹과 고도 · 인용은 문장 아래 끼움 카드</span>
+  <span><b>C 채광</b> 홈은 근거의 장면 · 시그니처는 엠블럼 파생 도상 · 인용은 왼쪽 여백 방주</span>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+var FILES = [
+  { f:'a-mal.html',        k:'A', n:'말문', d:'말을 여는 자리 · 모션 주도' },
+  { f:'b-jari.html',       k:'B', n:'자리', d:'내 진행 상황 · 재질과 겹 주도' },
+  { f:'c-chaegwang.html',  k:'C', n:'채광', d:'근거의 장면 · 도상 주도' }
+];
+
+var SCREENS = [['login','로그인'],['home','홈'],['bot','창구'],['start','시작'],
+               ['thread','대화'],['mypage','내 정보'],['guide','읽는 법'],['states','상태']];
+var TYPES   = [['admin','행정 확답'],['context','맥락 확인'],['norag','근거 없음'],
+               ['handoff','이관'],['safety','안전 우선']];
+var SCALES  = [['n0','0곳'],['n3','3곳'],['n14','14곳'],['n40','40곳']];
+var THEMES  = [['light','라이트'],['dark','다크']];
+var VPS     = [['desktop','넓게'],['mobile','좁게']];
+var GRAY    = [['off','끔'],['on','켬']];
+var FIT     = [['wide','각 1100px'],['fit','3분할']];
+
+var S = { screen:'thread', type:'admin', scale:'n14', theme:'light', vp:'desktop', gray:'off', fit:'wide' };
+
+/* bare 를 붙이면 각 시안이 자기 프로토타입 크롬을 감춘다.
+   대조판에서 크롬 세 벌이 같이 보이면 비교할 것이 무엇인지 흐려진다. */
+function hash(){
+  var p = [S.screen];
+  if (S.screen === 'thread') p.push(S.type);
+  p.push(S.scale, S.theme, S.vp, 'bare');
+  return '#' + p.join('/');
+}
+
+function build(){
+  var g = document.getElementById('grid');
+  g.innerHTML = '';
+  FILES.forEach(function(x){
+    var cell = document.createElement('div');
+    cell.className = 'cell';
+    var url = x.f + hash();
+    cell.innerHTML =
+      '<header><span class="k"><b>' + x.k + '</b>' + x.n + '</span>'
+      + '<span class="d">' + x.d + '</span>'
+      + '<a class="open" href="' + url + '" target="_blank" rel="noopener">따로 열기</a></header>'
+      + '<div class="frame"><iframe title="' + x.k + ' ' + x.n + '" src="' + url + '"></iframe></div>';
+    g.appendChild(cell);
+  });
+  document.getElementById('c-hash').textContent = hash();
+}
+
+function fill(id, items, get, set){
+  var box = document.getElementById(id);
+  box.innerHTML = '';
+  items.forEach(function(it){
+    var b = document.createElement('button');
+    b.className = 't';
+    b.textContent = it[1];
+    b.setAttribute('aria-pressed', get() === it[0] ? 'true' : 'false');
+    b.addEventListener('click', function(){ set(it[0]); paint(); });
+    box.appendChild(b);
+  });
+}
+
+function paint(){
+  document.body.setAttribute('data-vp', S.vp);
+  document.body.setAttribute('data-gray', S.gray);
+  document.body.setAttribute('data-fit', S.fit);
+  fill('c-screen', SCREENS, function(){ return S.screen; }, function(v){ S.screen = v; });
+  fill('c-type',   TYPES,   function(){ return S.type; },   function(v){ S.type = v; S.screen = 'thread'; });
+  fill('c-scale',  SCALES,  function(){ return S.scale; },  function(v){ S.scale = v; });
+  fill('c-theme',  THEMES,  function(){ return S.theme; },  function(v){ S.theme = v; });
+  fill('c-vp',     VPS,     function(){ return S.vp; },     function(v){ S.vp = v; });
+  fill('c-fit',    FIT,     function(){ return S.fit; },    function(v){ S.fit = v; });
+  fill('c-gray',   GRAY,    function(){ return S.gray; },   function(v){ S.gray = v; });
+  build();
+}
+
+paint();
+})();
+</script>
+</body>
+</html>

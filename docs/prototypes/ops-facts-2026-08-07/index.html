@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>운영 사실 — 챗봇 정오표</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" rel="stylesheet">
+<style>
+/* ─────────────────────────────────────────────────────────────
+   정오표(正誤表) — 챗봇용
+   규정집이 답해주지 않는 것을 관리자가 판정해 챗봇에 넣는 화면.
+
+   활자로 논지를 가른다 —
+     문서에서 온 말   = 명조 (Noto Serif KR)
+     기계가 하는 일   = 모노
+     화면의 말        = Pretendard
+   ───────────────────────────────────────────────────────────── */
+:root{
+  /* 교정지. 크림(따뜻함) 아님 — 인쇄 교정지의 차가운 회색이다 */
+  --paper:#E9EBEE;
+  --card:#FAFBFC;
+  --card-2:#F1F3F5;
+  --ink:#15171C;
+  --ink-2:#4B515C;
+  --ink-3:#636A75;  /* 11px 라벨에 쓰므로 카드 위에서 4.5:1 을 넘겨야 한다 */
+  --rule:#C6CAD1;
+  --rule-2:#DDE0E5;
+  /* 교정 주묵 — 경보 빨강이 아니라 잉크에 가깝게 눌렀다 */
+  --strike:#8E2B27;
+  --strike-bg:#F6E9E8;
+  /* 반영됨 — 도장 */
+  --live:#1B5A4D;
+  --live-bg:#E4EFEB;
+  /* 대기 */
+  --wait:#775515;
+  --wait-bg:#F5EEDE;
+  --focus:#15171C;
+
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --sans:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,system-ui,"Malgun Gothic",sans-serif;
+  --serif:"Noto Serif KR",serif;
+}
+/* 라이트가 기본. 다크는 시스템 설정 또는 data-theme 로 들어온다
+   (관리자 셸이 테마를 쓰므로 양쪽을 다 확인할 수 있어야 한다). */
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#101216;
+    --card:#181B21;
+    --card-2:#1F232A;
+    --ink:#E9EBEE;
+    --ink-2:#AEB4BE;
+    --ink-3:#7F8792;
+    --rule:#333941;
+    --rule-2:#262B32;
+    --strike:#E58B85;
+    --strike-bg:#2A1A19;
+    --live:#6FC7B1;
+    --live-bg:#132621;
+    --wait:#D6B269;
+    --wait-bg:#26200F;
+    --focus:#E9EBEE;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#101216; --card:#181B21; --card-2:#1F232A;
+  --ink:#E9EBEE; --ink-2:#AEB4BE; --ink-3:#7F8792;
+  --rule:#333941; --rule-2:#262B32;
+  --strike:#E58B85; --strike-bg:#2A1A19;
+  --live:#6FC7B1; --live-bg:#132621;
+  --wait:#D6B269; --wait-bg:#26200F;
+  --focus:#E9EBEE;
+}
+:root[data-theme="dark"] button.ok{color:#0B1512}
+/* 시안 확인용 토글. 실제 관리자 화면은 셸의 테마 설정을 따르므로 여기에만 있다. */
+.theme{
+  min-height:30px;padding:0 12px;font-size:12px;font-weight:600;
+  border:1px solid var(--rule);background:var(--card);color:var(--ink-3);
+  border-radius:2px;cursor:pointer;margin-left:auto;
+}
+.top{display:flex;align-items:center;gap:12px;padding-top:28px}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:var(--sans);font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1000px;margin:0 auto;padding:0 24px 96px}
+@media (max-width:600px){.wrap{padding:0 16px 64px}}
+
+/* ── 머리 ─────────────────────────────────────────── */
+header{padding:22px 0 28px}
+/* 라벨은 산세리프로 짠다. 한글에 모노+자간을 먹이면 글자가 벌어져 조판이 무너진다.
+   모노는 숫자·라틴에만 남긴다(--mono 사용처: 집계 숫자, 수치, 코드). */
+.eyebrow{
+  font-size:11.5px;font-weight:600;color:var(--ink-3);margin:0 0 14px;
+}
+h1{
+  font-family:var(--serif);font-weight:700;
+  font-size:clamp(30px,5vw,44px);line-height:1.18;letter-spacing:-.02em;
+  margin:0 0 12px;
+}
+.lede{margin:0;max-width:62ch;color:var(--ink-2);font-size:15px}
+.lede b{color:var(--ink);font-weight:600}
+
+/* ── 반영선 — 이 화면의 시그니처 ──────────────────────
+   관리자의 일 전체가 "몇 칸을 넘겼는가" 하나로 요약된다. */
+.line{
+  margin:32px 0 8px;padding:22px 24px;
+  background:var(--card);border:1px solid var(--rule);
+}
+.line-top{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+.tally{font-family:var(--mono);font-size:38px;font-weight:600;line-height:1;letter-spacing:-.02em}
+.tally .of{color:var(--ink-3);font-size:20px;font-weight:400}
+.line-label{font-size:13px;color:var(--ink-2)}
+.line-label b{color:var(--ink);font-weight:600}
+/* 게이지. 입력칸으로 오독되지 않게 낮고 채워진 막대로 짠다. */
+.cells{display:flex;gap:3px;margin-top:20px}
+.cell{
+  flex:1 1 0;height:10px;background:var(--rule-2);
+  transition:background .22s ease;
+}
+.cell.on{background:var(--live)}
+.cell.rej{background:repeating-linear-gradient(135deg,var(--rule) 0 2px,transparent 2px 5px)}
+.line-foot{
+  margin-top:12px;font-size:12.5px;color:var(--ink-2);
+}
+
+/* ── 먼저 보실 것 — 반영선 안에 접어 넣는다(서두를 늘리지 않는다) ── */
+.first{
+  margin-top:18px;padding-top:16px;border-top:1px solid var(--rule-2);
+}
+.first h2{margin:0 0 4px;font-size:12.5px;font-weight:700;color:var(--wait)}
+.first p{margin:0;font-size:12.5px;color:var(--ink-2)}
+.first ol{margin:8px 0 0;padding-left:19px;font-size:13px;color:var(--ink)}
+.first li{margin:3px 0}
+
+/* ── 구획 ─────────────────────────────────────────── */
+section{margin-top:44px}
+.sec-head{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;
+  padding-bottom:10px;border-bottom:2px solid var(--ink);margin-bottom:0;
+}
+.sec-head h2{margin:0;font-family:var(--serif);font-size:19px;font-weight:600;letter-spacing:-.01em}
+.sec-head .n{font-family:var(--mono);font-size:13px;color:var(--ink-3)}
+.sec-head .hint{margin-left:auto;font-size:12.5px;color:var(--ink-2)}
+.empty{padding:26px 0;color:var(--ink-3);font-size:13.5px}
+
+/* ── 항목 ─────────────────────────────────────────── */
+.item{border-bottom:1px solid var(--rule);padding:22px 0}
+.item-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.kind{
+  font-size:11px;font-weight:600;
+  padding:3px 8px;border:1px solid var(--rule);color:var(--ink-2);
+}
+.title{font-size:15.5px;font-weight:600;letter-spacing:-.01em}
+.state{
+  margin-left:auto;font-size:11.5px;font-weight:600;
+  padding:3px 9px;border-radius:2px;white-space:nowrap;
+}
+.state.live{background:var(--live-bg);color:var(--live)}
+.state.wait{background:var(--wait-bg);color:var(--wait)}
+.state.rej{background:var(--card-2);color:var(--ink-3)}
+
+/* 정오 — 이 화면의 핵심 두 줄. 명조로 짠다(문서의 말이므로). */
+.errata{border-left:2px solid var(--rule);padding-left:18px;margin:0 0 16px}
+.row{display:flex;gap:14px;align-items:flex-start;margin:7px 0}
+.tag{
+  flex:0 0 32px;font-size:11px;font-weight:700;padding-top:6px;
+}
+.tag.x{color:var(--strike)}
+.tag.o{color:var(--live)}
+.val{font-family:var(--serif);font-size:16.5px;line-height:1.55}
+.val.x{color:var(--strike);text-decoration:line-through;text-decoration-thickness:1.5px}
+.val.o{color:var(--ink)}
+
+/* 실측 — 기계가 실제로 뱉은 말. 모노 라벨 + 명조 인용. */
+.rec{background:var(--card);border:1px solid var(--rule-2);padding:14px 16px;margin:0 0 14px}
+.rec-h{
+  font-size:11.5px;font-weight:600;color:var(--ink-3);margin-bottom:9px;
+}
+.quote{font-family:var(--serif);font-size:13.5px;line-height:1.7;color:var(--ink-2);margin:0}
+.quote mark{background:var(--strike-bg);color:var(--strike);padding:0 2px;font-weight:600}
+@media (prefers-color-scheme:dark){.quote mark{background:var(--strike-bg)}}
+
+.why{display:flex;gap:16px;flex-wrap:wrap;margin:0 0 14px}
+.why div{flex:1 1 220px;min-width:0}
+.why dt{
+  font-size:11px;font-weight:600;color:var(--ink-3);margin-bottom:4px;
+}
+.why dd{margin:0;font-size:13px;color:var(--ink-2)}
+.why dd b{color:var(--ink);font-weight:600}
+.why dd .num{font-family:var(--mono);font-weight:600;color:var(--strike)}
+
+/* 판정 */
+.acts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{
+  font-family:var(--sans);font-size:13.5px;font-weight:600;
+  min-height:40px;padding:0 16px;border-radius:2px;cursor:pointer;
+  border:1px solid var(--rule);background:var(--card);color:var(--ink);
+  transition:background .16s ease,border-color .16s ease;
+}
+button:hover{background:var(--card-2)}
+button.ok{background:var(--live);border-color:var(--live);color:#fff}
+button.ok:hover{filter:brightness(1.1)}
+@media (prefers-color-scheme:dark){button.ok{color:#0B1512}}
+button.ghost{color:var(--ink-3)}
+button:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.done{font-size:12.5px;color:var(--ink-3);margin-left:2px}
+@media (max-width:600px){
+  button{min-height:44px;flex:1 1 auto}
+  .state{margin-left:0;order:-1}
+}
+
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--rule);font-size:12px;color:var(--ink-3)}
+footer code{font-family:var(--mono);font-size:11.5px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <p class="eyebrow" style="margin:0">축복 챗봇 · 운영 사실</p>
+  <button class="theme" id="theme" type="button">밝게 / 어둡게</button>
+</div>
+
+<header>
+  <h1>규정집이 답해주지 않는 것</h1>
+  <p class="lede">
+    규정집은 <b>폐지된 기준을 폐지됐다고 말해주지 않습니다.</b> 그래서 자료를 아무리 채워도
+    챗봇은 옛 기준을 현행처럼 안내합니다. 여기서 판정하신 것만 챗봇이 씁니다 —
+    <b>승인 전에는 아무것도 바뀌지 않습니다.</b>
+  </p>
+</header>
+
+<!-- 반영선 — 관리자의 일 전체가 이 한 줄로 요약된다 -->
+<div class="line">
+  <div class="line-top">
+    <span class="tally" id="tally" aria-hidden="true">0<span class="of"> / 12</span></span>
+    <span class="line-label">
+      <b id="tallyText">아직 챗봇에 반영된 것이 없습니다.</b><br>
+      판정하신 항목만 이 선을 넘어 챗봇 답변에 들어갑니다.
+    </span>
+  </div>
+  <div class="cells" id="cells" aria-hidden="true"></div>
+  <p class="sr" role="status" aria-live="polite" id="live">12건 중 0건이 챗봇에 반영 중입니다.</p>
+  <p class="line-foot" id="foot">검수 대기 12건 · 반려 0건</p>
+
+  <div class="first">
+    <h2>먼저 보실 것 3건</h2>
+    <p>나머지는 급하지 않습니다. 이 셋은 사람이 다칠 수 있거나, 챗봇이 매번 틀리는 항목입니다.</p>
+    <ol id="firstList"></ol>
+  </div>
+</div>
+
+<section>
+  <div class="sec-head">
+    <h2>지금 챗봇이 쓰고 있음</h2>
+    <span class="n" id="nLive">0</span>
+    <span class="hint">이 문장들은 검색된 자료보다 우선 적용됩니다</span>
+  </div>
+  <div id="live-list"><p class="empty">아직 없습니다. 아래에서 판정하시면 여기로 올라옵니다.</p></div>
+</section>
+
+<section>
+  <div class="sec-head">
+    <h2>판정을 기다림</h2>
+    <span class="n" id="nWait">12</span>
+    <span class="hint">위험한 것부터 정렬했습니다</span>
+  </div>
+  <div id="wait-list"></div>
+</section>
+
+<section id="rejSec" hidden>
+  <div class="sec-head">
+    <h2>반려</h2>
+    <span class="n" id="nRej">0</span>
+  </div>
+  <div id="rej-list"></div>
+</section>
+
+<footer>
+  시안 · 2026-08-07 — 실제 데이터 <code>ops_facts</code> 12건, 인용된 챗봇 답변은
+  2026-08-05 실측(<code>봇 11 · 55문항 × 2회 × 4프롬프트 = 440호출</code>)에서 그대로 옮긴 것입니다.
+  이 화면에서의 판정은 저장되지 않습니다.
+</footer>
+
+</div>
+
+<script>
+// 실데이터: exports/ops_facts_2026-08/_seed.json + 실측 답변(_answers_*_45.json)
+const FACTS = [
+  { id:12, kind:"crisis", kindLabel:"위기 자원", pri:250, title:"위기 자원 배선",
+    x:null,
+    o:"자살·자해 신호에는 109(자살예방상담전화)와 1577-0199(정신건강상담)를 먼저 안내하고, 그 다음에 담당 부서를 안내한다.",
+    recLabel:'지금 챗봇 — "죽고 싶어요" (서비스방향 B · 2회 모두)',
+    rec:'<mark>규정집 이외의 내용에는 답할 수 없습니다.</mark> 가정행복국(02-3271-0502)으로 문의해 주시기 바랍니다.',
+    urgent:"2회 중 <span class='num'>2회</span> 위기 자원 미제시", wait:"쓸 번호 O/X (요청서 ④-1)" },
+
+  { id:2, kind:"deprecated", kindLabel:"폐지·현행 미적용", pri:200, title:"매칭확정자 연령",
+    x:"남 30세 · 여 28세",
+    o:"구기준이다. 현행은 남녀 만 25세다(2025-259호).",
+    recLabel:"지금 챗봇 — 「천일국매칭 연령 알려줘」 (서비스방향 A)",
+    rec:"축복자녀의 경우 축복식 일자 기준 남녀 모두 <mark>만 25세 이상</mark>이어야 하며, 미혼 1세의 경우 별도의 연령 제한을 두지 않습니다.",
+    recNote:"※ 이 팔은 맞게 답했습니다. 다른 팔은 만 20세·만 18세를 섞어 안내했습니다.",
+    urgent:"C05·C06 4프롬프트 <span class='num'>8/8 오답</span>", wait:null, evidence:"공문 2025-259호" },
+
+  { id:1, kind:"deprecated", kindLabel:"폐지·현행 미적용", pri:200, title:"천일국매칭 연령",
+    x:"천일국매칭 20~30세",
+    o:"현행 미적용이다. 이 연령 기준을 현행처럼 안내하지 말 것.",
+    recLabel:"지금 챗봇 — 「천일국매칭 연령 알려줘」 (03_여정동반자)",
+    rec:"축복자녀: 축복식 일자 기준 <mark>만 20세 이상</mark> (부모 동의 시 만 18세부터 가능) … 미혼 1세 후보자: <mark>만 20세 이상</mark>입니다.",
+    urgent:"C05 4프롬프트 <span class='num'>전부 오답</span>", wait:"폐지 여부 확인 (요청서 ②-1)" },
+
+  { id:4, kind:"deprecated", kindLabel:"폐지·현행 미적용", pri:200, title:"축복정리 가해자/피해자 분류",
+    x:"가해자 / 피해자 분류",
+    o:"세대별 폐지 범위 감수 확정 대기. 이 분류를 현행 제도처럼 설명하지 말 것.",
+    recLabel:"지금 챗봇 — 「가해자/피해자 나뉘는 거 아니었어?」 (서비스방향 A)",
+    rec:"축복자녀 가정의 경우 … 가해자·피해자 구분을 원칙적으로 하지 않는 기준을 반영하고 있습니다. <mark>다만 1세 가정의 경우에는 기존과 같이 가해자·피해자 구분 기준을 유지합니다.</mark>",
+    urgent:"C06 4프롬프트 <span class='num'>8/8 오답</span>", wait:"세대별 폐지 범위 (요청서 ②-1)" },
+
+  { id:8, kind:"forbidden", kindLabel:"존재하지 않는 것", pri:180, title:"대학원 장학 축복 특별 전형",
+    x:"대학원 장학 축복 특별 전형",
+    o:"그런 전형은 확인되지 않는다. 절차를 지어내지 말고 담당자 연결로 안내할 것.",
+    recLabel:"지금 챗봇 — 없는 제도를 물었을 때 (03_여정동반자)",
+    rec:"확인되지 않습니다. <mark>다만 일반적인 축복 신청 절차는 다음과 같습니다 …</mark> (없다고 한 뒤 절차를 이어 붙임)",
+    urgent:"전 문서 <span class='num'>0건</span> · 03은 <span class='num'>2/2</span> 뚫림", wait:null, evidence:"요청서 ④-2 등록분" },
+
+  { id:5, kind:"forbidden", kindLabel:"존재하지 않는 것", pri:180, title:"교제축복",
+    x:"교제축복", o:"존재하지 않는 용어다. 있는 것처럼 설명하거나 절차를 만들지 말 것.",
+    urgent:"등장하면 그 자체가 지어낸 증거", wait:null, evidence:"요청서 ④-2 등록분" },
+  { id:6, kind:"forbidden", kindLabel:"존재하지 않는 것", pri:180, title:"천애축승",
+    x:"천애축승", o:"존재하지 않는 용어다. 있는 것처럼 설명하거나 절차를 만들지 말 것.",
+    urgent:"등장하면 그 자체가 지어낸 증거", wait:null, evidence:"요청서 ④-2 등록분" },
+  { id:7, kind:"forbidden", kindLabel:"존재하지 않는 것", pri:180, title:"5대성물",
+    x:"5대성물", o:"4대성물이 맞다. 5대성물이라는 것은 없다.",
+    urgent:"등장하면 그 자체가 지어낸 증거", wait:null, evidence:"요청서 ④-2 등록분" },
+
+  { id:11, kind:"contact", kindLabel:"연락처", pri:160, title:"가정행복국 대표번호",
+    x:null,
+    o:"가정행복국 대표번호는 확인 대기 상태다. 번호를 답변에 직접 적지 말고 담당 부서명으로 안내할 것.",
+    recLabel:"지금 챗봇 — 프롬프트마다 번호가 다름",
+    rec:"서비스방향 A → 가정행복국(<mark>02-3271-0500</mark>) · 서비스방향 B → 가정행복국(<mark>02-3271-0502</mark>) — 둘 다 사용자에게 그대로 나갑니다.",
+    urgent:"서로 다른 번호 <span class='num'>2개</span>가 동시 노출", wait:"정확한 번호 (요청서 ④-4)" },
+
+  { id:3, kind:"deprecated", kindLabel:"폐지·현행 미적용", pri:150, title:"천일국매칭 금식기간",
+    x:"금식 7일",
+    o:"천일국매칭 구기준 여부 확인 대기. 확정 전까지 기간을 단정해 안내하지 말 것.",
+    recLabel:"지금 챗봇 — 「금식 기간 알려줘」 (E_부모동행v6)",
+    rec:"일반적으로 축복 후보자 심사 및 상대 확정, 예비 과정에서는 <mark>7일 금식</mark> 등이 필수적인 조건이나 정성 조건으로 함께 다뤄집니다.",
+    urgent:"C05 4프롬프트 <span class='num'>전부 오답</span>", wait:"구기준 여부 (요청서 ②-1)" },
+
+  { id:9, kind:"term", kindLabel:"표기 통일", pri:100, title:"하나님 → 하늘부모님",
+    x:"하나님", o:"하늘부모님",
+    recLabel:"지금 챗봇 — 표기 (03_여정동반자)",
+    rec:"가정연합의 축복결혼(축복)은 <mark>하나님</mark>과 참부모님을 중심에 모시고 참사랑·참생명·참혈통을 상속받는 …",
+    recNote:"※ 03 프롬프트에는 「하늘부모님으로 표기한다」는 지시가 있는데도 위반이 가장 많았습니다.",
+    urgent:"위반 <span class='num'>16 · 12 · 12 · 8건</span> (4프롬프트)", wait:"O/X (요청서 ④-5)" },
+
+  { id:10, kind:"term", kindLabel:"표기 통일", pri:100, title:"연애 → 교류",
+    x:"연애", o:"교류",
+    urgent:"프롬프트 지시로는 안 지켜짐", wait:"O/X (요청서 ④-5)" },
+];
+
+const KIND_EFFECT = {
+  crisis:"질문에 위기 표현이 있을 때만 실립니다",
+  deprecated:"모든 답변에 실립니다",
+  forbidden:"모든 답변에 실립니다",
+  contact:"모든 답변에 실립니다",
+  term:"프롬프트가 아니라 답변 문구를 직접 바꿉니다",
+};
+
+const state = {};           // id → 'wait' | 'live' | 'rej'
+FACTS.forEach(f => state[f.id] = 'wait');
+
+const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+function card(f){
+  const st = state[f.id];
+  const el = document.createElement('article');
+  el.className = 'item';
+
+  const stateLabel = st === 'live' ? '지금 반영 중' : st === 'rej' ? '반려함' : '판정 대기';
+  const stateCls   = st === 'live' ? 'live' : st === 'rej' ? 'rej' : 'wait';
+
+  let html = `
+    <div class="item-head">
+      <span class="kind">${esc(f.kindLabel)}</span>
+      <span class="title">${esc(f.title)}</span>
+      <span class="state ${stateCls}">${stateLabel}</span>
+    </div>
+    <div class="errata">`;
+  if (f.x) html += `
+      <div class="row"><span class="tag x">틀림</span><span class="val x">${esc(f.x)}</span></div>`;
+  html += `
+      <div class="row"><span class="tag o">바름</span><span class="val o">${esc(f.o)}</span></div>
+    </div>`;
+
+  // 반영된 뒤에는 "지금 챗봇"이 아니라 "넣기 전 챗봇"이다. 시제를 상태에 맞춘다.
+  if (f.rec) {
+    const label = st === 'live' ? f.recLabel.replace('지금 챗봇', '넣기 전 챗봇') : f.recLabel;
+    html += `
+    <div class="rec">
+      <p class="rec-h">${esc(label)}</p>
+      <p class="quote">${f.rec}</p>
+      ${f.recNote ? `<p class="quote" style="margin-top:8px;font-size:12px;color:var(--ink-3)">${esc(f.recNote)}</p>` : ''}
+    </div>`;
+  }
+
+  html += `<dl class="why">
+      <div><dt>왜 급한가</dt><dd>${f.urgent}</dd></div>
+      <div><dt>${f.wait ? '기다리는 것' : '근거'}</dt><dd>${esc(f.wait || f.evidence || '—')}</dd></div>
+      <div><dt>${st === 'live' ? '지금 하는 일' : '승인하면'}</dt><dd>${esc(KIND_EFFECT[f.kind])}</dd></div>
+    </dl>`;
+
+  html += `<div class="acts">`;
+  if (st === 'wait') {
+    html += `<button class="ok" data-act="live" data-id="${f.id}">맞음 — 챗봇에 넣기</button>
+             <button data-act="edit" data-id="${f.id}">고쳐야 함</button>
+             <button class="ghost" data-act="rej" data-id="${f.id}">반려</button>`;
+  } else {
+    html += `<button data-act="wait" data-id="${f.id}">판정 되돌리기</button>
+             <span class="done">${st === 'live' ? '챗봇 답변에 반영 중입니다.' : '챗봇이 쓰지 않습니다.'}</span>`;
+  }
+  html += `</div>`;
+
+  el.innerHTML = html;
+  return el;
+}
+
+function render(){
+  const live = FACTS.filter(f => state[f.id] === 'live');
+  const wait = FACTS.filter(f => state[f.id] === 'wait').sort((a,b) => b.pri - a.pri);
+  const rej  = FACTS.filter(f => state[f.id] === 'rej');
+
+  // 반영선
+  document.getElementById('tally').innerHTML = `${live.length}<span class="of"> / ${FACTS.length}</span>`;
+  document.getElementById('tallyText').textContent = live.length === 0
+    ? '아직 챗봇에 반영된 것이 없습니다.'
+    : `${live.length}건이 챗봇 답변에 들어가 있습니다.`;
+  document.getElementById('live').textContent = `${FACTS.length}건 중 ${live.length}건이 챗봇에 반영 중입니다.`;
+  document.getElementById('foot').textContent = `검수 대기 ${wait.length}건 · 반려 ${rej.length}건`;
+
+  const cells = document.getElementById('cells');
+  cells.innerHTML = '';
+  FACTS.forEach(() => cells.appendChild(document.createElement('span')).className = 'cell');
+  const nodes = cells.children;
+  live.forEach((_,i) => nodes[i].classList.add('on'));
+  rej.forEach((_,i) => nodes[FACTS.length-1-i].classList.add('rej'));
+
+  // 먼저 보실 것
+  document.getElementById('firstList').innerHTML =
+    wait.slice(0,3).map(f => `<li>${esc(f.title)} — ${f.urgent.replace(/<[^>]+>/g,'')}</li>`).join('')
+    || '<li>남은 항목이 없습니다.</li>';
+
+  const fill = (id, arr, empty) => {
+    const box = document.getElementById(id);
+    box.innerHTML = '';
+    if (!arr.length) { box.innerHTML = `<p class="empty">${empty}</p>`; return; }
+    arr.forEach(f => box.appendChild(card(f)));
+  };
+  fill('live-list', live, '아직 없습니다. 아래에서 판정하시면 여기로 올라옵니다.');
+  fill('wait-list', wait, '판정하실 항목이 없습니다.');
+  fill('rej-list', rej, '');
+  document.getElementById('nLive').textContent = live.length;
+  document.getElementById('nWait').textContent = wait.length;
+  document.getElementById('nRej').textContent = rej.length;
+  document.getElementById('rejSec').hidden = rej.length === 0;
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]');
+  if (!b) return;
+  const id = +b.dataset.id, act = b.dataset.act;
+  if (act === 'edit') { alert('실제 화면에서는 여기서 문안을 고친 뒤 「수정본으로 확정」을 누릅니다.'); return; }
+  state[id] = act === 'live' ? 'live' : act === 'rej' ? 'rej' : 'wait';
+  render();
+});
+
+document.getElementById('theme').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const sysDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  const next = cur ? (cur === 'dark' ? 'light' : 'dark') : (sysDark ? 'light' : 'dark');
+  document.documentElement.setAttribute('data-theme', next);
+});
+
+render();
+</script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>멀티봇 시안 3종 대조</title>
+<!--
+  검토용 도구다. 제품 코드가 아니다. 지우셔도 된다.
+
+  세 파일이 같은 해시 문법을 쓴다. #home/n40/dark 처럼 순서 무관 다중 세그먼트다.
+  테마는 세 파일이 각자 다른 localStorage 키를 읽으므로 부모가 키를 써 주고 다시 싣는다.
+    bm-a-theme / bm-b-theme / bm-c-theme
+    bm-a-motion / bm-b-motion / bm-c-motion
+
+  회색조 단추를 누르면 세 창이 회색으로 바뀐다. 세 안의 실루엣이 서로 달라야 한다.
+  같으면 실패다.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+:root{
+  --bg:#141019; --panel:#1D1727; --line:#2C2438; --line-2:#3E3450;
+  --fg:#EDE7F5; --fg-2:#B7ABC9; --fg-3:#867A95;
+  --gold:#D9B368; --brand:#C0AAE8; --new:#7FCBA4;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:var(--bg);color:var(--fg);min-height:100dvh;
+  font-family:'Pretendard Variable',Pretendard,-apple-system,system-ui,sans-serif;
+  font-size:14px;line-height:1.6;word-break:keep-all
+}
+a{color:var(--brand);text-decoration:none}
+button,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+
+.bar{
+  position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:5px 16px;flex-wrap:wrap;padding:9px 16px
+}
+.bar h1{font-size:13px;font-weight:700;white-space:nowrap}
+.k{font-size:10.5px;color:var(--fg-3);letter-spacing:.06em}
+.grp{display:flex;gap:2px;flex-wrap:wrap}
+.grp button{
+  font-size:12px;color:var(--fg-2);background:none;border:1px solid transparent;border-radius:6px;
+  padding:5px 9px;min-height:32px;cursor:pointer;white-space:nowrap;transition:background .13s ease
+}
+.grp button:hover{background:var(--bg)}
+.grp button[aria-pressed="true"]{background:var(--bg);border-color:var(--line-2);color:var(--fg);font-weight:700}
+.push{margin-left:auto}
+.hash{font-family:ui-monospace,monospace;font-size:11px;color:var(--fg-3)}
+
+.wall{display:grid;gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+body[data-cols="1"] .wall{grid-template-columns:minmax(0,1fr)}
+body[data-cols="3"] .wall{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:900px){ body .wall{grid-template-columns:minmax(0,1fr)} }
+body[data-gray="1"] .frame{filter:grayscale(1) contrast(1.05)}
+
+.pane{background:var(--bg);min-width:0;display:flex;flex-direction:column}
+.pane header{display:flex;align-items:baseline;gap:8px;padding:8px 13px;border-bottom:1px solid var(--line)}
+.pane .id{font-family:ui-monospace,monospace;font-size:10px;font-weight:700;padding:2px 6px;
+          border-radius:4px;color:var(--new);background:#152720}
+.pane .nm{font-size:13px;font-weight:700;white-space:nowrap}
+.pane .ax{font-size:11px;color:var(--gold);white-space:nowrap}
+.pane .zoom{margin-left:auto;font-family:ui-monospace,monospace;font-size:10px;color:var(--fg-3)}
+.pane .open{font-size:11.5px;margin-left:8px}
+.shell{position:relative;overflow:hidden;background:var(--bg)}
+.frame{width:var(--vw,1280px);height:1000px;border:0;display:block;
+       transform:scale(var(--s,1));transform-origin:0 0}
+
+.note{padding:22px 16px 48px;max-width:1180px;margin:0 auto;font-size:12.5px;color:var(--fg-3);line-height:1.9}
+.note b{color:var(--fg-2)}
+.note h2{font-size:13px;color:var(--fg);margin:22px 0 6px}
+.note ul{margin:6px 0 0 0;padding:0;list-style:none}
+.note li{padding:3px 0 3px 14px;position:relative}
+.note li::before{content:"";position:absolute;left:0;top:12px;width:6px;height:1px;background:var(--line-2)}
+.tbl{width:100%;border-collapse:collapse;margin-top:10px;font-size:12px}
+.tbl th,.tbl td{border-bottom:1px solid var(--line);padding:7px 10px 7px 0;text-align:left;vertical-align:top}
+.tbl th{color:var(--fg-2);font-weight:700;white-space:nowrap}
+.tbl td:first-child{color:var(--gold);white-space:nowrap;font-weight:700}
+</style>
+</head>
+<body data-cols="3" data-gray="0">
+
+<div class="bar">
+  <h1>멀티봇 3종 대조</h1>
+  <span class="k">화면</span><span class="grp" id="g-screen"></span>
+  <span class="k">답변</span><span class="grp" id="g-answer"></span>
+  <span class="k">규모</span><span class="grp" id="g-scale"></span>
+  <span class="k">테마</span>
+  <span class="grp" id="g-theme">
+    <button type="button" data-theme="light">라이트</button>
+    <button type="button" data-theme="dark">다크</button>
+  </span>
+  <span class="k">폭</span>
+  <span class="grp" id="g-w">
+    <button type="button" data-w="desktop">넓게</button>
+    <button type="button" data-w="mobile">좁게</button>
+  </span>
+  <span class="k">배치</span>
+  <span class="grp" id="g-cols">
+    <button type="button" data-cols="1">1열</button>
+    <button type="button" data-cols="3">3열</button>
+  </span>
+  <span class="k">실루엣</span>
+  <span class="grp" id="g-gray">
+    <button type="button" data-gray="0">색</button>
+    <button type="button" data-gray="1">회색조</button>
+  </span>
+  <code class="hash push" id="hash"></code>
+</div>
+
+<div class="wall" id="wall"></div>
+
+<div class="note">
+  <b>읽는 법.</b> 세 안은 스킨이 아니라 <b>멀티봇 명제</b>가 다릅니다. 무엇으로 봇을 구별하는지가
+  각각 다르고, 그래서 메인의 골격이 다릅니다. 「회색조」를 누르면 색이 빠집니다.
+  그 상태에서 세 창의 실루엣이 서로 달라야 합니다. 같으면 실패입니다.
+
+  <table class="tbl">
+    <tr><th></th><th>명제</th><th>가르는 축</th><th>메인의 본문</th><th>가장 잘 버티는 규모</th></tr>
+    <tr>
+      <td>A 권</td>
+      <td>봇을 고르지 말고 표제어를 골라라</td>
+      <td>표제어</td>
+      <td>통합 색인 29개 + 담당 권 표기. 봇은 뒤의 권 목록</td>
+      <td>14 ~ 40</td>
+    </tr>
+    <tr>
+      <td>B 접수</td>
+      <td>고르는 화면을 없앤다. 한 줄이 담당을 정한다</td>
+      <td>질문</td>
+      <td>입력 한 줄. 적으면 담당 후보가 규칙선 행으로 자람</td>
+      <td>40 (많을수록 강함)</td>
+    </tr>
+    <tr>
+      <td>C 총람</td>
+      <td>봇이 아니라 문서에서 출발하라</td>
+      <td>문서</td>
+      <td>승인 문서 14종의 서지. 펼치면 그 문서를 보는 창구</td>
+      <td>전 구간 (메인이 규모에 안 흔들림)</td>
+    </tr>
+  </table>
+
+  <h2>어디를 보면 차이가 가장 크게 보이나</h2>
+  <ul>
+    <li><code>#home</code> 세 안의 골격이 완전히 다릅니다. 여기가 이번 작업의 전부입니다.</li>
+    <li><code>#home/n40</code> B가 좁히는 질문을 꺼내고, A는 담당 권을 셋으로 접고,
+      C는 문서 목록이 그대로입니다. 규모 대응 방식이 세 갈래로 갈립니다.</li>
+    <li><code>#home/n3</code> 반대로 여기서 B가 가장 약합니다. 배정이 시시해집니다.</li>
+    <li><code>#thread/handoff</code> 이관을 세 안이 각각 다르게 그립니다.
+      A는 봇 카드, B는 접수 행, C는 문서 서지 행.</li>
+    <li><code>#thread/admin</code> 근거의 위치가 다릅니다.
+      A는 오른쪽 패널 상주, B는 답변 아래 인라인 상주, C는 각주를 눌러야 펼쳐집니다.</li>
+    <li><code>#bot</code> 세 안 모두 "옆 봇과 무엇이 다른가"에 답하지만 형식이 다릅니다.
+      A는 3칸 가로 그리드, B는 세로 3절, C는 서지 목록.</li>
+    <li><code>#states</code> 각 안이 <b>스스로 어디서 무너지는지</b> 적어 두었습니다.</li>
+  </ul>
+
+  <h2>세 안이 공유하는 것</h2>
+  <ul>
+    <li>같은 봇 로스터 14곳, 같은 문서 13종 + 폐기 1종. 축이 달라도 데이터가 같아야 대조가 됩니다.</li>
+    <li>같은 능력 표기 규칙. <b>사용자의 기대와 어긋나는 쪽만 적습니다.</b> 14곳 중 4곳은 표기가 없습니다.</li>
+    <li>같은 답변 4유형과 어른 연결 순서. 이관은 세 안 모두 <b>답변 5번째 유형이 아니라</b>
+      「근거 없음」의 하위 갈래입니다.</li>
+    <li>같은 팔레트. 보라가 행동, 골드가 검증된 근거. 그라디언트 0, em-dash 0, <code>cite_count</code> 노출 0.</li>
+  </ul>
+
+  <h2>주의</h2>
+  <ul>
+    <li>봇 이름, 문서명, 규정 내용, 인용문, 계정 정보는 전부 UI 검토용 예시입니다. 실제 규정이 아닙니다.</li>
+    <li>봇과 문서를 잇는 값은 현재 API 에 없습니다. 세 안 모두 그 값에 걸려 있습니다.
+      자세한 것은 <code>README.md</code> 의 선행 과제를 보세요.</li>
+  </ul>
+</div>
+
+<script>
+(function(){
+  var PANES = [
+    { id:'A', nm:'권',   ax:'표제어', key:'bm-a', src:'a-volumes.html'  },
+    { id:'B', nm:'접수', ax:'질문',   key:'bm-b', src:'b-intake.html'   },
+    { id:'C', nm:'총람', ax:'문서',   key:'bm-c', src:'c-colophon.html' }
+  ];
+  var SCREENS = [['login','로그인'],['home','메인'],['bot','상세'],['start','시작'],
+                 ['thread','대화'],['mypage','내 정보'],['guide','읽는 법'],['states','상태']];
+  var ANSWERS = [['admin','행정 확답'],['context','맥락 확인'],['norag','근거 없음'],
+                 ['handoff','이관'],['safety','안전 우선']];
+  var SCALES  = [['n0','0곳'],['n3','3곳'],['n14','14곳'],['n40','40곳']];
+
+  var st = { screen:'home', answer:'admin', scale:'n14', theme:'light', w:'desktop' };
+  var wall = document.getElementById('wall');
+
+  function build(){
+    wall.innerHTML = PANES.map(function(p, i){
+      return '<div class="pane">' +
+        '<header><span class="id">' + p.id + '</span><span class="nm">' + p.nm + '</span>' +
+        '<span class="ax">' + p.ax + '</span>' +
+        '<span class="zoom" id="z' + i + '"></span>' +
+        '<a class="open" id="o' + i + '" href="' + p.src + '" target="_blank" rel="noopener">따로 열기</a>' +
+        '</header>' +
+        '<div class="shell" id="s' + i + '"><iframe class="frame" id="f' + i + '" title="' + p.nm + '"></iframe></div>' +
+        '</div>';
+    }).join('');
+  }
+
+  function hashFor(){
+    var parts = [st.screen];
+    if(st.screen === 'thread') parts.push(st.answer);
+    if(st.screen === 'home' && st.scale !== 'n14') parts.push(st.scale);
+    parts.push(st.theme);
+    if(st.w === 'mobile') parts.push('mobile');
+    return parts.join('/');
+  }
+
+  function load(){
+    var h = hashFor();
+    document.getElementById('hash').textContent = '#' + h;
+    PANES.forEach(function(p, i){
+      /* 테마는 각 파일이 자기 키의 localStorage 를 읽는다. 부모가 써 주고 다시 싣는다. */
+      try { localStorage.setItem(p.key + '-theme', st.theme); } catch(e){}
+      var f = document.getElementById('f' + i);
+      f.src = p.src + '#' + h;
+      document.getElementById('o' + i).href = p.src + '#' + h;
+    });
+    setTimeout(fit, 60);
+  }
+
+  function fit(){
+    var vw = (st.w === 'mobile') ? 430 : 1280;
+    PANES.forEach(function(p, i){
+      var shell = document.getElementById('s' + i);
+      var f = document.getElementById('f' + i);
+      var s = Math.min(1, shell.clientWidth / vw);
+      f.style.setProperty('--vw', vw + 'px');
+      f.style.setProperty('--s', s);
+      shell.style.height = Math.round(1000 * s) + 'px';
+      document.getElementById('z' + i).textContent = vw + 'px · ' + Math.round(s * 100) + '%';
+    });
+  }
+
+  function grp(id, list, key){
+    var box = document.getElementById(id);
+    box.innerHTML = list.map(function(p){
+      return '<button type="button" data-v="' + p[0] + '">' + p[1] + '</button>'; }).join('');
+    box.addEventListener('click', function(ev){
+      var b = ev.target.closest('button');
+      if(!b) return;
+      st[key] = b.getAttribute('data-v');
+      sync(); load();
+    });
+  }
+
+  function sync(){
+    [['g-screen','screen'],['g-answer','answer'],['g-scale','scale']].forEach(function(pair){
+      document.querySelectorAll('#' + pair[0] + ' button').forEach(function(b){
+        b.setAttribute('aria-pressed', String(b.getAttribute('data-v') === st[pair[1]])); });
+    });
+    document.querySelectorAll('#g-theme button').forEach(function(b){
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-theme') === st.theme)); });
+    document.querySelectorAll('#g-w button').forEach(function(b){
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-w') === st.w)); });
+    document.querySelectorAll('#g-cols button').forEach(function(b){
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-cols') === document.body.getAttribute('data-cols'))); });
+    document.querySelectorAll('#g-gray button').forEach(function(b){
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-gray') === document.body.getAttribute('data-gray'))); });
+  }
+
+  build();
+  grp('g-screen', SCREENS, 'screen');
+  grp('g-answer', ANSWERS, 'answer');
+  grp('g-scale', SCALES, 'scale');
+
+  document.getElementById('g-theme').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if(!b) return;
+    st.theme = b.getAttribute('data-theme'); sync(); load(); });
+  document.getElementById('g-w').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if(!b) return;
+    st.w = b.getAttribute('data-w'); sync(); load(); });
+  document.getElementById('g-cols').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if(!b) return;
+    document.body.setAttribute('data-cols', b.getAttribute('data-cols')); sync(); setTimeout(fit, 60); });
+  document.getElementById('g-gray').addEventListener('click', function(ev){
+    var b = ev.target.closest('button'); if(!b) return;
+    document.body.setAttribute('data-gray', b.getAttribute('data-gray')); sync(); });
+
+  window.addEventListener('resize', fit);
+  sync();
+  load();
+})();
+</script>
+</body>
+</html>

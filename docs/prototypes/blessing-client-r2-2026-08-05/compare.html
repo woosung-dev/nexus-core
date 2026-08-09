@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>대조판 · 블레싱 네비게이션 시안 3종</title>
+<!--
+  대조판. 랜딩 페이지가 아니라 세 시안을 같은 상태로 나란히 놓고 보는 도구다.
+  위 컨트롤이 세 창을 동시에 움직인다.
+-->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<style>
+:root{
+  --bg:#1A1622; --panel:#221D2E; --line:#332B44; --line-2:#463C5C;
+  --fg:#EDE8F3; --fg-2:#B7ABC9; --fg-3:#8C8099;
+  --gold:#E0BC5C; --brand:#C1A5EA;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--fg);
+  font-family:'Pretendard Variable',Pretendard,-apple-system,system-ui,sans-serif;
+  font-size:14px;line-height:1.65;word-break:keep-all;
+}
+h1,h2,p,ul,table{margin:0}
+ul{padding:0;list-style:none}
+button,select{font:inherit;color:inherit}
+a{color:var(--brand)}
+
+/* 머리 */
+.bar{
+  position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:.5rem 1.25rem;flex-wrap:wrap;padding:.7rem 1.25rem;
+}
+.bar h1{font-size:14px;font-weight:700;letter-spacing:.3px;white-space:nowrap}
+.bar .k{font-size:12px;color:var(--fg-3)}
+.bar .grp{display:flex;gap:.2rem;align-items:center;flex-wrap:wrap}
+.bar button{
+  font-size:12.5px;color:var(--fg-2);background:none;border:1px solid transparent;border-radius:6px;
+  padding:.35rem .6rem;min-height:34px;cursor:pointer;transition:background .15s,color .15s;
+}
+.bar button:hover{background:var(--bg)}
+.bar button[aria-pressed="true"]{background:var(--bg);border-color:var(--line-2);color:var(--fg);font-weight:700}
+.bar .push{margin-left:auto}
+.bar .h{font-size:12px;color:var(--fg-3);font-family:ui-monospace,SFMono-Regular,monospace}
+
+/* 세 창 */
+.wall{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;background:var(--line);border-bottom:1px solid var(--line)}
+@media (max-width:1100px){.wall{grid-template-columns:minmax(0,1fr)}}
+.pane{background:var(--bg);min-width:0;display:flex;flex-direction:column}
+.pane header{display:flex;align-items:baseline;gap:.6rem;padding:.7rem 1rem;border-bottom:1px solid var(--line)}
+.pane .no{font-size:11px;color:var(--fg-3);font-variant-numeric:tabular-nums}
+.pane .nm{font-size:14px;font-weight:700}
+.pane .sk{font-size:11.5px;color:var(--fg-3);font-family:ui-monospace,monospace}
+.pane .open{margin-left:auto;font-size:12px;color:var(--brand);text-decoration:none}
+.frame{width:100%;height:78vh;min-height:520px;border:0;display:block;background:#fff}
+
+/* 표 */
+.spec{padding:1.75rem 1.25rem 3rem;max-width:1400px;margin:0 auto}
+.spec h2{font-size:12px;font-weight:700;color:var(--fg-3);margin-bottom:.75rem}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th,td{text-align:left;vertical-align:top;padding:.85rem .9rem;border-bottom:1px solid var(--line)}
+thead th{font-size:11.5px;color:var(--fg-3);font-weight:700;border-bottom:1px solid var(--line-2);white-space:nowrap}
+tbody th{width:9.5rem;color:var(--fg-3);font-weight:400;white-space:nowrap}
+td b{font-weight:700;color:var(--fg)}
+td .sub{display:block;color:var(--fg-3);font-size:12.5px;margin-top:.15rem}
+.sw{display:inline-block;width:.85rem;height:.85rem;border-radius:2px;vertical-align:-.1rem;margin-right:.3rem;border:1px solid rgba(255,255,255,.16)}
+
+.note{margin-top:2rem;padding-top:1.25rem;border-top:1px solid var(--line);color:var(--fg-2);font-size:13px;max-width:70ch}
+.note b{color:var(--fg)}
+.note p+p{margin-top:.7rem}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1>블레싱 네비게이션 · 클라이언트 시안 대조판</h1>
+  <span class="k">화면</span>
+  <span class="grp" role="group" aria-label="화면">
+    <button data-s="login" aria-pressed="true">로그인</button>
+    <button data-s="home">홈</button>
+    <button data-s="chat" >대화</button>
+    <button data-s="source">원문</button>
+    <button data-s="me">내정보</button>
+  </span>
+  <span class="k">답변</span>
+  <span class="grp" role="group" aria-label="답변 유형">
+    <button data-a="admin" aria-pressed="true">행정 확답</button>
+    <button data-a="clarify">맥락 확인</button>
+    <button data-a="nobasis">근거 없음</button>
+    <button data-a="safety">안전 우선</button>
+  </span>
+  <span class="push"></span>
+  <span class="grp" role="group" aria-label="테마">
+    <button data-t="light" aria-pressed="true">밝게</button>
+    <button data-t="">각 시안 기본</button>
+    <button data-t="dark">어둡게</button>
+  </span>
+  <span class="grp" role="group" aria-label="폭">
+    <button data-w="wide" aria-pressed="true">넓게</button>
+    <button data-w="narrow">좁게</button>
+  </span>
+  <span class="h" id="hash">#login/admin/light/wide</span>
+</div>
+
+<div class="wall">
+  <section class="pane">
+    <header>
+      <span class="no">1</span><span class="nm">창구</span>
+      <span class="sk">ui-ux-pro-max</span>
+      <a class="open" href="desk.html" target="_blank" rel="noopener">따로 열기</a>
+    </header>
+    <iframe class="frame" data-src="desk.html" title="시안 1 창구"></iframe>
+  </section>
+  <section class="pane">
+    <header>
+      <span class="no">2</span><span class="nm">서고</span>
+      <span class="sk">taste-skill</span>
+      <a class="open" href="stacks.html" target="_blank" rel="noopener">따로 열기</a>
+    </header>
+    <iframe class="frame" data-src="stacks.html" title="시안 2 서고"></iframe>
+  </section>
+  <section class="pane">
+    <header>
+      <span class="no">3</span><span class="nm">곁</span>
+      <span class="sk">frontend-design</span>
+      <a class="open" href="letter.html" target="_blank" rel="noopener">따로 열기</a>
+    </header>
+    <iframe class="frame" data-src="letter.html" title="시안 3 곁"></iframe>
+  </section>
+</div>
+
+<div class="spec">
+  <h2>무엇이 다른가</h2>
+  <table>
+    <thead>
+      <tr><th></th><th>1 창구</th><th>2 서고</th><th>3 곁</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th>참조물</th>
+        <td>정부24의 정보 구조를 토스의 정밀도로 다시 짠 민원 창구</td>
+        <td>대학 출판부의 신학 단행본과 1970년대 한국 찬송가</td>
+        <td>정성 들여 쓴 답장 한 장. 날짜와 서명과 접힌 자국이 있는</td>
+      </tr>
+      <tr>
+        <th>명제</th>
+        <td><b>확인된 답을 받고 창구를 떠난다</b></td>
+        <td><b>코퍼스가 제품이고 챗봇은 색인이다</b></td>
+        <td><b>혼자 판단하지 않게 한다</b></td>
+      </tr>
+      <tr>
+        <th>정보 구조</th>
+        <td>3열 앱셸<span class="sub">문서함 · 답변 · 근거가 항상 함께 보인다</span></td>
+        <td>비대칭 판면<span class="sub">방주 · 낱장 · 쪽수난, 각주는 지면 하단</span></td>
+        <td>단일 열, 로그 없음<span class="sub">한 번에 문답 한 쌍, 나머지는 접힘</span></td>
+      </tr>
+      <tr>
+        <th>답변 렌더링</th>
+        <td>결론 띠 + 절차 목록 + 우측 근거 카드</td>
+        <td>조판된 지면 + 위첨자 + 실제 각주단</td>
+        <td>금선이 붙은 문단 + 아래 조용한 근거 단락</td>
+      </tr>
+      <tr>
+        <th>시그니처</th>
+        <td><b>양방향 근거 하이라이트</b><span class="sub">문장과 근거 카드가 서로를 가리킨다. 글자 크기 90~150% 컨트롤</span></td>
+        <td><b>진짜 각주단</b><span class="sub">지면 하단에 원문 발췌가 명조로 조판된다</span></td>
+        <td><b>근거의 실</b><span class="sub">금선이 근거 있는 문장을 따라가다 안내가 시작되면 끊긴다</span></td>
+      </tr>
+      <tr>
+        <th>팔레트</th>
+        <td><b>코발트 문장</b><span class="sub">엠블럼 #003D84 에서. 여권·학위기·훈장 계열</span></td>
+        <td><b>차가운 서고</b><span class="sub">거의 무채색. 유일한 색이 금박</span></td>
+        <td><b>인디고 밤</b><span class="sub">차가운 방 + 따뜻한 등불. 다크가 기본</span></td>
+      </tr>
+      <tr>
+        <th>바탕 · 잉크</th>
+        <td><span class="sw" style="background:#F4F7FB"></span>#F4F7FB<br><span class="sw" style="background:#0E1A2E"></span>#0E1A2E <span class="sub">16.2:1</span></td>
+        <td><span class="sw" style="background:#ECEFF1"></span>#ECEFF1<br><span class="sw" style="background:#12181D"></span>#12181D <span class="sub">15.5:1</span></td>
+        <td><span class="sw" style="background:#131725"></span>#131725<br><span class="sw" style="background:#E9ECF4"></span>#E9ECF4 <span class="sub">15.1:1</span></td>
+      </tr>
+      <tr>
+        <th>근거색</th>
+        <td><span class="sw" style="background:#C08A1E"></span>#C08A1E <span class="sub">밑선·번호 테두리</span></td>
+        <td><span class="sw" style="background:#A8862B"></span>#A8862B <span class="sub">각주 발췌의 금박</span></td>
+        <td><span class="sw" style="background:#E2A94B"></span>#E2A94B <span class="sub">여백을 내려가는 실</span></td>
+      </tr>
+      <tr>
+        <th>활자</th>
+        <td>Pretendard 한 벌<span class="sub">400·700 두 굵기만 · 본문 17px / 1.7</span></td>
+        <td>마루 부리 + Pretendard<span class="sub">명조는 원문의 목소리, 고딕은 시스템의 목소리</span></td>
+        <td>고운바탕 한 벌<span class="sub">읽는 글씨는 바탕, 13px 이하만 고딕 · 본문 19px / 1.9</span></td>
+      </tr>
+      <tr>
+        <th>형태</th>
+        <td>반경 8px 하나로 고정</td>
+        <td>반경 0. 낱장은 각지다</td>
+        <td>누르는 것만 알약. 그릇이 없다</td>
+      </tr>
+      <tr>
+        <th>재질</th>
+        <td>평면. 그림자 0, 표면 전환과 헤어라인만</td>
+        <td>종이결<span class="sub">SVG 난류를 데이터 URI로. 원문 펼침면에는 판심 그늘</span></td>
+        <td>단일 면. 더 밝은 표면이 없다</td>
+      </tr>
+      <tr>
+        <th>접근성 장치</th>
+        <td><b>글자 90~150% + 선명한 화면 모드</b><span class="sub">고대비에서 헤어라인이 잉크 농도로 올라온다</span></td>
+        <td>본문 17px / 행간 1.85, 원문 1.95</td>
+        <td>본문 19px / 행간 1.9, 행폭 38자</td>
+      </tr>
+      <tr>
+        <th>모션</th>
+        <td>150~260ms 색 전환, 인용 대기 진행선</td>
+        <td>각주 점등과 대조 진행선 둘뿐</td>
+        <td>답이 오면 실이 그어진다. 그것 하나</td>
+      </tr>
+      <tr>
+        <th>강점</th>
+        <td>지금 출고 가능. 접근성이 가장 두껍고 상태 누락이 없다</td>
+        <td>문서 신뢰가 가장 강하게 읽힌다. 각주단은 경쟁 제품에 없다</td>
+        <td>불안한 사람에게 가장 부담이 적다. 규정과 안내가 눈으로 갈린다</td>
+      </tr>
+      <tr>
+        <th>약점</th>
+        <td>가장 공적이다. 정서적 온도가 낮다</td>
+        <td>절차를 빨리 훑기에는 느리다. 명조 로딩이 무겁다</td>
+        <td>지난 문답을 검색할 길이 없다. 낮에 쓰면 밤의 논지가 약해진다</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <p><b>세 시스템은 이제 완전히 독립이다.</b> 공유하는 것은 엠블럼과 답변 4유형의 구조, 그리고 <code>types/api.ts</code>의 데이터 계약뿐이다. 색·활자·여백·반경·재질·모션은 각 시안이 자기 명제에서 따로 끌어냈다.</p>
+    <p><b>보라를 버린 이유</b> 목업 원본을 실측하면 로고에는 보라가 한 픽셀도 없다. 원반 <code>#F8C800</code>, 인물과 태양 <code>#003D84</code>. 보라는 목업 제작자가 UI에 덧입힌 색이었고, 늘려 쓸수록 화면이 로고에서 멀어졌다. 세 시안 모두 엠블럼에서 팔레트를 다시 끌어냈고, 그래서 로고와 화면이 처음으로 같은 색을 쓴다.</p>
+    <p><b>골드의 자리</b> 세 시안 모두에서 금은 액센트가 아니라 <b>의미색</b>이다. "이 대목이 실제로 근거가 되었다"는 표시에만 나타나고 글자에는 쓰지 않는다.</p>
+    <p><b>고르는 기준</b> 절차를 확인하러 오는 30~60대가 주 사용자라면 <b>창구</b>. 문서 신뢰가 제품의 전부라고 보면 <b>서고</b>. 쓰는 사람의 정서가 먼저라고 보면 <b>곁</b>. 셋을 섞지 말고 하나를 고른 뒤 나머지 둘에서 한 가지씩만 가져오는 편이 낫다.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  var st={s:'login',a:'admin',t:'light',w:'wide'};
+  var frames=[].slice.call(document.querySelectorAll('.frame'));
+  function hash(){
+    var w = st.w;
+    return '#'+st.s+'/'+st.a+(st.t?'/'+st.t:'')+'/'+w;
+  }
+  function apply(){
+    document.getElementById('hash').textContent=hash();
+    frames.forEach(function(f){
+      /* 서고와 곁은 폭 토글 이름이 다르다 */
+      var src=f.getAttribute('data-src');
+      var w = (src==='desk.html') ? (st.w==='narrow'?'mobile':'desktop') : st.w;
+      f.src = src + '#' + st.s + '/' + st.a + (st.t ? '/' + st.t : '') + '/' + w + '/nochrome';
+    });
+  }
+  document.addEventListener('click',function(e){
+    var b=e.target.closest('.bar button'); if(!b)return;
+    ['s','a','t','w'].forEach(function(k){
+      if(b.hasAttribute('data-'+k)){
+        st[k]=b.getAttribute('data-'+k);
+        document.querySelectorAll('[data-'+k+']').forEach(function(x){
+          x.setAttribute('aria-pressed',String(x.getAttribute('data-'+k)===st[k]));
+        });
+      }
+    });
+    apply();
+  });
+  apply();
+})();
+</script>
+</body>
+</html>

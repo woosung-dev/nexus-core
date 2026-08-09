@@ -1,0 +1,830 @@
+<!doctype html>
+<!--
+  방향: ts, 다크 프리시전 (neutral-triad 2026-08-06)
+  서비스명: 단서 (DANSEO) / 슬로건: "모든 답에 단서가 남아요"
+  핵심 결정:
+  1) 플랫 다크 3단 표면(#0b0c0e / #121417 / #1a1d21) + 오프화이트 잉크 color-mix 4단 파생. 그라디언트, 글로, 오브, 글래스 0.
+  2) 오프센터 히어로: 좌측 카피+질문 입력, 우측에 각주 클릭이 실동작하는 대화 표본, 좌하단 코너 정보 블록(수치는 로스터 데이터에서 산출).
+  3) 로스터는 행 기반 목록(이름/담당 문서/참고 3열). 8곳 노출 + "외 6곳" 확장 실동작, 채팅은 #chat 해시 라우팅, 후속 칩은 입력창 채움.
+  폰트: Wanted Sans Variable(400/700/800) + JetBrains Mono(라틴 라벨/숫자 전용)
+  팔레트: 니어블랙 3단 + 잉크 #f2f3f1 + 앰버 #efa63b 1점(첫 화면 면적 1% 미만)
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>단서 | 읽지 말고 물어보세요</title>
+<meta name="description" content="약관, 규정, 매뉴얼을 읽는 대신 물어보세요. 등록된 문서만 근거로 답하고, 판본과 조항, 쪽수까지 인용으로 남아요.">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/wanteddev/wanted-sans@v1.0.3/packages/wanted-sans/fonts/webfonts/variable/split/WantedSansVariable.min.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* ================= 토큰 ================= */
+:root{
+  /* 표면 3단 (순검정 금지) */
+  --bg-0:#0b0c0e;
+  --bg-1:#121417;
+  --bg-2:#1a1d21;
+  /* 잉크: 오프화이트 단일 원천에서 4단 파생 */
+  --ink:#f2f3f1;
+  --text-1:var(--ink);
+  --text-2:color-mix(in oklab, var(--ink) 74%, transparent);
+  --text-3:color-mix(in oklab, var(--ink) 54%, transparent);
+  --text-4:color-mix(in oklab, var(--ink) 38%, transparent);
+  /* 보더: 잉크 6~9% */
+  --border:color-mix(in oklab, var(--ink) 9%, transparent);
+  --border-faint:color-mix(in oklab, var(--ink) 6%, transparent);
+  /* 액센트 1색: 앰버 */
+  --accent:#efa63b;
+  --accent-down:#dd9126;
+  --accent-ink:#191106;
+  --accent-tint:color-mix(in oklab, var(--accent) 11%, transparent);
+  /* 서체 */
+  --sans:"Wanted Sans Variable","Wanted Sans","Pretendard Variable",-apple-system,BlinkMacSystemFont,system-ui,"Apple SD Gothic Neo","Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  /* radius 3값 */
+  --r-control:6px;
+  --r-panel:10px;
+  --r-pill:999px;
+  /* 그림자 2단 */
+  --shadow-rest:0 1px 2px rgba(4,5,6,.4), 0 10px 28px rgba(4,5,6,.26);
+  --shadow-lift:0 2px 4px rgba(4,5,6,.45), 0 18px 44px rgba(4,5,6,.34);
+  /* 모션 */
+  --ease:cubic-bezier(.25,.46,.45,.94);
+  --dur:140ms;
+  /* z-index: 헤더 20 / 채팅 입력 바 10 */
+  --container:1200px;
+  --gutter:32px;
+}
+
+/* ================= 리셋/기본 ================= */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none !important}
+html{color-scheme:dark}
+body{
+  font-family:var(--sans);
+  font-size:15px;line-height:1.7;letter-spacing:0;font-weight:400;
+  color:var(--text-2);background:var(--bg-0);
+  word-break:keep-all;overflow-wrap:break-word;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
+}
+::selection{background:color-mix(in oklab, var(--accent) 30%, transparent);color:var(--text-1)}
+a{color:var(--text-2);text-decoration:none;transition:color var(--dur) var(--ease)}
+a:hover{color:var(--text-1)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+strong,b{font-weight:700;color:var(--text-1)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.mono{font-family:var(--mono);letter-spacing:0;font-weight:400}
+
+/* 화면 전환: display는 이 두 줄에서만 제어한다 */
+.screen{display:none}
+.screen.is-active{display:block}
+.screen.is-active{animation:screen-in 180ms var(--ease)}
+@keyframes screen-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes fade-up{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+.container{max-width:var(--container);margin:0 auto;padding:0 var(--gutter)}
+
+/* ================= 공통 부품 ================= */
+.btn-solid{
+  display:inline-block;background:var(--accent);color:var(--accent-ink);
+  font-weight:700;font-size:14px;line-height:1;letter-spacing:0;
+  padding:12px 18px;border-radius:var(--r-control);
+  transition:background-color var(--dur) var(--ease),transform var(--dur) var(--ease);
+}
+.btn-solid:hover{background:var(--accent-down);color:var(--accent-ink)}
+.btn-solid:active{transform:translateY(1px)}
+.status-pill{
+  display:inline-block;background:var(--bg-2);color:var(--text-2);
+  font-size:12px;line-height:1.5;padding:3px 11px;border-radius:var(--r-pill);
+}
+.meta{font-size:12px;line-height:1.5;color:var(--text-3)}
+.meta .mono{font-size:12px}
+
+/* 각주 참조(클릭 실동작) */
+.fn-ref{
+  font-family:var(--mono);font-size:10.5px;line-height:1;color:var(--accent);
+  vertical-align:super;padding:0 2px;
+  transition:color var(--dur) var(--ease);
+}
+.fn-ref:hover{text-decoration:underline;text-underline-offset:2px}
+
+/* ================= 헤더 (랜딩) ================= */
+.site-header{
+  position:sticky;top:0;z-index:20;background:var(--bg-0);
+  border-bottom:1px solid var(--border-faint);
+}
+.site-header .container{
+  height:60px;display:flex;align-items:center;justify-content:space-between;gap:16px;
+}
+.wordmark{font-weight:800;font-size:19px;line-height:1;letter-spacing:-.02em;color:var(--text-1)}
+.wordmark:hover{color:var(--text-1)}
+.nav-actions{display:flex;align-items:center;gap:20px}
+.nav-login{font-size:13.5px;line-height:1;color:var(--text-3)}
+.nav-login:hover{color:var(--text-1)}
+/* nav 안 버튼 링크는 색을 명시한다 (특이도 함정 방지) */
+.site-header .btn-solid{color:var(--accent-ink);padding:10px 15px;font-size:13.5px}
+
+/* ================= 히어로 ================= */
+.hero{padding:76px 0 92px}
+.hero-grid{
+  display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6fr);
+  gap:24px 64px;align-items:start;
+}
+.hero-title{
+  font-size:52px;line-height:1.24;letter-spacing:-.025em;font-weight:700;
+  color:var(--text-1);white-space:pre-wrap;
+}
+.hero-sub{margin-top:20px;font-size:16px;line-height:1.7;color:var(--text-3);max-width:26em}
+.ask-form{margin-top:32px;display:flex;gap:8px}
+.ask-input{
+  flex:1;min-width:0;background:var(--bg-1);border:1px solid var(--border);
+  border-radius:var(--r-control);color:var(--text-1);
+  font-family:var(--sans);font-size:14.5px;line-height:1.5;letter-spacing:0;
+  padding:13px 14px;
+  transition:border-color var(--dur) var(--ease),background-color var(--dur) var(--ease);
+}
+.ask-input::placeholder{color:var(--text-4)}
+.ask-input:focus{outline:none;border-color:color-mix(in oklab, var(--accent) 55%, transparent)}
+.ex-list{margin-top:18px;list-style:none}
+.ex-list li{border-bottom:1px solid var(--border-faint)}
+.ex-list li:last-child{border-bottom:0}
+.ex-q{
+  display:flex;align-items:baseline;gap:10px;width:100%;text-align:left;
+  padding:10px 2px;font-size:13.5px;line-height:1.6;color:var(--text-3);
+  transition:color var(--dur) var(--ease);
+}
+.ex-q:hover{color:var(--text-1)}
+.ex-q .mono{font-size:10.5px;color:var(--text-4);flex:none}
+/* 코너 정보 블록 (좌하단) */
+.hero-stats{
+  margin-top:44px;padding-top:22px;border-top:1px solid var(--border);
+  display:flex;gap:40px;flex-wrap:wrap;
+}
+.hero-stats dt{font-size:11.5px;line-height:1.5;color:var(--text-4)}
+.hero-stats dd{margin-top:2px;font-size:14px;line-height:1.4;color:var(--text-1)}
+.hero-stats dd .mono{font-size:19px;font-weight:500;color:var(--text-1)}
+
+/* 대화 표본 패널 */
+.sample-panel{
+  background:var(--bg-1);border:1px solid var(--border);border-radius:var(--r-panel);
+  box-shadow:var(--shadow-rest);overflow:hidden;
+}
+.sample-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:12px;
+  padding:14px 20px;border-bottom:1px solid var(--border-faint);
+}
+.sample-head strong{font-size:14px;line-height:1.5}
+.sample-body{padding:20px}
+.msg-user{
+  margin-left:auto;max-width:82%;width:fit-content;
+  background:var(--bg-2);color:var(--text-1);
+  font-size:13.5px;line-height:1.65;
+  padding:10px 14px;border-radius:var(--r-panel);
+}
+.msg-doc{margin-top:18px;font-size:13.5px;line-height:1.72;color:var(--text-2)}
+.msg-doc .doc-lead{font-size:14.5px;color:var(--text-1)}
+.msg-doc p + p{margin-top:10px}
+.msg-doc ol{margin:10px 0 0 0;padding-left:22px}
+.msg-doc ol li{margin-top:8px}
+.msg-doc ol li::marker{font-family:var(--mono);font-size:11px;color:var(--text-4)}
+.msg-doc .doc-close{margin-top:12px;color:var(--text-3)}
+.evidence{margin-top:18px;border-top:1px solid var(--border-faint);padding-top:14px}
+.evidence-head{display:flex;align-items:center;gap:10px}
+.cites{margin-top:12px;list-style:none}
+.cites li{
+  display:flex;gap:8px;align-items:baseline;
+  font-size:12px;line-height:1.65;color:var(--text-3);
+  padding:5px 6px;margin:0 -6px;border-radius:var(--r-control);
+  transition:background-color 160ms var(--ease);
+}
+.cites li + li{margin-top:2px}
+.cites .cite-n{flex:none;font-size:10.5px;color:var(--text-4)}
+.cites li.cite-flash{background:var(--accent-tint)}
+.sample-more{
+  display:block;padding:13px 20px;border-top:1px solid var(--border-faint);
+  font-size:13px;line-height:1.5;color:var(--accent);
+}
+.sample-more:hover{color:var(--accent)}
+
+/* ================= 섹션 공통 ================= */
+.section{padding:100px 0;border-top:1px solid var(--border-faint)}
+.section-h{
+  font-size:27px;line-height:1.4;letter-spacing:-.02em;font-weight:700;color:var(--text-1);
+}
+.section-lead{margin-top:12px;font-size:15px;line-height:1.7;color:var(--text-3);max-width:34em}
+
+/* ================= 근거 실물 섹션 ================= */
+.evidence-grid{
+  margin-top:44px;display:grid;grid-template-columns:minmax(0,6fr) minmax(0,5fr);
+  gap:32px 72px;align-items:start;
+}
+.trace{margin-top:16px;font-size:11.5px;line-height:1.5;color:var(--text-4)}
+.trace .mono{font-size:11px}
+.status-defs{list-style:none}
+.status-defs li{
+  display:flex;gap:16px;align-items:baseline;
+  padding:18px 0;border-top:1px solid var(--border-faint);
+}
+.status-defs li:first-child{border-top:0;padding-top:4px}
+.status-defs .status-pill{flex:none;min-width:92px;text-align:center}
+.status-defs p{font-size:14px;line-height:1.7;color:var(--text-3)}
+
+/* ================= 로스터 ================= */
+.roster-head-row,.roster-row{
+  display:grid;grid-template-columns:minmax(0,1.5fr) 110px minmax(0,1.5fr);
+  gap:8px 24px;align-items:baseline;
+}
+.roster-head-row{
+  margin-top:40px;padding:0 12px 10px;
+  font-size:11.5px;line-height:1.5;color:var(--text-4);
+  border-bottom:1px solid var(--border);
+}
+.roster-list{list-style:none}
+.roster-row{
+  padding:13px 12px;margin:0 -12px 0 -12px;border-bottom:1px solid var(--border-faint);
+  transition:background-color var(--dur) var(--ease);
+}
+.roster-list{margin:0 12px}
+.roster-row:hover{background:var(--bg-1)}
+.r-name{font-size:14.5px;line-height:1.6;color:var(--text-1)}
+.r-docs{font-size:13px;line-height:1.6;color:var(--text-2);text-align:right}
+.r-docs .mono{font-size:13px}
+.r-note{font-size:13px;line-height:1.6;color:var(--text-3)}
+.roster-more{
+  margin-top:20px;display:inline-block;
+  border:1px solid var(--border);border-radius:var(--r-control);
+  padding:9px 16px;font-size:13px;line-height:1.5;color:var(--text-2);
+  transition:background-color var(--dur) var(--ease),color var(--dur) var(--ease);
+}
+.roster-more:hover{background:var(--bg-1);color:var(--text-1)}
+.roster-more .mono{font-size:12px}
+
+/* ================= 원칙 ================= */
+.principles{list-style:none;margin-top:24px}
+.principles li{
+  display:grid;grid-template-columns:minmax(0,6fr) minmax(0,6fr);
+  gap:8px 72px;align-items:baseline;
+  padding:30px 0;border-top:1px solid var(--border-faint);
+}
+.principles h3{
+  font-size:22px;line-height:1.45;letter-spacing:-.015em;font-weight:700;color:var(--text-1);
+}
+.principles p{font-size:14.5px;line-height:1.7;color:var(--text-3);max-width:32em}
+
+/* ================= 마무리 CTA ================= */
+.cta .section-lead{margin-bottom:28px}
+
+/* ================= 푸터 ================= */
+.site-footer{border-top:1px solid var(--border-faint);padding:48px 0 56px}
+.footer-top{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+.footer-slogan{font-size:13px;line-height:1.6;color:var(--text-3)}
+.footer-notice{margin-top:18px;font-size:12.5px;line-height:1.7;color:var(--text-4);max-width:40em}
+.footer-links{
+  margin-top:26px;display:flex;align-items:baseline;gap:20px;flex-wrap:wrap;
+  font-size:12.5px;line-height:1.6;
+}
+.footer-links a{color:var(--text-4)}
+.footer-links a:hover{color:var(--text-2)}
+.footer-copy{margin-left:auto;font-size:12px;color:var(--text-4)}
+.footer-copy .mono{font-size:11px}
+
+/* ================= 채팅 화면 ================= */
+.chat-header{
+  position:sticky;top:0;z-index:20;background:var(--bg-0);
+  border-bottom:1px solid var(--border-faint);
+}
+.chat-header .container{height:60px;display:flex;align-items:center;gap:18px}
+.chat-back{font-size:13.5px;line-height:1;color:var(--text-3);flex:none}
+.chat-back:hover{color:var(--text-1)}
+.chat-bot{
+  display:flex;align-items:baseline;gap:12px;min-width:0;
+  border-left:1px solid var(--border);padding-left:18px;
+}
+.chat-bot strong{font-size:14.5px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chat-bot .meta{flex:none}
+.chat-main{max-width:768px;margin:0 auto;padding:36px var(--gutter) 8px}
+.chat-main .msg-user{font-size:14px;max-width:78%}
+.turn + .turn{margin-top:40px;border-top:1px solid var(--border-faint);padding-top:36px}
+.chat-main .msg-doc{font-size:14.5px;line-height:1.75}
+.chat-main .msg-doc .doc-lead{font-size:15.5px}
+.chat-main .cites li{font-size:12.5px}
+.chips-label{margin-top:24px;font-size:11.5px;color:var(--text-4)}
+.chips{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap}
+.chip{
+  background:var(--bg-1);border:1px solid var(--border);border-radius:var(--r-pill);
+  padding:8px 15px;font-size:13px;line-height:1.5;color:var(--text-2);
+  transition:background-color var(--dur) var(--ease),color var(--dur) var(--ease),border-color var(--dur) var(--ease);
+}
+.chip:hover{background:var(--bg-2);color:var(--text-1)}
+.checking{display:flex;align-items:center;gap:8px;margin-top:20px}
+.checking .dot{
+  width:4px;height:4px;border-radius:var(--r-pill);background:var(--text-3);
+  animation:blink 1s infinite var(--ease);
+}
+.checking .dot:nth-child(2){animation-delay:.15s}
+.checking .dot:nth-child(3){animation-delay:.3s}
+.checking-label{font-size:12.5px;color:var(--text-3)}
+.reveal{animation:fade-up 180ms var(--ease)}
+.chat-inputbar{
+  position:sticky;bottom:0;z-index:10;background:var(--bg-0);
+  border-top:1px solid var(--border-faint);
+  padding:14px 0 calc(18px + env(safe-area-inset-bottom));
+}
+.chat-inputbar .inner{max-width:768px;margin:0 auto;padding:0 var(--gutter)}
+.chat-form{display:flex;gap:8px}
+.chat-note{margin-top:10px;font-size:11.5px;line-height:1.6;color:var(--text-4)}
+
+/* ================= 모바일 ================= */
+@media (max-width:960px){
+  :root{--gutter:20px}
+  .hero{padding:48px 0 64px}
+  .hero-grid{grid-template-columns:minmax(0,1fr);gap:48px}
+  .hero-title{font-size:33px;line-height:1.34}
+  .hero-sub{font-size:15px}
+  .hero-stats{gap:28px;margin-top:36px}
+  .section{padding:64px 0}
+  .section-h{font-size:22px;line-height:1.45}
+  .evidence-grid{grid-template-columns:minmax(0,1fr);gap:40px}
+  .roster-head-row{display:none}
+  .roster-list{margin:24px 0 0}
+  .roster-row{
+    grid-template-columns:minmax(0,1fr) auto;
+    padding:13px 4px;margin:0;
+  }
+  .r-note{grid-column:1 / -1;margin-top:-2px}
+  .principles li{grid-template-columns:minmax(0,1fr);gap:8px;padding:24px 0}
+  .principles h3{font-size:19px}
+  .footer-copy{margin-left:0}
+  .chat-main{padding-top:28px}
+  .chat-main .msg-user{max-width:88%}
+  .chat-bot strong{white-space:normal}
+  .ask-form .btn-solid{padding:12px 14px}
+}
+
+/* ================= 모션 축소 ================= */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none !important;transition:none !important}
+}
+</style>
+</head>
+<body>
+
+<!-- ================= 랜딩 화면 ================= -->
+<div class="screen" id="screen-home">
+  <header class="site-header">
+    <div class="container">
+      <a class="wordmark" href="#">단서</a>
+      <nav class="nav-actions" aria-label="계정">
+        <a class="nav-login" href="#">로그인</a>
+        <a class="btn-solid" href="#chat">시작하기</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- 히어로: 오프센터 + 코너 정보 블록 -->
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <h1 class="hero-title">약관은 묻는 걸로,
+답은 조항까지</h1>
+          <p class="hero-sub">등록된 문서만 근거로 답해요. 근거는 판본과 조항, 쪽수까지 인용으로 남아요.</p>
+
+          <form class="ask-form" id="hero-form">
+            <input class="ask-input" id="hero-input" type="text" autocomplete="off"
+              aria-label="질문 입력"
+              placeholder="예: 관리사무소 동의 없이 현관 중문을 설치해도 되나요?">
+            <button class="btn-solid" type="submit">질문하기</button>
+          </form>
+
+          <ul class="ex-list" aria-label="대표 질문">
+            <li><button class="ex-q" type="button"><span class="mono">Q</span>출발 3일 전에 항공권을 취소하면 수수료가 얼마나 나오나요?</button></li>
+            <li><button class="ex-q" type="button"><span class="mono">Q</span>실비 보험으로 도수치료도 보장되나요?</button></li>
+            <li><button class="ex-q" type="button"><span class="mono">Q</span>전세 계약 중도 해지하면 위약금이 있나요?</button></li>
+          </ul>
+
+          <dl class="hero-stats" aria-label="서비스 현황">
+            <div><dt>봇</dt><dd><span class="mono" id="stat-bots">14</span>곳</dd></div>
+            <div><dt>담당 문서</dt><dd><span class="mono" id="stat-docs">88</span>종</dd></div>
+            <div><dt>근거 상태 라벨</dt><dd><span class="mono">3</span>종</dd></div>
+          </dl>
+        </div>
+
+        <!-- 실물 대화 표본: 각주 클릭이 동작한다 -->
+        <aside class="sample-panel" aria-label="대화 표본">
+          <div class="sample-head">
+            <strong>항공권 환불 도우미</strong>
+            <span class="meta">담당 문서 <span class="mono">6</span>종</span>
+          </div>
+          <div class="sample-body">
+            <p class="msg-user">출발 3일 전에 국제선 항공권을 취소하면 수수료가 얼마나 나오나요?</p>
+            <div class="msg-doc">
+              <p class="doc-lead">출발 3일 전 취소라면 일반석 정규 운임 기준으로 환불 위약금 12만 원이 공제돼요.<button class="fn-ref" type="button" data-cite="hc2" aria-label="인용 2 보기">[2]</button></p>
+              <p>위약금은 운임 종류와 취소 시점에 따라 달라져요.<button class="fn-ref" type="button" data-cite="hc1" aria-label="인용 1 보기">[1]</button></p>
+              <ol>
+                <li><strong>취소 시점 확인</strong>: 출발 90일~15일 전 3만 원, 14일~4일 전 7만 원, 3일 이내 12만 원이에요.<button class="fn-ref" type="button" data-cite="hc2" aria-label="인용 2 보기">[2]</button></li>
+                <li><strong>환불 신청</strong>: 항공권을 구매한 채널에서 신청하는 것이 원칙이에요. 여행사 발권은 해당 여행사를 통해 신청해요.<button class="fn-ref" type="button" data-cite="hc3" aria-label="인용 3 보기">[3]</button></li>
+                <li><strong>잔액 환불</strong>: 위약금을 공제한 잔액이 원래 결제 수단으로 환불돼요.<button class="fn-ref" type="button" data-cite="hc1" aria-label="인용 1 보기">[1]</button></li>
+              </ol>
+              <p class="doc-close">특가 운임은 위약금 기준이 달라서, 예약할 때 받은 운임 규정을 함께 확인하는 것이 정확해요.</p>
+            </div>
+            <div class="evidence">
+              <div class="evidence-head">
+                <span class="status-pill">근거 있음</span>
+                <span class="meta">인용 <span class="mono">3</span>건</span>
+              </div>
+              <ol class="cites">
+                <li id="hc1"><span class="mono cite-n">[1]</span><span>국제선 여객운송약관(2026 개정판) · 제12조 환불 · &ldquo;여객이 출발 전에 취소를 요청하는 경우, 운임 종류별 환불 위약금을 공제한 잔액을 환불한다.&rdquo;</span></li>
+                <li id="hc2"><span class="mono cite-n">[2]</span><span>환불 위약금 안내(2026-03 판) · 표 2 · 4쪽 · &ldquo;일반석 정규 운임: 출발 90일~15일 전 30,000원, 14일~4일 전 70,000원, 3일 이내 120,000원.&rdquo;</span></li>
+                <li id="hc3"><span class="mono cite-n">[3]</span><span>환불 신청 절차 안내 · 2장 · &ldquo;환불은 구매 채널에서 신청하는 것을 원칙으로 한다. 여행사 발권은 해당 여행사를 통해 신청한다.&rdquo;</span></li>
+              </ol>
+            </div>
+          </div>
+          <a class="sample-more" href="#chat">대화 이어서 보기 &rarr;</a>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 근거 실물 섹션 -->
+    <section class="section">
+      <div class="container">
+        <h2 class="section-h">근거는 이렇게 남아요</h2>
+        <p class="section-lead">답변 문장마다 각주가 붙고, 각주는 문서의 판본과 조항, 쪽수를 가리켜요. 못 찾았을 때는 못 찾았다고 적어요.</p>
+
+        <div class="evidence-grid">
+          <div class="sample-panel">
+            <div class="sample-head">
+              <strong>항공권 환불 도우미</strong>
+              <span class="meta">담당 문서 <span class="mono">6</span>종</span>
+            </div>
+            <div class="sample-body">
+              <p class="msg-user">공동운항편이면 수수료 기준이 어느 항공사인가요?</p>
+              <p class="trace">문서 <span class="mono">6</span>종을 확인했어요</p>
+              <div class="msg-doc">
+                <p class="doc-lead">공동운항편의 취소 수수료 기준은 제가 가진 문서 6종에는 나와 있지 않아요. 발권 항공사 고객센터에서 확인하시는 것이 정확해요. 일반적인 취소 절차는 앞의 안내와 같아요.</p>
+              </div>
+              <div class="evidence">
+                <div class="evidence-head">
+                  <span class="status-pill">문서에 없음</span>
+                  <span class="meta">인용 <span class="mono">0</span>건</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <ul class="status-defs" aria-label="근거 상태 라벨">
+            <li>
+              <span class="status-pill">근거 있음</span>
+              <p>문서에서 근거를 찾아 인용과 함께 답한 상태예요.</p>
+            </li>
+            <li>
+              <span class="status-pill">근거 불충분</span>
+              <p>관련 대목은 있지만 단정하기에는 부족한 상태예요. 부족한 이유를 함께 적어요.</p>
+            </li>
+            <li>
+              <span class="status-pill">문서에 없음</span>
+              <p>담당 문서에 없는 내용이에요. 추측 대신 확인할 곳을 안내해요.</p>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- 봇 로스터 -->
+    <section class="section">
+      <div class="container">
+        <h2 class="section-h">봇마다 담당 문서가 달라요</h2>
+        <p class="section-lead">각 봇은 담당 문서 안에서만 답해요. 못 하는 것은 행에 미리 적어 뒀어요.</p>
+
+        <div class="roster-head-row" aria-hidden="true">
+          <span>이름</span><span style="text-align:right">담당 문서</span><span>참고</span>
+        </div>
+        <ul class="roster-list" id="roster-list"></ul>
+        <button class="roster-more" type="button" id="roster-more"></button>
+      </div>
+    </section>
+
+    <!-- 신뢰 원칙 -->
+    <section class="section">
+      <div class="container">
+        <h2 class="section-h">세 가지 원칙</h2>
+        <ul class="principles">
+          <li>
+            <h3>문서에 없는 것은 답하지 않아요</h3>
+            <p>그럴듯한 추측으로 빈칸을 채우지 않아요. 없으면 없다고 말하고, 확인할 곳을 안내해요.</p>
+          </li>
+          <li>
+            <h3>모든 답에는 출처가 있어요</h3>
+            <p>답변 문장마다 각주가 붙어요. 각주를 누르면 어느 문서의 몇 조, 몇 쪽인지 바로 보여요.</p>
+          </li>
+          <li>
+            <h3>문서가 바뀌면 답도 바뀌어요</h3>
+            <p>개정판이 등록되면 답도 새 판본을 따라요. 인용에 판본이 함께 적히는 이유예요.</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 마무리 CTA -->
+    <section class="section cta">
+      <div class="container">
+        <h2 class="section-h">긴 약관은 덮어 두세요</h2>
+        <p class="section-lead">질문 하나면 결론과 근거가 함께 도착해요.</p>
+        <a class="btn-solid" href="#chat">시작하기</a>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-top">
+        <a class="wordmark" href="#">단서</a>
+        <span class="footer-slogan">모든 답에 단서가 남아요</span>
+      </div>
+      <p class="footer-notice">이 서비스는 등록된 문서를 근거로 안내해요. 규정의 최종 해석과 적용은 해당 기관의 안내를 따라 주세요.</p>
+      <div class="footer-links">
+        <a href="#">이용약관</a>
+        <a href="#">개인정보 처리방침</a>
+        <a href="#">문의</a>
+        <span class="footer-copy"><span class="mono">&copy; 2026</span> 단서</span>
+      </div>
+    </div>
+  </footer>
+</div>
+
+<!-- ================= 채팅 화면 (#chat) ================= -->
+<div class="screen" id="screen-chat">
+  <header class="chat-header">
+    <div class="container">
+      <a class="chat-back" href="#">&larr; 단서</a>
+      <div class="chat-bot">
+        <strong>항공권 환불 도우미</strong>
+        <span class="meta">담당 문서 <span class="mono">6</span>종</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="chat-main" id="chat-log" aria-live="polite">
+    <!-- 1턴 -->
+    <div class="turn">
+      <p class="msg-user">출발 3일 전에 국제선 항공권을 취소하면 수수료가 얼마나 나오나요?</p>
+      <div class="msg-doc" style="margin-top:24px">
+        <p class="doc-lead">출발 3일 전 취소라면 일반석 정규 운임 기준으로 환불 위약금 12만 원이 공제돼요.<button class="fn-ref" type="button" data-cite="cc2" aria-label="인용 2 보기">[2]</button></p>
+        <p>위약금은 운임 종류와 취소 시점에 따라 달라져요.<button class="fn-ref" type="button" data-cite="cc1" aria-label="인용 1 보기">[1]</button></p>
+        <ol>
+          <li><strong>취소 시점 확인</strong>: 출발 90일~15일 전 3만 원, 14일~4일 전 7만 원, 3일 이내 12만 원이에요.<button class="fn-ref" type="button" data-cite="cc2" aria-label="인용 2 보기">[2]</button></li>
+          <li><strong>환불 신청</strong>: 항공권을 구매한 채널에서 신청하는 것이 원칙이에요. 여행사 발권은 해당 여행사를 통해 신청해요.<button class="fn-ref" type="button" data-cite="cc3" aria-label="인용 3 보기">[3]</button></li>
+          <li><strong>잔액 환불</strong>: 위약금을 공제한 잔액이 원래 결제 수단으로 환불돼요.<button class="fn-ref" type="button" data-cite="cc1" aria-label="인용 1 보기">[1]</button></li>
+        </ol>
+        <p class="doc-close">특가 운임은 위약금 기준이 달라서, 예약할 때 받은 운임 규정을 함께 확인하는 것이 정확해요.</p>
+      </div>
+      <div class="evidence">
+        <div class="evidence-head">
+          <span class="status-pill">근거 있음</span>
+          <span class="meta">인용 <span class="mono">3</span>건</span>
+        </div>
+        <ol class="cites">
+          <li id="cc1"><span class="mono cite-n">[1]</span><span>국제선 여객운송약관(2026 개정판) · 제12조 환불 · &ldquo;여객이 출발 전에 취소를 요청하는 경우, 운임 종류별 환불 위약금을 공제한 잔액을 환불한다.&rdquo;</span></li>
+          <li id="cc2"><span class="mono cite-n">[2]</span><span>환불 위약금 안내(2026-03 판) · 표 2 · 4쪽 · &ldquo;일반석 정규 운임: 출발 90일~15일 전 30,000원, 14일~4일 전 70,000원, 3일 이내 120,000원.&rdquo;</span></li>
+          <li id="cc3"><span class="mono cite-n">[3]</span><span>환불 신청 절차 안내 · 2장 · &ldquo;환불은 구매 채널에서 신청하는 것을 원칙으로 한다. 여행사 발권은 해당 여행사를 통해 신청한다.&rdquo;</span></li>
+        </ol>
+      </div>
+      <p class="chips-label">이어서 물어보기</p>
+      <div class="chips">
+        <button class="chip" type="button">위약금이 면제되는 경우도 있나요</button>
+        <button class="chip" type="button">여행사에서 산 표는 어떻게 취소하나요</button>
+        <button class="chip" type="button">환불까지 며칠 걸리나요</button>
+      </div>
+    </div>
+
+    <!-- 2턴: 문서에 없음 -->
+    <div class="turn">
+      <p class="msg-user">공동운항편이면 수수료 기준이 어느 항공사인가요?</p>
+      <div class="checking" id="turn2-checking" role="status" hidden>
+        <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+        <span class="checking-label">근거 확인 중</span>
+      </div>
+      <div id="turn2-answer">
+        <p class="trace">문서 <span class="mono">6</span>종을 확인했어요</p>
+        <div class="msg-doc">
+          <p class="doc-lead">공동운항편의 취소 수수료 기준은 제가 가진 문서 6종에는 나와 있지 않아요. 발권 항공사 고객센터에서 확인하시는 것이 정확해요. 일반적인 취소 절차는 앞의 안내와 같아요.</p>
+        </div>
+        <div class="evidence">
+          <div class="evidence-head">
+            <span class="status-pill">문서에 없음</span>
+            <span class="meta">인용 <span class="mono">0</span>건</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div class="chat-inputbar">
+    <div class="inner">
+      <form class="chat-form" id="chat-form">
+        <input class="ask-input" id="chat-input" type="text" autocomplete="off"
+          aria-label="질문 입력" placeholder="항공권 환불에 대해 물어보세요">
+        <button class="btn-solid" type="submit">보내기</button>
+      </form>
+      <p class="chat-note">등록된 문서를 근거로 안내해요. 최종 해석과 적용은 해당 기관의 안내를 따라 주세요.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- 봇 로스터 데이터 (14곳) ---------- */
+  var BOTS = [
+    ["항공권 환불 도우미", 6, ""],
+    ["보험 약관 길잡이", 12, "근거 못 찾으면 답하지 않음"],
+    ["아파트 관리규약 안내", 4, ""],
+    ["전세·임대차 안내", 5, "근거 못 찾으면 답하지 않음"],
+    ["통신요금 약관 안내", 7, ""],
+    ["가전제품 매뉴얼 도우미", 23, "앞 대화를 기억하지 않음"],
+    ["학사 요람 안내", 3, ""],
+    ["헬스장 회원약관 안내", 1, "기억 안 함 · 근거 못 찾으면 답 안 함"],
+    ["여행자 보험 FAQ", 2, ""],
+    ["日本語 안내", 2, "일본어로만 답함"],
+    ["사내 인사규정 안내", 8, "소속 인증 필요"],
+    ["종합소득세 신고 도우미", 9, "근거 못 찾으면 답하지 않음"],
+    ["자동차 리스 계약 안내", 4, ""],
+    ["반려동물 보험 안내", 2, "준비 중"]
+  ];
+  var VISIBLE = 8;
+  var expanded = false;
+
+  /* 코너 정보 블록: 수치는 데이터에서 산출 */
+  var totalDocs = BOTS.reduce(function(sum, b){ return sum + b[1]; }, 0);
+  document.getElementById("stat-bots").textContent = BOTS.length;
+  document.getElementById("stat-docs").textContent = totalDocs;
+
+  /* ---------- 로스터 렌더 + "외 N곳" 확장 ---------- */
+  var rosterList = document.getElementById("roster-list");
+  var rosterMore = document.getElementById("roster-more");
+
+  function rosterRow(bot){
+    var li = document.createElement("li");
+    li.className = "roster-row";
+    var name = document.createElement("span");
+    name.className = "r-name";
+    name.textContent = bot[0];
+    var docs = document.createElement("span");
+    docs.className = "r-docs";
+    var n = document.createElement("span");
+    n.className = "mono";
+    n.textContent = bot[1];
+    docs.appendChild(n);
+    docs.appendChild(document.createTextNode("종"));
+    var note = document.createElement("span");
+    note.className = "r-note";
+    note.textContent = bot[2];
+    li.appendChild(name); li.appendChild(docs); li.appendChild(note);
+    return li;
+  }
+
+  function renderRoster(){
+    rosterList.textContent = "";
+    var rows = expanded ? BOTS : BOTS.slice(0, VISIBLE);
+    rows.forEach(function(bot){ rosterList.appendChild(rosterRow(bot)); });
+    var rest = BOTS.length - VISIBLE;
+    rosterMore.textContent = "";
+    if (expanded) {
+      rosterMore.appendChild(document.createTextNode("처음 "));
+      var m1 = document.createElement("span"); m1.className = "mono"; m1.textContent = VISIBLE;
+      rosterMore.appendChild(m1);
+      rosterMore.appendChild(document.createTextNode("곳만 보기"));
+    } else {
+      rosterMore.appendChild(document.createTextNode("외 "));
+      var m2 = document.createElement("span"); m2.className = "mono"; m2.textContent = rest;
+      rosterMore.appendChild(m2);
+      rosterMore.appendChild(document.createTextNode("곳 모두 보기"));
+    }
+  }
+  rosterMore.addEventListener("click", function(){ expanded = !expanded; renderRoster(); });
+  renderRoster();
+
+  /* ---------- 화면 라우팅: location.hash === '#chat' ---------- */
+  var homeScreen = document.getElementById("screen-home");
+  var chatScreen = document.getElementById("screen-chat");
+  var pendingQuestion = "";
+  var turn2Revealed = false;
+
+  function revealTurn2(){
+    if (turn2Revealed) return;
+    turn2Revealed = true;
+    if (reduced) return;
+    var checking = document.getElementById("turn2-checking");
+    var answer = document.getElementById("turn2-answer");
+    answer.hidden = true;
+    checking.hidden = false;
+    setTimeout(function(){
+      checking.hidden = true;
+      answer.hidden = false;
+      answer.classList.add("reveal");
+    }, 950);
+  }
+
+  function route(){
+    var chat = location.hash === "#chat";
+    homeScreen.classList.toggle("is-active", !chat);
+    chatScreen.classList.toggle("is-active", chat);
+    window.scrollTo(0, 0);
+    document.title = chat ? "항공권 환불 도우미 | 단서" : "단서 | 읽지 말고 물어보세요";
+    if (chat) {
+      revealTurn2();
+      if (pendingQuestion) {
+        var input = document.getElementById("chat-input");
+        input.value = pendingQuestion;
+        pendingQuestion = "";
+        input.focus();
+      }
+    }
+  }
+  window.addEventListener("hashchange", route);
+  route();
+
+  /* ---------- 히어로: 대표 질문은 입력창 채움, 제출은 채팅 진입 ---------- */
+  var heroInput = document.getElementById("hero-input");
+  document.querySelectorAll(".ex-q").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      heroInput.value = btn.textContent.trim().replace(/^Q\s*/, "");
+      heroInput.focus();
+    });
+  });
+  document.getElementById("hero-form").addEventListener("submit", function(e){
+    e.preventDefault();
+    pendingQuestion = heroInput.value.trim();
+    location.hash = "#chat";
+  });
+
+  /* ---------- 각주 클릭: 해당 인용으로 이동 + 하이라이트 ---------- */
+  document.addEventListener("click", function(e){
+    var ref = e.target.closest(".fn-ref");
+    if (!ref) return;
+    var cite = document.getElementById(ref.getAttribute("data-cite"));
+    if (!cite) return;
+    cite.scrollIntoView({ block: "nearest", behavior: reduced ? "auto" : "smooth" });
+    cite.classList.add("cite-flash");
+    setTimeout(function(){ cite.classList.remove("cite-flash"); }, 1200);
+  });
+
+  /* ---------- 채팅: 후속 칩은 입력창을 채우기만 한다 ---------- */
+  var chatInput = document.getElementById("chat-input");
+  document.querySelectorAll(".chip").forEach(function(chip){
+    chip.addEventListener("click", function(){
+      chatInput.value = chip.textContent.trim();
+      chatInput.focus();
+    });
+  });
+
+  /* ---------- 채팅 제출: 표본 화면의 정직한 안내 ---------- */
+  var chatLog = document.getElementById("chat-log");
+  document.getElementById("chat-form").addEventListener("submit", function(e){
+    e.preventDefault();
+    var text = chatInput.value.trim();
+    if (!text) return;
+    chatInput.value = "";
+
+    var turn = document.createElement("div");
+    turn.className = "turn";
+    var bubble = document.createElement("p");
+    bubble.className = "msg-user";
+    bubble.textContent = text;
+    turn.appendChild(bubble);
+
+    var checking = document.createElement("div");
+    checking.className = "checking";
+    checking.setAttribute("role", "status");
+    for (var i = 0; i < 3; i++) {
+      var d = document.createElement("span"); d.className = "dot"; checking.appendChild(d);
+    }
+    var label = document.createElement("span");
+    label.className = "checking-label";
+    label.textContent = "근거 확인 중";
+    checking.appendChild(label);
+    turn.appendChild(checking);
+    chatLog.appendChild(turn);
+    window.scrollTo(0, document.body.scrollHeight);
+
+    setTimeout(function(){
+      checking.remove();
+      var doc = document.createElement("div");
+      doc.className = "msg-doc" + (reduced ? "" : " reveal");
+      doc.style.marginTop = "24px";
+      var p = document.createElement("p");
+      p.className = "doc-lead";
+      p.textContent = "표본 화면이라 새 질문은 검색하지 않아요. 위의 두 턴에서 답변 형식과 인용 표기를 확인해 보세요.";
+      doc.appendChild(p);
+      turn.appendChild(doc);
+      window.scrollTo(0, document.body.scrollHeight);
+    }, reduced ? 0 : 1100);
+  });
+})();
+</script>
+</body>
+</html>

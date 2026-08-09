@@ -1,0 +1,930 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 — 승인 문서를 근거로 답하는 안내 창구</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<style>
+/* ===== 토큰 ===== */
+:root{
+  --bg:#f7f6f4;
+  --surface:#ffffff;
+  --ink-strong:#1d1b19;
+  --ink:#37342f;
+  --ink-soft:#6e6961;
+  --line:rgba(29,27,25,.08);
+  --line-strong:rgba(29,27,25,.15);
+  --accent:#ce3f24;
+  --accent-deep:#b33517;
+  --accent-soft:rgba(206,63,36,.08);
+  --accent-line:rgba(206,63,36,.3);
+  --mark:rgba(255,193,94,.4);
+  --r-s:8px; --r-m:14px; --r-l:24px;
+  --sh-rest:0 1px 2px rgba(24,20,16,.04), 0 2px 8px rgba(24,20,16,.05);
+  --sh-lift:0 4px 10px rgba(24,20,16,.06), 0 12px 28px rgba(24,20,16,.09);
+  --font:"Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Segoe UI", sans-serif;
+}
+/* ===== 리셋·베이스 ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none !important}
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--ink);
+  font-size:15.5px;
+  line-height:1.6;
+  letter-spacing:-0.005em;
+  word-break:keep-all;
+  overflow-wrap:break-word;
+  -webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{color:var(--ink-strong);font-weight:700;line-height:1.32;letter-spacing:-0.02em}
+p{line-height:1.6}
+a{color:inherit;text-decoration:none}
+button{font-family:inherit;font-size:inherit;letter-spacing:inherit;border:0;background:none;cursor:pointer;color:inherit;line-height:1.5}
+input{font-family:inherit;font-size:inherit;letter-spacing:inherit;color:var(--ink);line-height:1.5}
+img{max-width:100%}
+mark{background:var(--mark);color:inherit;padding:.05em .1em}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:var(--r-s)}
+.container{max-width:1200px;margin:0 auto;padding:0 32px}
+.hidden{display:none !important}
+svg.ic{width:16px;height:16px;stroke:currentColor;stroke-width:1.6;fill:none;stroke-linecap:round;stroke-linejoin:round;flex:none;vertical-align:-2px}
+
+/* ===== 상단바 ===== */
+header.top{
+  position:sticky;top:0;z-index:40;
+  background:var(--bg);
+  border-bottom:1px solid var(--line);
+}
+header.top .bar{max-width:1200px;margin:0 auto;padding:0 32px;height:60px;display:flex;align-items:center;gap:28px}
+.logo{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px;color:var(--ink-strong);letter-spacing:-0.02em}
+.logo i{width:12px;height:12px;border-radius:999px;background:var(--accent);display:inline-block}
+nav.gnb{display:flex;align-items:center;gap:4px;flex:1}
+nav.gnb a{font-size:14.5px;line-height:1.5;color:var(--ink-soft);padding:7px 12px;border-radius:var(--r-s);transition:color .14s ease-out,background-color .14s ease-out}
+nav.gnb a:hover{color:var(--ink-strong);background:rgba(29,27,25,.05)}
+nav.gnb a[aria-current="true"]{color:var(--ink-strong);font-weight:700}
+.top-right{display:flex;align-items:center;gap:12px}
+/* 헤더 CTA — nav a 규칙이 덮지 못하게 특이도 명시 */
+nav.gnb a.btn-primary, .top-right a.btn-primary{
+  background:var(--accent);color:#fff;font-weight:700;font-size:14.5px;line-height:1.5;
+  padding:8px 18px;border-radius:var(--r-s);
+  transition:background-color .14s ease-out;
+}
+nav.gnb a.btn-primary:hover, .top-right a.btn-primary:hover{background:var(--accent-deep);color:#fff}
+.profile-chip{width:32px;height:32px;border-radius:var(--r-s);background:hsl(210,18%,88%);color:hsl(210,20%,32%);
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;line-height:1}
+
+/* ===== 랜딩 ===== */
+.hero{padding:88px 0 72px}
+.hero-grid{display:grid;grid-template-columns:1.25fr .9fr;gap:64px;align-items:center}
+.hero h1{font-size:46px;line-height:1.28;letter-spacing:-0.026em;white-space:pre-wrap}
+.hero .lede{margin-top:22px;font-size:16.5px;line-height:1.62;color:var(--ink-soft);max-width:26em}
+.hero-ctas{margin-top:32px;display:flex;gap:12px;align-items:center}
+.btn{display:inline-flex;align-items:center;gap:7px;font-weight:700;font-size:15px;line-height:1.5;
+  padding:12px 22px;border-radius:var(--r-m);transition:background-color .14s ease-out,border-color .14s ease-out}
+a.btn.solid, button.btn.solid{background:var(--accent);color:#fff}
+a.btn.solid:hover, button.btn.solid:hover{background:var(--accent-deep)}
+a.btn.ghost{border:1px solid var(--line-strong);color:var(--ink);background:var(--surface)}
+a.btn.ghost:hover{border-color:rgba(29,27,25,.28)}
+
+/* SSO 카드 */
+.sso-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);
+  box-shadow:var(--sh-rest);padding:32px;max-width:400px;justify-self:end;width:100%}
+.sso-card h2{font-size:18px;line-height:1.4}
+.sso-card .sso-sub{font-size:13.5px;line-height:1.55;color:var(--ink-soft);margin-top:6px}
+.sso-card form{margin-top:22px;display:flex;flex-direction:column;gap:14px}
+.field label{display:block;font-size:13px;line-height:1.5;font-weight:700;color:var(--ink);margin-bottom:6px}
+.field input{width:100%;padding:11px 14px;border:1px solid var(--line-strong);border-radius:var(--r-s);
+  background:var(--surface);font-size:15px;transition:border-color .14s ease-out}
+.field input:hover{border-color:rgba(29,27,25,.26)}
+.field input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.field input::placeholder{color:#a09a91}
+.sso-card button.btn.solid{width:100%;justify-content:center;margin-top:4px;background:var(--ink-strong)}
+.sso-card button.btn.solid:hover{background:#33302c}
+.sso-help{font-size:12.5px;line-height:1.55;color:var(--ink-soft);margin-top:14px;text-align:center}
+
+/* 인용 미리보기 섹션 */
+.sect{padding:64px 0}
+.sect-head{max-width:560px}
+.sect-head .eyebrow{font-size:13px;line-height:1.5;font-weight:700;color:var(--accent);letter-spacing:.02em}
+.sect-head h2{font-size:29px;line-height:1.34;letter-spacing:-0.024em;margin-top:8px;white-space:pre-wrap}
+.sect-head p{margin-top:12px;color:var(--ink-soft);font-size:15.5px}
+.cite-demo{margin-top:36px;display:grid;grid-template-columns:1.1fr .9fr;gap:24px;align-items:start}
+.demo-answer{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);padding:28px 30px;box-shadow:var(--sh-rest)}
+.demo-answer .da-q{font-size:13px;line-height:1.5;font-weight:700;color:var(--ink-soft);margin-bottom:10px}
+.demo-answer .da-a{font-size:15.5px;line-height:1.62}
+
+/* ===== 로스터 툴바 ===== */
+.home-head{padding:44px 0 0}
+.home-head h1{font-size:27px;line-height:1.34;letter-spacing:-0.022em}
+.home-head .sub{color:var(--ink-soft);font-size:14.5px;line-height:1.55;margin-top:6px}
+.toolbar{display:flex;align-items:center;gap:14px;margin-top:26px;flex-wrap:wrap}
+.searchbox{position:relative;flex:1;min-width:220px;max-width:420px}
+.searchbox svg.ic{position:absolute;left:13px;top:50%;transform:translateY(-50%);color:var(--ink-soft)}
+.searchbox input{width:100%;padding:10px 14px 10px 38px;border:1px solid var(--line-strong);border-radius:var(--r-m);
+  background:var(--surface);font-size:14.5px;transition:border-color .14s ease-out}
+.searchbox input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.searchbox input::placeholder{color:#a09a91}
+.nswitch{display:flex;align-items:center;gap:9px;margin-left:auto}
+.nswitch .nlabel{font-size:12px;line-height:1.5;font-weight:700;color:var(--ink-soft);
+  border:1px solid var(--line-strong);border-radius:var(--r-s);padding:2px 8px}
+.seg{display:flex;background:rgba(29,27,25,.06);border-radius:var(--r-s);padding:3px;gap:2px}
+.seg button{font-size:13.5px;line-height:1.5;padding:5px 14px;border-radius:var(--r-s);color:var(--ink-soft);font-weight:400;
+  transition:background-color .14s ease-out,color .14s ease-out}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink-strong);font-weight:700;box-shadow:0 1px 3px rgba(24,20,16,.12)}
+.chip-row{display:flex;gap:8px;margin-top:18px;overflow-x:auto;padding-bottom:6px;scrollbar-width:none}
+.chip-row::-webkit-scrollbar{display:none}
+.chip{flex:none;font-size:13.5px;line-height:1.5;padding:6px 14px;border-radius:999px;border:1px solid var(--line-strong);
+  background:var(--surface);color:var(--ink);transition:border-color .14s ease-out,background-color .14s ease-out,color .14s ease-out}
+.chip:hover{border-color:rgba(29,27,25,.3)}
+.chip[aria-pressed="true"]{background:var(--ink-strong);border-color:var(--ink-strong);color:#fff;font-weight:700}
+
+/* ===== 봇 카드 그리드 ===== */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:18px;padding:26px 0 72px}
+.bot-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-l);padding:22px;
+  box-shadow:var(--sh-rest);cursor:pointer;display:flex;flex-direction:column;gap:0;text-align:left;
+  transition:box-shadow .14s ease-out,transform .14s ease-out,border-color .14s ease-out}
+.bot-card:hover{box-shadow:var(--sh-lift);transform:translateY(-2px);border-color:rgba(29,27,25,.13)}
+.avatar{display:flex;align-items:center;justify-content:center;font-weight:700;line-height:1;flex:none}
+.bot-card .avatar{width:72px;height:72px;border-radius:var(--r-l);font-size:26px}
+.bc-name{margin-top:16px;display:flex;align-items:center;gap:6px;min-width:0}
+.bc-name h3{font-size:16.5px;line-height:1.4;letter-spacing:-0.015em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vbadge{display:inline-flex;align-items:center;gap:3px;flex:none;font-size:11px;line-height:1.4;font-weight:700;
+  color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:999px;padding:1.5px 8px 1.5px 6px}
+.vbadge svg.ic{width:11px;height:11px;stroke-width:2.2}
+.bc-desc{margin-top:7px;font-size:13.5px;line-height:1.58;color:var(--ink-soft);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:calc(1.58em * 2)}
+.bc-meta{margin-top:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tag{font-size:12px;line-height:1.5;color:var(--ink-soft);background:rgba(29,27,25,.055);border-radius:var(--r-s);padding:2.5px 9px}
+.doc-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;line-height:1.5;font-weight:700;color:var(--ink);
+  border:1px solid var(--line-strong);border-radius:var(--r-s);padding:2px 9px}
+.doc-badge svg.ic{width:12px;height:12px}
+.attr-row{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+.attr{font-size:11.5px;line-height:1.5;color:hsl(24,30%,34%);background:hsl(28,42%,95%);border-radius:var(--r-s);padding:2.5px 9px}
+
+/* 스켈레톤 */
+.sk .sk-b{background:rgba(29,27,25,.07);border-radius:var(--r-s);animation:skp 1.1s ease-in-out infinite alternate}
+.sk .sk-av{width:72px;height:72px;border-radius:var(--r-l)}
+@keyframes skp{from{opacity:.55}to{opacity:1}}
+.bot-card.sk{cursor:default;pointer-events:none}
+
+/* 빈 상태 */
+.empty{grid-column:1/-1;text-align:center;padding:72px 24px;color:var(--ink-soft)}
+.empty h3{font-size:17px;line-height:1.45}
+.empty p{margin-top:8px;font-size:14px}
+.empty button{margin-top:18px;font-size:14px;font-weight:700;color:var(--accent);padding:8px 16px;border:1px solid var(--accent-line);border-radius:var(--r-s);
+  transition:background-color .14s ease-out}
+.empty button:hover{background:var(--accent-soft)}
+
+/* 카드 진입 모션 */
+.card-in{animation:cardin .4s ease-out both;animation-delay:calc(var(--i) * 45ms)}
+@keyframes cardin{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ===== 채팅 ===== */
+.chat-wrap{display:grid;grid-template-columns:268px 1fr;gap:0;max-width:1200px;margin:0 auto;padding:0 32px;
+  height:calc(100vh - 61px);height:calc(100dvh - 61px)}
+.sessions{border-right:1px solid var(--line);padding:22px 20px 22px 0;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+.sessions h2{font-size:13px;line-height:1.5;color:var(--ink-soft);font-weight:700}
+.sess-search{position:relative}
+.sess-search svg.ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--ink-soft);width:14px;height:14px}
+.sess-search input{width:100%;padding:8px 12px 8px 32px;border:1px solid var(--line);border-radius:var(--r-s);
+  background:var(--surface);font-size:13.5px}
+.sess-search input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.sess-list{list-style:none;display:flex;flex-direction:column;gap:2px}
+.sess-list button{width:100%;text-align:left;padding:10px 12px;border-radius:var(--r-s);
+  transition:background-color .14s ease-out}
+.sess-list button:hover{background:rgba(29,27,25,.05)}
+.sess-list li.on button{background:rgba(29,27,25,.06)}
+.sess-title{display:block;font-size:14px;line-height:1.45;color:var(--ink);font-weight:400;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sess-list li.on .sess-title{font-weight:700;color:var(--ink-strong)}
+.sess-time{display:block;font-size:12px;line-height:1.5;color:var(--ink-soft);margin-top:1px}
+.chat-main{display:flex;flex-direction:column;min-width:0}
+.chat-head{display:flex;align-items:center;gap:14px;padding:16px 4px 16px 28px;border-bottom:1px solid var(--line)}
+.chat-head .avatar{width:44px;height:44px;border-radius:var(--r-m);font-size:17px}
+.ch-info{min-width:0;flex:1}
+.ch-name{display:flex;align-items:center;gap:8px;min-width:0}
+.ch-name strong{font-size:15.5px;line-height:1.4;color:var(--ink-strong);letter-spacing:-0.015em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch-sub{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:3px;font-size:12.5px;line-height:1.5;color:var(--ink-soft)}
+.ch-sub .ch-desc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:min(34em,100%)}
+.ch-sub .attr{font-size:11px}
+.ch-sub .doc-badge{font-size:11.5px}
+.chat-scroll{flex:1;overflow-y:auto;padding:30px 4px 24px 28px}
+.chat-col{max-width:720px}
+.msg-u{display:flex;justify-content:flex-end;margin:20px 0}
+.msg-u .bubble{max-width:78%;background:var(--ink-strong);color:#f5f3f0;border-radius:var(--r-m);
+  border-bottom-right-radius:var(--r-s);padding:11px 17px;font-size:15px;line-height:1.6}
+.msg-b{margin:22px 0;font-size:15.5px;line-height:1.66}
+.msg-b .ans-p{margin:0 0 14px}
+.msg-b ol{margin:0 0 14px;padding-left:24px}
+.msg-b ol li{margin:7px 0;padding-left:4px}
+.msg-b .tail{color:var(--ink);margin-bottom:0}
+/* 각주 위첨자 */
+sup.fn{line-height:1}
+sup.fn button{font-size:11px;font-weight:700;color:var(--accent);background:var(--accent-soft);
+  border-radius:var(--r-s);padding:1px 5px;margin-left:2px;line-height:1.4;vertical-align:1px;
+  transition:background-color .14s ease-out}
+sup.fn button:hover{background:rgba(206,63,36,.16)}
+/* 각주 팝오버 */
+#fnpop{position:fixed;z-index:60;max-width:340px;background:var(--surface);border:1px solid var(--line-strong);
+  border-radius:var(--r-m);box-shadow:var(--sh-lift);padding:13px 15px;font-size:13px;line-height:1.58;color:var(--ink);display:none}
+#fnpop .fp-doc{display:block;font-weight:700;font-size:12px;color:var(--ink-soft);margin-bottom:5px}
+/* 인용 블록 */
+.cites{margin:24px 0 6px;border:1px solid var(--line);border-radius:var(--r-l);background:var(--surface);
+  box-shadow:var(--sh-rest);overflow:hidden}
+.cites-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;padding:16px 22px 14px;border-bottom:1px solid var(--line)}
+.cites-head strong{font-size:14px;line-height:1.5;color:var(--ink-strong)}
+.cites-note{font-size:12px;line-height:1.5;color:var(--ink-soft)}
+.cites-note .hl-key{background:var(--mark);padding:0 4px}
+.cite-doc{padding:18px 22px;border-bottom:1px solid var(--line)}
+.cite-doc:last-child{border-bottom:0}
+.cd-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cd-head svg.ic{color:var(--ink-soft)}
+.cd-head strong{font-size:14.5px;line-height:1.5;color:var(--ink-strong)}
+.doc-type{font-size:11.5px;line-height:1.5;color:var(--ink-soft);border:1px solid var(--line-strong);border-radius:var(--r-s);padding:1px 8px}
+.key-badge{font-size:11.5px;line-height:1.5;font-weight:700;color:var(--accent);background:var(--accent-soft);border-radius:var(--r-s);padding:1.5px 8px}
+.cd-sum{font-size:13px;line-height:1.55;color:var(--ink-soft);margin-top:5px}
+.cite-item{display:flex;gap:12px;margin-top:14px;padding:13px 15px;border:1px solid var(--line);border-radius:var(--r-m);
+  transition:border-color .14s ease-out,box-shadow .14s ease-out}
+.cite-item .cno{flex:none;width:22px;height:22px;border-radius:var(--r-s);background:rgba(29,27,25,.07);color:var(--ink);
+  font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1}
+.ci-body{min-width:0}
+.ci-loc{font-size:12.5px;line-height:1.5;font-weight:700;color:var(--ink-soft)}
+.ci-snip{font-size:13.5px;line-height:1.62;color:var(--ink);margin-top:4px}
+.cite-item.flash{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+/* 답변 액션 + 이어질문 */
+.ans-actions{display:flex;align-items:center;gap:4px;margin-top:14px}
+.ans-actions button{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;line-height:1.5;color:var(--ink-soft);
+  padding:6px 10px;border-radius:var(--r-s);transition:background-color .14s ease-out,color .14s ease-out}
+.ans-actions button:hover{background:rgba(29,27,25,.06);color:var(--ink-strong)}
+.ans-actions button[aria-pressed="true"]{color:var(--accent);background:var(--accent-soft)}
+.no-cite{font-size:12.5px;line-height:1.5;color:var(--ink-soft);margin-top:12px;display:flex;align-items:center;gap:6px}
+.follow{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 8px}
+.follow button{font-size:13.5px;line-height:1.5;color:var(--ink);border:1px solid var(--line-strong);border-radius:999px;
+  padding:7px 15px;background:var(--surface);transition:border-color .14s ease-out,background-color .14s ease-out}
+.follow button:hover{border-color:var(--accent-line);background:var(--accent-soft)}
+/* 컴포저 */
+.composer{padding:14px 4px 16px 28px;border-top:1px solid var(--line)}
+.composer form{max-width:720px;display:flex;gap:10px}
+.composer input{flex:1;padding:12px 17px;border:1px solid var(--line-strong);border-radius:var(--r-m);
+  background:var(--surface);font-size:15px}
+.composer input:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.composer input::placeholder{color:#a09a91}
+.composer button.send{flex:none;width:46px;border-radius:var(--r-m);background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;transition:background-color .14s ease-out}
+.composer button.send:hover{background:var(--accent-deep)}
+.composer .notice{max-width:720px;font-size:11.5px;line-height:1.5;color:var(--ink-soft);margin-top:9px}
+
+/* ===== 봇 티저(랜딩) ===== */
+.teaser-row{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:34px}
+.more-link{display:inline-flex;align-items:center;gap:6px;margin-top:26px;font-size:14.5px;font-weight:700;color:var(--accent)}
+.more-link:hover{color:var(--accent-deep)}
+
+/* ===== 푸터 ===== */
+footer.site{border-top:1px solid var(--line);padding:34px 0 44px;margin-top:24px}
+footer.site .frow{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:baseline}
+footer.site p{font-size:13px;line-height:1.6;color:var(--ink-soft)}
+
+/* ===== 뷰 전환 ===== */
+body[data-view="chat"] footer.site{display:none}
+body[data-view="chat"]{overflow:hidden}
+
+/* ===== 반응형 ===== */
+@media (max-width:1000px){
+  .hero-grid{grid-template-columns:1fr;gap:44px}
+  .sso-card{justify-self:start}
+  .cite-demo{grid-template-columns:1fr}
+  .teaser-row{grid-template-columns:repeat(2,1fr)}
+  .chat-wrap{grid-template-columns:1fr}
+  .sessions{display:none}
+  .chat-head{padding-left:0}
+  .chat-scroll{padding-left:0}
+  .composer{padding-left:0}
+}
+@media (max-width:720px){
+  .container{padding:0 20px}
+  header.top .bar{padding:0 20px;gap:14px}
+  nav.gnb a:not(.btn-primary){display:none}
+  .hero{padding:56px 0 48px}
+  .hero h1{font-size:33px}
+  .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .bot-card{padding:16px}
+  .bot-card .avatar{width:56px;height:56px;font-size:21px;border-radius:var(--r-m)}
+  .bc-name h3{font-size:15px}
+  .nswitch{margin-left:0}
+  .toolbar{gap:10px}
+  .searchbox{max-width:none;min-width:100%}
+  .teaser-row{grid-template-columns:1fr}
+  .chat-wrap{padding:0 20px}
+  .msg-u .bubble{max-width:88%}
+  .sect-head h2{font-size:24px}
+}
+/* ===== 모션 감쇠 ===== */
+@media (prefers-reduced-motion:reduce){
+  .card-in{animation:none}
+  .sk .sk-b{animation:none}
+  *{transition-duration:0ms !important}
+}
+</style>
+</head>
+<body data-view="landing">
+
+<header class="top">
+  <div class="bar">
+    <a class="logo" href="#"><i aria-hidden="true"></i>블레싱</a>
+    <nav class="gnb" aria-label="주 메뉴">
+      <a href="#" data-nav="landing">소개</a>
+      <a href="#home" data-nav="home">봇 목록</a>
+      <a href="#chat" data-nav="chat">대화</a>
+    </nav>
+    <div class="top-right">
+      <span class="profile-chip" id="profileChip" hidden aria-label="내 프로필">김</span>
+      <a href="#home" class="btn-primary" id="topCta">시작하기</a>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ============ 뷰 1 · 랜딩 ============ -->
+<section id="view-landing" aria-label="소개">
+  <div class="container">
+    <div class="hero">
+      <div class="hero-grid">
+        <div>
+          <h1>물어보는 순간,
+어느 문서 몇 쪽인지
+보이도록</h1>
+          <p class="lede">블레싱은 승인 문서를 근거로 답하는 안내 창구예요. 답변마다 참고한 자료와 페이지를 함께 보여 드려요. 담당 문서가 다른 여러 창구가 있고, 계속 늘어나요.</p>
+          <div class="hero-ctas">
+            <a class="btn solid" href="#home">봇 목록 둘러보기</a>
+            <a class="btn ghost" href="#chat">대화 미리보기</a>
+          </div>
+        </div>
+        <div class="sso-card">
+          <h2>하나로 SSO 로그인</h2>
+          <p class="sso-sub">하나로 계정 하나로 모든 창구를 이용해요.</p>
+          <form id="ssoForm">
+            <div class="field">
+              <label for="ssoId">아이디</label>
+              <input id="ssoId" name="ssoId" type="text" autocomplete="username" placeholder="하나로 아이디">
+            </div>
+            <div class="field">
+              <label for="ssoPw">비밀번호</label>
+              <input id="ssoPw" name="ssoPw" type="password" autocomplete="current-password" placeholder="비밀번호">
+            </div>
+            <button type="submit" class="btn solid">로그인</button>
+          </form>
+          <p class="sso-help">계정 문의는 소속 교회 담당자에게 해 주세요.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sect">
+      <div class="sect-head">
+        <p class="eyebrow">인용</p>
+        <h2>답 아래에는
+참고한 자료까지</h2>
+        <p>문서 이름과 페이지, 실제로 참고된 대목을 형광펜으로 표시해요. 근거를 못 찾으면 못 찾았다고 말하는 창구도 있어요.</p>
+      </div>
+      <div class="cite-demo">
+        <div class="demo-answer">
+          <p class="da-q">질문 — 축복식 준비는 어디서 시작하나요?</p>
+          <p class="da-a">축복식 준비는 소속 가정 교회를 통한 후보자 등록에서 시작합니다.<sup class="fn"><button type="button" data-cite="d1" aria-label="각주 1, 축복 안내서 41쪽">1</button></sup> 서류 목록은 교구마다 안내 시기가 달라, 소속 교회 담당자에게 확인하시는 것이 가장 정확합니다.</p>
+        </div>
+        <div class="cites" style="margin:0">
+          <div class="cites-head"><strong>참고한 자료 1건</strong><span class="cites-note"><span class="hl-key">형광펜 부분</span>이 이 답변에 실제로 참고된 대목입니다</span></div>
+          <div class="cite-doc">
+            <div class="cd-head">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14.5 3v4.5H19"/></svg>
+              <strong>축복 안내서(2026 정본)</strong>
+              <span class="doc-type">안내</span>
+              <span class="key-badge">주요 근거</span>
+            </div>
+            <p class="cd-sum">축복의 전 과정을 담은 공식 안내 문서예요.</p>
+            <div class="cite-item" id="cite-d1" tabindex="-1">
+              <span class="cno" aria-hidden="true">1</span>
+              <div class="ci-body">
+                <p class="ci-loc">p.41 · 4장 2절</p>
+                <p class="ci-snip">…축복을 희망하는 가정은 먼저 <mark>소속 교회와 상의한다. 축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록한다</mark>. 등록 이후의 절차는…</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sect" style="padding-top:24px">
+      <div class="sect-head">
+        <p class="eyebrow">멀티봇</p>
+        <h2>지금 열려 있는 창구</h2>
+        <p>담당 문서가 다른 창구를 골라 물어보세요. 창구마다 답하는 방식이 조금씩 달라요.</p>
+      </div>
+      <div class="teaser-row" id="teaserRow"></div>
+      <a class="more-link" href="#home">봇 목록 전체 보기<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg></a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 뷰 2 · 로스터 ============ -->
+<section id="view-home" aria-label="봇 목록" hidden>
+  <div class="container">
+    <div class="home-head">
+      <h1>봇 목록</h1>
+      <p class="sub">담당 문서가 다른 창구들이에요. 카드를 누르면 바로 대화가 시작돼요.</p>
+      <div class="toolbar">
+        <div class="searchbox">
+          <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+          <input id="rosterSearch" type="search" placeholder="이름·태그로 찾기" aria-label="봇 검색">
+        </div>
+        <div class="nswitch">
+          <span class="nlabel">데모</span>
+          <div class="seg" role="group" aria-label="봇 개수 전환">
+            <button type="button" data-n="8" aria-pressed="true">8</button>
+            <button type="button" data-n="24" aria-pressed="false">24</button>
+            <button type="button" data-n="60" aria-pressed="false">60</button>
+          </div>
+        </div>
+      </div>
+      <div class="chip-row" id="chipRow" role="group" aria-label="카테고리"></div>
+    </div>
+    <div class="grid" id="grid" aria-live="polite"></div>
+  </div>
+</section>
+
+<!-- ============ 뷰 3 · 채팅 ============ -->
+<section id="view-chat" aria-label="대화" hidden>
+  <div class="chat-wrap">
+    <aside class="sessions" aria-label="지난 대화">
+      <h2>지난 대화</h2>
+      <div class="sess-search">
+        <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="sessSearch" type="search" placeholder="대화 검색" aria-label="대화 검색">
+      </div>
+      <ul class="sess-list" id="sessList">
+        <li class="on"><button type="button"><span class="sess-title">축복식 준비 절차</span><span class="sess-time">오늘</span></button></li>
+        <li><button type="button"><span class="sess-title">후보자 등록 서류</span><span class="sess-time">어제</span></button></li>
+        <li><button type="button"><span class="sess-title">준비 교육 일정</span><span class="sess-time">8월 3일</span></button></li>
+        <li><button type="button"><span class="sess-title">정성 기간 문의</span><span class="sess-time">7월 29일</span></button></li>
+      </ul>
+    </aside>
+    <div class="chat-main">
+      <div class="chat-head" id="chatHead"></div>
+      <div class="chat-scroll">
+        <div class="chat-col">
+
+          <div class="msg-u"><p class="bubble">축복식 준비 절차가 궁금해요. 어디서부터 시작해야 하나요?</p></div>
+
+          <div class="msg-b" id="answer1">
+            <p class="ans-p">축복식 준비는 소속 가정 교회를 통한 후보자 등록에서 시작합니다.<sup class="fn"><button type="button" data-cite="1" aria-label="각주 1, 축복 안내서 41쪽">1</button></sup></p>
+            <ol>
+              <li><strong>소속 교회와 상의</strong> — 축복을 희망하는 가정은 먼저 소속 교회와 상의합니다.<sup class="fn"><button type="button" data-cite="1" aria-label="각주 1, 축복 안내서 41쪽">1</button></sup></li>
+              <li><strong>후보자 등록</strong> — 축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록합니다.<sup class="fn"><button type="button" data-cite="1" aria-label="각주 1, 축복 안내서 41쪽">1</button></sup></li>
+              <li><strong>준비 교육 이수</strong> — 축복식에 앞서 소정의 준비 교육을 이수합니다.<sup class="fn"><button type="button" data-cite="2" aria-label="각주 2, 축복식 준비 지침 12쪽">2</button></sup></li>
+              <li><strong>정성 기간</strong> — 축복식에 앞서 각 가정은 정해진 기간의 정성을 준비합니다.<sup class="fn"><button type="button" data-cite="3" aria-label="각주 3, 축복식 준비 지침 18쪽">3</button></sup></li>
+            </ol>
+            <p class="ans-p tail">서류 목록은 교구마다 안내 시기가 달라, 소속 교회 담당자에게 확인하시는 것이 가장 정확합니다.</p>
+
+            <section class="cites" aria-label="참고한 자료">
+              <div class="cites-head">
+                <strong>참고한 자료 2건</strong>
+                <span class="cites-note"><span class="hl-key">형광펜 부분</span>이 이 답변에 실제로 참고된 대목입니다</span>
+              </div>
+              <article class="cite-doc">
+                <div class="cd-head">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14.5 3v4.5H19"/></svg>
+                  <strong>축복 안내서(2026 정본)</strong>
+                  <span class="doc-type">안내</span>
+                  <span class="key-badge">주요 근거</span>
+                </div>
+                <p class="cd-sum">축복의 전 과정을 담은 공식 안내 문서예요.</p>
+                <div class="cite-item" id="cite-1" tabindex="-1">
+                  <span class="cno" aria-hidden="true">1</span>
+                  <div class="ci-body">
+                    <p class="ci-loc">p.41 · 4장 2절</p>
+                    <p class="ci-snip">…축복을 희망하는 가정은 먼저 <mark>소속 교회와 상의한다. 축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록한다</mark>. 등록 이후의 절차는…</p>
+                  </div>
+                </div>
+              </article>
+              <article class="cite-doc">
+                <div class="cd-head">
+                  <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14.5 3v4.5H19"/></svg>
+                  <strong>축복식 준비 지침</strong>
+                  <span class="doc-type">지침</span>
+                </div>
+                <p class="cd-sum">축복식 준비 단계별 실무 내용을 담은 지침이에요.</p>
+                <div class="cite-item" id="cite-2" tabindex="-1">
+                  <span class="cno" aria-hidden="true">2</span>
+                  <div class="ci-body">
+                    <p class="ci-loc">p.12 · 2장</p>
+                    <p class="ci-snip">…축복식에 앞서 <mark>소정의 준비 교육을 이수한다</mark>…</p>
+                  </div>
+                </div>
+                <div class="cite-item" id="cite-3" tabindex="-1">
+                  <span class="cno" aria-hidden="true">3</span>
+                  <div class="ci-body">
+                    <p class="ci-loc">p.18 · 3장</p>
+                    <p class="ci-snip">…각 가정은 <mark>정해진 기간의 정성을 준비한다</mark>…</p>
+                  </div>
+                </div>
+              </article>
+            </section>
+
+            <div class="ans-actions">
+              <button type="button" id="thumbUp" aria-pressed="false" aria-label="도움이 됐어요">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11v9H4a1 1 0 0 1-1-1v-7a1 1 0 0 1 1-1h3z"/><path d="M7 11l4-7a2 2 0 0 1 2 2v4h5.2a1.8 1.8 0 0 1 1.8 2.1l-1 6.2a2 2 0 0 1-2 1.7H7"/></svg>
+              </button>
+              <button type="button" id="thumbDown" aria-pressed="false" aria-label="아쉬워요">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 13V4h3a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-3z"/><path d="M17 13l-4 7a2 2 0 0 1-2-2v-4H5.8A1.8 1.8 0 0 1 4 11.9l1-6.2A2 2 0 0 1 7 4h10"/></svg>
+              </button>
+              <button type="button" id="copyBtn">
+                <svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>
+                <span id="copyLabel">답변 복사</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="msg-u"><p class="bubble">제 경우엔 언제 등록하는 게 좋을까요?</p></div>
+
+          <div class="msg-b">
+            <p class="ans-p tail">등록 시기의 개인별 판단은 제가 가진 문서에 나와 있지 않습니다. 소속 교회 담당자와 상의하시길 권합니다. 일반 절차는 위 안내와 같습니다.</p>
+            <p class="no-cite">
+              <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:13px;height:13px"><circle cx="12" cy="12" r="9"/><path d="M12 8v4.5"/><path d="M12 16h.01"/></svg>
+              이 답변에는 인용된 문서가 없어요
+            </p>
+          </div>
+
+          <div class="follow" aria-label="이어서 물어보기">
+            <button type="button">후보자 등록 서류가 궁금해요</button>
+            <button type="button">준비 교육 일정은 어디서 보나요</button>
+            <button type="button">정성 기간은 얼마나 되나요</button>
+          </div>
+
+        </div>
+      </div>
+      <div class="composer">
+        <form id="composerForm">
+          <input id="composerInput" type="text" placeholder="궁금한 것을 물어보세요" aria-label="메시지 입력">
+          <button type="submit" class="send" aria-label="보내기">
+            <svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:18px;height:18px"><path d="M4 12h13"/><path d="m12 5 7 7-7 7"/></svg>
+          </button>
+        </form>
+        <p class="notice">블레싱은 승인 문서를 근거로 안내해요. 최종 확인은 소속 교회를 통해 해 주세요.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site">
+  <div class="container">
+    <div class="frow">
+      <p><strong style="color:var(--ink)">블레싱</strong> · 이 서비스는 승인 문서를 근거로 안내합니다. 최종 확인은 소속 교회를 통해 해 주세요.</p>
+      <p>하나로 SSO 전용 · UI 검토용 시안</p>
+    </div>
+  </div>
+</footer>
+
+<div id="fnpop" role="tooltip" aria-hidden="true"></div>
+<script>
+(function(){
+"use strict";
+
+/* ===== 데이터 ===== */
+var BASE8=[
+  {name:"블레싱 네비게이션",desc:"축복 전 과정을 처음부터 차근차근 안내해요. 어디서 시작할지 막막할 때 먼저 찾는 창구예요.",docs:7,tags:["축복","종합"],verified:true,attrs:["근거 못 찾으면 답하지 않음"]},
+  {name:"가정 행정 안내",desc:"가정 관련 행정 절차와 서류 준비를 안내해요.",docs:5,tags:["행정","서류"],verified:true,attrs:[]},
+  {name:"가정 정책 길잡이",desc:"가정 정책의 기준과 적용 범위를 문서 근거로 짚어 드려요.",docs:4,tags:["행정","정책"],verified:true,attrs:["근거 못 찾으면 답하지 않음"]},
+  {name:"청년 안내",desc:"청년과 2세를 위한 교육·준비 과정을 안내해요.",docs:4,tags:["청년","교육"],verified:false,attrs:[]},
+  {name:"日本語 안내",desc:"日本語で祝福の手続きをご案内します。",docs:2,tags:["언어","일본어"],verified:false,attrs:["앞 대화를 기억하지 않음"]},
+  {name:"축복 용어 사전",desc:"축복 관련 용어의 뜻을 문서 기준으로 알려 드려요.",docs:1,tags:["용어","종합"],verified:true,attrs:["기억 안 함","근거 못 찾으면 답 안 함"]},
+  {name:"마음 나누기",desc:"정해진 절차보다, 지금의 마음을 먼저 들어요.",docs:0,tags:["상담"],verified:false,attrs:["문서를 근거로 답하지 않음(인용 없음)"]},
+  {name:"봉헌식·의례 안내",desc:"봉헌식과 의례 준비의 순서·예법을 안내해요.",docs:3,tags:["의례","생활"],verified:false,attrs:["근거 못 찾으면 답하지 않음"]}
+];
+var EXT16=[
+  {name:"축복 준비 교육 안내",desc:"준비 교육의 과정과 신청 방법을 안내해요.",docs:3,tags:["축복","교육"],verified:true,attrs:[]},
+  {name:"국제 가정 안내",desc:"국제 가정의 행정 절차를 안내해요.",docs:4,tags:["국제","행정"],verified:true,attrs:[]},
+  {name:"수련회·행사 안내",desc:"수련회와 행사 일정·참가 안내를 도와요.",docs:2,tags:["행사","생활"],verified:false,attrs:[]},
+  {name:"장학·지원 제도",desc:"장학금과 지원 제도의 대상·신청을 안내해요.",docs:3,tags:["지원","청년"],verified:true,attrs:[]},
+  {name:"2세 교육 길잡이",desc:"2세 교육 과정과 가정 지도 자료를 안내해요.",docs:5,tags:["교육","가정"],verified:true,attrs:[]},
+  {name:"English Guide",desc:"Guidance on Blessing procedures in English.",docs:2,tags:["언어","English"],verified:false,attrs:[]},
+  {name:"헌금·봉헌 안내",desc:"헌금과 봉헌의 절차, 생활 실무를 안내해요.",docs:2,tags:["행정","생활"],verified:false,attrs:[]},
+  {name:"예식 음악 도우미",desc:"예식에 쓰이는 음악 자료를 찾아 드려요.",docs:1,tags:["의례","자료"],verified:false,attrs:[]},
+  {name:"가정관리 절차 안내",desc:"가정관리 절차의 단계별 진행을 안내해요.",docs:4,tags:["행정","가정"],verified:true,attrs:[]},
+  {name:"신혼 가정 첫걸음",desc:"새로 출발하는 가정의 첫 준비를 도와요.",docs:3,tags:["가정","생활"],verified:false,attrs:[]},
+  {name:"해외 이주 행정",desc:"해외 이주에 필요한 서류와 절차를 안내해요.",docs:3,tags:["국제","서류"],verified:false,attrs:[]},
+  {name:"부모 상담 창구",desc:"부모님의 고민을 편하게 나누는 창구예요.",docs:0,tags:["상담","가정"],verified:false,attrs:[]},
+  {name:"절기·기념일 안내",desc:"절기와 기념일의 의미·준비를 안내해요.",docs:2,tags:["생활","의례"],verified:false,attrs:[]},
+  {name:"중국어 안내(中文)",desc:"以中文介绍祝福相关流程。",docs:2,tags:["언어","중국어"],verified:false,attrs:[]},
+  {name:"서류 양식 찾기",desc:"필요한 서류 양식을 이름과 용도로 찾아 드려요.",docs:6,tags:["서류","행정"],verified:true,attrs:[]},
+  {name:"새 식구 오리엔테이션",desc:"처음 오신 식구님을 위한 안내를 모았어요.",docs:3,tags:["종합","생활"],verified:true,attrs:[]}
+];
+var REGIONS=["서울","부산","대구","인천","광주","대전","울산","경기","강원","전주","제주","창원"];
+var ARCH=[
+  ["행정 안내","행정","지역의 행정 절차를 안내해요."],
+  ["청년 안내","청년","지역 청년 모임과 교육을 안내해요."],
+  ["행사 안내","행사","지역 행사 일정과 참가를 안내해요."]
+];
+function synthRegional(){
+  var out=[];
+  for(var i=0;i<REGIONS.length;i++){
+    for(var j=0;j<ARCH.length;j++){
+      var r=REGIONS[i], a=ARCH[j];
+      out.push({name:r+" "+a[0],desc:r+" "+a[2],docs:2,tags:[r,a[1]],verified:false,attrs:[]});
+    }
+  }
+  return out;
+}
+function botsFor(n){
+  if(n===8) return BASE8;
+  if(n===24) return BASE8.concat(EXT16);
+  return BASE8.concat(EXT16, synthRegional());
+}
+
+/* ===== 아바타 (시드 규칙 — _content.md) ===== */
+function avatarSeed(name){
+  var h=0;
+  for(var ch of name) h=(h*31 + ch.codePointAt(0)) % 360;
+  return h;
+}
+function initialOf(name){
+  var ch=Array.from(name)[0];
+  return /^[a-z]$/.test(ch) ? ch.toUpperCase() : ch;
+}
+function avatarHTML(bot, extraStyle){
+  var h=avatarSeed(bot.name);
+  return '<span class="avatar" aria-hidden="true" style="background:hsl('+h+',34%,90%);color:hsl('+h+',40%,32%);'+(extraStyle||'')+'">'+initialOf(bot.name)+'</span>';
+}
+
+/* ===== 아이콘 조각 ===== */
+var IC_DOC='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14.5 3v4.5H19"/></svg>';
+var IC_CHECK='<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+
+/* ===== 카드 렌더 ===== */
+function cardHTML(bot, i){
+  var html='<a class="bot-card card-in" href="#chat" data-bot="'+bot.name+'" style="--i:'+Math.min(i,11)+'" aria-label="대화 시작: '+bot.name+'">';
+  html+=avatarHTML(bot);
+  html+='<div class="bc-name"><h3>'+bot.name+'</h3>';
+  if(bot.verified) html+='<span class="vbadge">'+IC_CHECK+'공식</span>';
+  html+='</div>';
+  html+='<p class="bc-desc">'+bot.desc+'</p>';
+  html+='<div class="bc-meta">';
+  for(var t=0;t<bot.tags.length;t++) html+='<span class="tag">'+bot.tags[t]+'</span>';
+  if(bot.docs>0) html+='<span class="doc-badge">'+IC_DOC+'문서 '+bot.docs+'종</span>';
+  html+='</div>';
+  if(bot.attrs.length){
+    html+='<div class="attr-row">';
+    for(var a=0;a<bot.attrs.length;a++) html+='<span class="attr">'+bot.attrs[a]+'</span>';
+    html+='</div>';
+  }
+  html+='</a>';
+  return html;
+}
+function skeletonHTML(){
+  var one='<div class="bot-card sk" aria-hidden="true"><div class="sk-b sk-av"></div>'+
+    '<div class="sk-b" style="height:16px;width:62%;margin-top:16px"></div>'+
+    '<div class="sk-b" style="height:12px;width:92%;margin-top:12px"></div>'+
+    '<div class="sk-b" style="height:12px;width:44%;margin-top:8px"></div></div>';
+  var s='';
+  for(var i=0;i<8;i++) s+=one;
+  return s;
+}
+
+/* ===== 로스터 상태 ===== */
+var state={n:8, q:"", chip:"전체"};
+var grid=document.getElementById("grid");
+var chipRow=document.getElementById("chipRow");
+var rosterSearch=document.getElementById("rosterSearch");
+var renderToken=0;
+var rosterInit=false;
+
+function buildChips(){
+  var bots=botsFor(state.n), seen={}, order=["전체"];
+  bots.forEach(function(b){
+    b.tags.forEach(function(t){ if(!seen[t]){seen[t]=true; order.push(t);} });
+  });
+  if(order.indexOf(state.chip)<0) state.chip="전체";
+  chipRow.innerHTML=order.map(function(t){
+    return '<button type="button" class="chip" aria-pressed="'+(t===state.chip)+'" data-chip="'+t+'">'+t+'</button>';
+  }).join("");
+}
+function filteredBots(){
+  var q=state.q.trim().toLowerCase();
+  return botsFor(state.n).filter(function(b){
+    if(state.chip!=="전체" && b.tags.indexOf(state.chip)<0) return false;
+    if(!q) return true;
+    var hay=(b.name+" "+b.desc+" "+b.tags.join(" ")).toLowerCase();
+    return hay.indexOf(q)>=0;
+  });
+}
+function paintGrid(){
+  var bots=filteredBots();
+  if(!bots.length){
+    grid.innerHTML='<div class="empty"><h3>찾는 창구가 없어요</h3>'+
+      '<p>다른 이름이나 태그로 다시 찾아볼까요?</p>'+
+      '<button type="button" id="emptyReset">검색 지우기</button></div>';
+    var er=document.getElementById("emptyReset");
+    if(er) er.addEventListener("click",function(){
+      state.q=""; state.chip="전체"; rosterSearch.value="";
+      buildChips(); paintGrid();
+    });
+    return;
+  }
+  grid.innerHTML=bots.map(cardHTML).join("");
+}
+function renderRoster(withSkeleton){
+  buildChips();
+  if(withSkeleton){
+    var token=++renderToken;
+    grid.innerHTML=skeletonHTML();
+    setTimeout(function(){ if(token===renderToken) paintGrid(); }, 420);
+  }else{
+    paintGrid();
+  }
+}
+function initRoster(){
+  if(rosterInit) return;
+  rosterInit=true;
+  renderRoster(true);
+}
+
+/* N 스위치 */
+document.querySelectorAll(".seg button").forEach(function(btn){
+  btn.addEventListener("click",function(){
+    var n=parseInt(btn.dataset.n,10);
+    if(n===state.n) return;
+    state.n=n;
+    document.querySelectorAll(".seg button").forEach(function(b){
+      b.setAttribute("aria-pressed", String(b===btn));
+    });
+    renderRoster(true);
+  });
+});
+/* 검색·칩 */
+rosterSearch.addEventListener("input",function(){ state.q=rosterSearch.value; paintGrid(); });
+chipRow.addEventListener("click",function(e){
+  var c=e.target.closest(".chip");
+  if(!c) return;
+  state.chip=c.dataset.chip;
+  chipRow.querySelectorAll(".chip").forEach(function(b){
+    b.setAttribute("aria-pressed", String(b===c));
+  });
+  paintGrid();
+});
+
+/* ===== 랜딩 봇 티저 ===== */
+document.getElementById("teaserRow").innerHTML=BASE8.slice(0,4).map(cardHTML).join("");
+
+/* ===== 봇 선택 → 채팅 헤더 ===== */
+var selectedBot=BASE8[0];
+document.addEventListener("click",function(e){
+  var card=e.target.closest(".bot-card[data-bot]");
+  if(!card) return;
+  var found=botsFor(60).filter(function(b){ return b.name===card.dataset.bot; })[0];
+  if(found) selectedBot=found;
+});
+function renderChatHead(){
+  var b=selectedBot;
+  var html=avatarHTML(b);
+  html+='<div class="ch-info"><div class="ch-name"><strong>'+b.name+'</strong>';
+  if(b.verified) html+='<span class="vbadge">'+IC_CHECK+'공식</span>';
+  html+='</div><div class="ch-sub">';
+  html+='<span class="ch-desc">'+b.desc+'</span>';
+  if(b.docs>0) html+='<span class="doc-badge">'+IC_DOC+'문서 '+b.docs+'종</span>';
+  for(var i=0;i<b.attrs.length;i++) html+='<span class="attr">'+b.attrs[i]+'</span>';
+  html+='</div></div>';
+  document.getElementById("chatHead").innerHTML=html;
+}
+
+/* ===== 라우팅 ===== */
+var views={landing:document.getElementById("view-landing"),home:document.getElementById("view-home"),chat:document.getElementById("view-chat")};
+var navLinks=document.querySelectorAll("nav.gnb a[data-nav]");
+var topCta=document.getElementById("topCta");
+var profileChip=document.getElementById("profileChip");
+function route(){
+  var h=location.hash, v="landing";
+  if(h.indexOf("#home")===0) v="home";
+  else if(h.indexOf("#chat")===0) v="chat";
+  Object.keys(views).forEach(function(k){ views[k].hidden=(k!==v); });
+  document.body.dataset.view=v;
+  navLinks.forEach(function(a){ a.setAttribute("aria-current", String(a.dataset.nav===v)); });
+  topCta.hidden=(v!=="landing");
+  profileChip.hidden=(v==="landing");
+  if(v==="home") initRoster();
+  if(v==="chat") renderChatHead();
+  window.scrollTo({top:0,left:0,behavior:"auto"});
+}
+window.addEventListener("hashchange",route);
+route();
+
+/* ===== SSO 폼 (데모) ===== */
+document.getElementById("ssoForm").addEventListener("submit",function(e){
+  e.preventDefault();
+  location.hash="#home";
+});
+
+/* ===== 각주: 클릭 포커스 + 호버 팝오버 ===== */
+var FN={
+  "1":{doc:"축복 안내서(2026 정본) · p.41",ex:"축복을 희망하는 가정은 먼저 소속 교회와 상의한다. 축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록한다."},
+  "2":{doc:"축복식 준비 지침 · p.12",ex:"축복식에 앞서 소정의 준비 교육을 이수한다."},
+  "3":{doc:"축복식 준비 지침 · p.18",ex:"각 가정은 정해진 기간의 정성을 준비한다."}
+};
+FN.d1=FN["1"];
+var pop=document.getElementById("fnpop");
+var reduceMotion=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function showPop(btn){
+  var d=FN[btn.dataset.cite];
+  if(!d) return;
+  pop.innerHTML='<span class="fp-doc">'+d.doc+'</span>'+d.ex;
+  pop.style.display="block";
+  pop.setAttribute("aria-hidden","false");
+  var r=btn.getBoundingClientRect(), pw=pop.offsetWidth, ph=pop.offsetHeight;
+  var left=Math.min(Math.max(12, r.left+r.width/2-pw/2), window.innerWidth-pw-12);
+  var top=r.top-ph-10;
+  if(top<12) top=r.bottom+10;
+  pop.style.left=left+"px";
+  pop.style.top=top+"px";
+}
+function hidePop(){
+  pop.style.display="none";
+  pop.setAttribute("aria-hidden","true");
+}
+document.addEventListener("mouseover",function(e){
+  var btn=e.target.closest("sup.fn button");
+  if(btn) showPop(btn);
+});
+document.addEventListener("mouseout",function(e){
+  if(e.target.closest("sup.fn button")) hidePop();
+});
+document.addEventListener("focusin",function(e){
+  var btn=e.target.closest("sup.fn button");
+  if(btn) showPop(btn); else hidePop();
+});
+document.addEventListener("click",function(e){
+  var btn=e.target.closest("sup.fn button");
+  if(!btn) return;
+  hidePop();
+  var el=document.getElementById("cite-"+btn.dataset.cite);
+  if(!el) return;
+  el.scrollIntoView({behavior:reduceMotion?"auto":"smooth",block:"center"});
+  el.classList.remove("flash");
+  void el.offsetWidth;
+  el.classList.add("flash");
+  setTimeout(function(){ el.classList.remove("flash"); },1600);
+});
+window.addEventListener("scroll",hidePop,true);
+
+/* ===== 답변 액션 ===== */
+var up=document.getElementById("thumbUp"), down=document.getElementById("thumbDown");
+up.addEventListener("click",function(){
+  var on=up.getAttribute("aria-pressed")==="true";
+  up.setAttribute("aria-pressed",String(!on));
+  down.setAttribute("aria-pressed","false");
+});
+down.addEventListener("click",function(){
+  var on=down.getAttribute("aria-pressed")==="true";
+  down.setAttribute("aria-pressed",String(!on));
+  up.setAttribute("aria-pressed","false");
+});
+var copyBtn=document.getElementById("copyBtn"), copyLabel=document.getElementById("copyLabel");
+copyBtn.addEventListener("click",function(){
+  var text="축복식 준비는 소속 가정 교회를 통한 후보자 등록에서 시작합니다.\n"+
+    "1. 소속 교회와 상의 — 축복을 희망하는 가정은 먼저 소속 교회와 상의합니다.\n"+
+    "2. 후보자 등록 — 축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록합니다.\n"+
+    "3. 준비 교육 이수 — 축복식에 앞서 소정의 준비 교육을 이수합니다.\n"+
+    "4. 정성 기간 — 축복식에 앞서 각 가정은 정해진 기간의 정성을 준비합니다.\n"+
+    "서류 목록은 교구마다 안내 시기가 달라, 소속 교회 담당자에게 확인하시는 것이 가장 정확합니다.";
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
+  }catch(err){}
+  copyLabel.textContent="복사했어요";
+  setTimeout(function(){ copyLabel.textContent="답변 복사"; },1500);
+});
+
+/* ===== 이어질문 칩 → 입력창 프리필 ===== */
+var composerInput=document.getElementById("composerInput");
+document.querySelectorAll(".follow button").forEach(function(btn){
+  btn.addEventListener("click",function(){
+    composerInput.value=btn.textContent.trim();
+    composerInput.focus();
+  });
+});
+document.getElementById("composerForm").addEventListener("submit",function(e){ e.preventDefault(); });
+
+/* ===== 세션 검색 ===== */
+var sessSearch=document.getElementById("sessSearch");
+sessSearch.addEventListener("input",function(){
+  var q=sessSearch.value.trim().toLowerCase();
+  document.querySelectorAll("#sessList li").forEach(function(li){
+    var t=li.querySelector(".sess-title").textContent.toLowerCase();
+    li.style.display=(!q || t.indexOf(q)>=0)?"":"none";
+  });
+});
+
+})();
+</script>
+</body>
+</html>

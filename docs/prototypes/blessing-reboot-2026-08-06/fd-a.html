@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>블레싱 네비게이션 — fd-a · 정갈한 창구 (frontend-design)</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ================================================================
+   fd-a · 방향 B 「정갈한 창구」 — frontend-design 해석
+   명제: 신뢰는 장식이 아니라 정확한 정렬에서 나온다.
+   재질: 밝은 행정지(紙) 모노크롬. 보라는 인터랙션에만.
+   시그니처: 답변이 '회신 공문' 양식으로 조판된다 — 문서번호,
+   제목, 본문, 붙임(근거 1부), 그리고 근거 확인 관인(스탬프).
+   ================================================================ */
+:root{
+  --paper:#F4F5F7;
+  --sheet:#FFFFFF;
+  --ink:#1C1B22;
+  --body:#43414D;
+  --muted:#71707C;
+  --faint:#A3A2AD;
+  --hair:#E2E2E8;
+  --hair-dark:#C9C8D2;
+  --act:#5A3FA0;            /* 인터랙션 전용 보라 */
+  --act-deep:#472F86;
+  --act-wash:#EFEBF8;
+  --mark:#EFEBF8;
+  --seal:#6A4BB8;           /* 관인 잉크 */
+  --focus:#8A6CC4;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Segoe UI",sans-serif;
+  background:var(--paper);color:var(--body);
+  font-size:15.5px;line-height:1.72;
+  word-break:keep-all;overflow-wrap:break-word;
+  min-height:100dvh;
+  font-feature-settings:"tnum";
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+input{font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.mono{font-family:var(--mono)}
+mark{background:var(--mark);color:inherit;padding:0 .12em}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.001s!important;transition-duration:.001s!important}
+}
+.view{display:none}
+.view.on{display:block}
+.scrim{display:none} /* 데스크톱에서 그리드 아이템으로 잡히지 않도록 */
+
+/* ================= 랜딩 ================= */
+.wrap{max-width:1120px;margin:0 auto;padding:0 36px}
+.top{display:flex;align-items:center;gap:12px;padding:20px 0}
+.brand{display:flex;align-items:center;gap:10px;color:var(--ink)}
+.brand img{width:27px;height:27px}
+.brand b{font-weight:700;font-size:15.5px;letter-spacing:-.3px}
+.top .no{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:4px}
+.top .sp{flex:1}
+.top nav{display:flex;gap:20px;align-items:center}
+.top nav a{font-size:14px;color:var(--muted)}
+.top nav a:hover{color:var(--ink)}
+.btn-login{
+  border:1px solid var(--hair-dark);border-radius:6px;padding:7px 16px;
+  font-size:13.5px;font-weight:600;color:var(--ink);
+  transition:border-color .18s,color .18s;
+}
+.btn-login:hover{border-color:var(--act);color:var(--act)}
+
+.hero{padding:88px 0 0;max-width:820px}
+.eyebrow{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:12.5px;color:var(--muted);letter-spacing:.02em;
+}
+.eyebrow::before{content:"";width:20px;height:1px;background:var(--ink)}
+.hero h1{
+  margin-top:20px;font-size:clamp(32px,4.6vw,54px);
+  line-height:1.28;font-weight:800;color:var(--ink);letter-spacing:-.035em;
+}
+.hero .sub{margin-top:22px;font-size:16.5px;color:var(--muted);line-height:1.85;max-width:540px}
+
+.intake{margin-top:44px;max-width:720px}
+.intake-label{
+  display:flex;align-items:baseline;gap:10px;margin-bottom:8px;
+  font-size:12.5px;color:var(--muted);
+}
+.intake-label .k{font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.12em}
+.intake-bar{
+  display:flex;align-items:center;background:var(--sheet);
+  border:1px solid var(--hair-dark);border-radius:8px;
+  padding:5px 5px 5px 18px;gap:12px;
+  transition:border-color .18s,box-shadow .18s;
+}
+.intake-bar:focus-within{border-color:var(--act);box-shadow:0 0 0 3px var(--act-wash)}
+.intake-bar input{flex:1;border:0;background:none;outline:none;font-size:16px;min-height:50px}
+.intake-bar input::placeholder{color:var(--faint)}
+.btn-intake{
+  background:var(--ink);color:#fff;font-weight:700;font-size:14.5px;
+  border-radius:5px;height:48px;padding:0 24px;flex:none;
+  transition:background .18s;
+}
+.btn-intake:hover{background:var(--act-deep)}
+.intake-hint{margin-top:12px;display:flex;flex-wrap:wrap;gap:6px 8px}
+.hint{
+  font-size:13px;color:var(--body);border:1px solid var(--hair);
+  background:var(--sheet);border-radius:6px;padding:7px 13px;
+  transition:border-color .15s,color .15s;min-height:36px;
+}
+.hint:hover{border-color:var(--act);color:var(--act)}
+
+/* 안내판: 답하는 것 / 답하지 않는 것 */
+.board{margin-top:110px}
+.board-head{border-bottom:2px solid var(--ink);padding-bottom:14px;display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+.board-head h2{font-size:24px;font-weight:800;color:var(--ink);letter-spacing:-.03em}
+.board-head p{font-size:13.5px;color:var(--muted)}
+.board-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 64px}
+.board-col{padding-top:6px}
+.board-col h3{
+  font-size:13px;font-weight:700;color:var(--ink);
+  padding:16px 0 4px;letter-spacing:.01em;
+  display:flex;align-items:center;gap:8px;
+}
+.board-col h3 svg{width:15px;height:15px;stroke:var(--act)}
+.board-col.na h3 svg{stroke:var(--muted)}
+.board-row{
+  display:flex;gap:12px;align-items:baseline;
+  padding:13px 2px;border-bottom:1px solid var(--hair);
+  font-size:14.5px;color:var(--body);
+}
+.board-row .via{font-size:12.5px;color:var(--muted);margin-left:auto;text-align:right;flex:none}
+.board-note{margin-top:18px;font-size:13.5px;color:var(--muted);max-width:620px;line-height:1.8}
+
+/* 근거 문서 서식 테이블 */
+.docs{margin-top:110px}
+.doc-table{width:100%;border-collapse:collapse;margin-top:4px}
+.doc-table th{
+  font-family:var(--mono);font-size:10.5px;font-weight:500;color:var(--faint);
+  letter-spacing:.12em;text-align:left;padding:14px 6px;border-bottom:1px solid var(--ink);
+}
+.doc-table td{padding:15px 6px;border-bottom:1px solid var(--hair);font-size:14.5px}
+.doc-table .n{font-family:var(--mono);font-size:12px;color:var(--faint);width:44px}
+.doc-table .t{font-weight:600;color:var(--ink)}
+.doc-table .e{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.doc-table tr:hover td{background:var(--sheet)}
+
+.foot{
+  margin-top:120px;border-top:1px solid var(--hair-dark);
+  padding:24px 0 44px;display:flex;flex-wrap:wrap;gap:8px 24px;
+  font-size:12.5px;color:var(--faint);
+}
+.foot .sp{flex:1}
+
+/* ================= 채팅 ================= */
+.chat{display:grid;grid-template-columns:250px minmax(0,1fr);height:100dvh}
+.side{
+  border-right:1px solid var(--hair);background:var(--paper);
+  padding:18px 14px;display:flex;flex-direction:column;gap:5px;min-height:0;
+}
+.side .brand{padding:2px 6px 14px}
+.btn-new{
+  display:flex;align-items:center;gap:9px;
+  background:var(--sheet);border:1px solid var(--hair-dark);border-radius:7px;
+  padding:10px 13px;font-size:14px;font-weight:600;color:var(--ink);
+  transition:border-color .18s;min-height:42px;
+}
+.btn-new:hover{border-color:var(--act)}
+.btn-new svg{width:15px;height:15px;stroke:var(--act)}
+.side-label{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.14em;padding:16px 8px 6px}
+.sess{
+  text-align:left;padding:9px 11px;border-radius:6px;font-size:13.5px;color:var(--body);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  transition:background .15s;min-height:38px;
+}
+.sess:hover{background:var(--sheet)}
+.sess[aria-current="true"]{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:inset 2px 0 0 var(--act)}
+.side .sp{flex:1}
+.side-foot{border-top:1px solid var(--hair);padding:12px 8px 2px;font-size:13px;color:var(--muted)}
+
+.main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.chat-head{
+  display:flex;align-items:center;gap:12px;height:56px;
+  padding:0 26px;border-bottom:1px solid var(--hair);flex:none;background:var(--paper);
+}
+.chat-head .menu{display:none}
+.chat-head h1{font-size:14.5px;font-weight:700;color:var(--ink)}
+.chat-head .ref{font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.05em}
+.chat-head .sp{flex:1}
+.ghost{font-size:13px;color:var(--muted);padding:8px 10px;border-radius:6px;min-height:36px}
+.ghost:hover{color:var(--act);background:var(--act-wash)}
+
+.thread{flex:1;overflow-y:auto;min-height:0}
+.thread-inner{max-width:740px;margin:0 auto;padding:36px 28px 20px}
+
+.u-msg{display:flex;justify-content:flex-end;margin:20px 0 26px}
+.u-msg .b{
+  background:var(--ink);color:#F4F5F7;
+  border-radius:10px 10px 3px 10px;padding:11px 17px;
+  max-width:76%;font-size:15px;line-height:1.7;
+}
+
+/* ===== 회신 문서 (시그니처) ===== */
+.reply{
+  background:var(--sheet);border:1px solid var(--hair-dark);border-radius:3px;
+  box-shadow:0 1px 0 var(--hair-dark), 0 14px 34px -24px rgba(28,27,34,.35);
+  position:relative;
+}
+.reply-head{
+  display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  padding:18px 30px 0;
+}
+.reply-head .docno{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.04em}
+.reply-head .sp{flex:1}
+.reply-head .scope{font-family:var(--mono);font-size:11px;color:var(--faint)}
+.reply-title{
+  margin:10px 30px 0;padding-bottom:16px;border-bottom:1px solid var(--ink);
+  font-size:19px;font-weight:800;color:var(--ink);letter-spacing:-.02em;
+}
+.reply-body{padding:22px 30px 8px}
+.reply-body .lead{font-size:16px;font-weight:600;color:var(--ink);line-height:1.8}
+.reply-body .para{margin-top:15px;font-size:15px;line-height:1.9}
+.reply-body ol{margin:16px 0 0;padding-left:20px}
+.reply-body ol li{margin:8px 0;font-size:15px;line-height:1.85}
+.reply-body ol li::marker{font-family:var(--mono);font-size:12px;color:var(--act);font-weight:500}
+.reply-body ol li b{color:var(--ink)}
+
+/* 각주 + 팝업 */
+.fn{position:relative;display:inline-block;vertical-align:super;line-height:1;margin-left:1px}
+.fn>button{
+  font-family:var(--mono);font-size:10px;font-weight:500;color:var(--act);
+  border:1px solid var(--act-wash);background:var(--act-wash);
+  border-radius:4px;min-width:17px;height:16px;padding:0 4px;
+  transition:background .15s,color .15s;
+}
+.fn>button:hover,.fn.open>button{background:var(--act);color:#fff}
+.fn .pop{
+  display:none;position:absolute;bottom:calc(100% + 9px);left:50%;transform:translateX(-50%);
+  width:290px;background:var(--sheet);border:1px solid var(--hair-dark);border-radius:6px;
+  box-shadow:0 16px 38px -14px rgba(28,27,34,.3);
+  padding:13px 15px;z-index:40;text-align:left;
+}
+.fn.open .pop{display:block}
+.fn .pop .src{font-family:var(--mono);font-size:10.5px;color:var(--act);letter-spacing:.03em}
+.fn .pop .quote{margin-top:7px;font-size:13px;line-height:1.85;color:var(--body)}
+
+/* 붙임: 근거 */
+.attach{margin:24px 30px 0;border-top:1px dashed var(--hair-dark);padding-top:16px}
+.attach>h3{
+  display:flex;align-items:baseline;gap:10px;
+  font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:10px;
+}
+.attach>h3 .k{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:.14em}
+.att-card{border:1px solid var(--hair);border-radius:6px;margin-bottom:8px;overflow:hidden}
+.att-card>button{
+  width:100%;display:flex;align-items:center;gap:11px;text-align:left;
+  padding:11px 14px;min-height:44px;transition:background .15s;
+}
+.att-card>button:hover{background:var(--paper)}
+.att-no{font-family:var(--mono);font-size:10px;color:var(--act);border:1px solid var(--act-wash);background:var(--act-wash);border-radius:4px;padding:1px 6px;flex:none}
+.att-t{font-size:13.5px;font-weight:600;color:var(--ink)}
+.att-loc{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.att-card .sp{flex:1}
+.att-card .caret{width:15px;height:15px;stroke:var(--faint);transition:transform .2s}
+.att-card.open .caret{transform:rotate(180deg)}
+.att-body{display:none;border-top:1px solid var(--hair);padding:14px 16px;background:var(--paper)}
+.att-card.open .att-body{display:block}
+.att-body p{font-size:13.5px;line-height:1.95;color:var(--body)}
+.att-body .ver{margin-top:10px;font-family:var(--mono);font-size:10.5px;color:var(--faint);letter-spacing:.04em}
+
+/* 관인 + 회신 꼬리 */
+.reply-tail{
+  display:flex;align-items:center;gap:18px;
+  padding:20px 30px 24px;margin-top:6px;
+}
+.reply-tail .note{font-size:12.5px;color:var(--muted);line-height:1.75;max-width:420px}
+.reply-tail .sp{flex:1}
+.seal{
+  flex:none;width:92px;height:92px;transform:rotate(-7deg);
+  animation:stamp .4s cubic-bezier(.2,1.4,.4,1) both;
+}
+@keyframes stamp{from{transform:rotate(-7deg) scale(1.5);opacity:0}to{transform:rotate(-7deg) scale(1);opacity:1}}
+.seal circle,.seal text{stroke:var(--seal);fill:none}
+.seal text{fill:var(--seal);stroke:none}
+
+.act-row{display:flex;gap:2px;margin-top:18px}
+.icon-btn{width:36px;height:36px;border-radius:6px;display:grid;place-items:center;color:var(--faint)}
+.icon-btn:hover{color:var(--act);background:var(--act-wash)}
+.icon-btn svg{width:16px;height:16px;stroke:currentColor}
+.follow{margin-top:18px;display:flex;flex-wrap:wrap;gap:7px}
+
+.composer{border-top:1px solid var(--hair);background:var(--paper);flex:none}
+.composer-inner{max-width:740px;margin:0 auto;padding:14px 28px 10px}
+.composer .intake-bar{border-radius:8px}
+.c-note{text-align:center;font-size:11.5px;color:var(--faint);padding:9px 0 5px}
+
+/* ================= 반응형 ================= */
+@media (max-width:920px){
+  .chat{grid-template-columns:1fr}
+  .side{
+    position:fixed;inset:0 90px 0 0;z-index:60;transform:translateX(-100%);
+    transition:transform .25s ease-out;box-shadow:24px 0 60px rgba(28,27,34,.2);
+    background:var(--paper);
+  }
+  .side.open{transform:none}
+  .scrim{position:fixed;inset:0;background:rgba(28,27,34,.4);z-index:50;display:none}
+  .scrim.on{display:block}
+  .chat-head .menu{display:grid}
+  .board-cols{grid-template-columns:1fr;gap:8px}
+}
+@media (max-width:640px){
+  .wrap{padding:0 20px}
+  .top nav a:not(.btn-login){display:none}
+  .hero{padding:56px 0 0}
+  .board,.docs{margin-top:76px}
+  .doc-table .up-col{display:none}
+  .thread-inner,.composer-inner{padding-left:16px;padding-right:16px}
+  .reply-head,.reply-title,.reply-body,.attach,.reply-tail{margin-left:0;margin-right:0;padding-left:18px;padding-right:18px}
+  .reply-title{margin:10px 18px 0;padding-left:0;padding-right:0}
+  .attach{margin:24px 18px 0;padding-left:0;padding-right:0}
+  .u-msg .b{max-width:88%}
+  .fn .pop{position:fixed;left:14px;right:14px;top:28%;bottom:auto;transform:none;width:auto}
+  .seal{width:76px;height:76px}
+  .foot{margin-top:80px}
+}
+</style>
+</head>
+<body>
+
+<!-- ================================================= 랜딩 -->
+<section class="view on" id="view-home">
+<div class="wrap">
+  <header class="top">
+    <a class="brand" href="#" onclick="return false">
+      <img src="assets/emblem.svg" alt="블레싱 네비게이션 엠블럼">
+      <b>블레싱 네비게이션</b>
+    </a>
+    <span class="no">counter 01</span>
+    <span class="sp"></span>
+    <nav>
+      <a href="#board">안내판</a>
+      <a href="#docs">근거 문서</a>
+      <a class="btn-login" href="#" onclick="return false">하나로 로그인</a>
+    </nav>
+  </header>
+
+  <div class="hero">
+    <p class="eyebrow">축복·가정 정책 안내 창구</p>
+    <h1>정확한 것만,<br>정확하게 답합니다.</h1>
+    <p class="sub">공식 문서에 근거가 있는 질문에는 출처와 함께 답하고,
+    근거가 없는 질문에는 여쭤볼 곳을 안내합니다. 그 구분을 지키는 것이 이 창구의 일입니다.</p>
+  </div>
+
+  <div class="intake">
+    <div class="intake-label"><span class="k">INTAKE</span><span>질문 접수</span></div>
+    <div class="intake-bar">
+      <input id="home-q" type="text" placeholder="문의하실 내용을 적어주세요" aria-label="질문 입력" enterkeyhint="send">
+      <button class="btn-intake" onclick="goChat()">접수</button>
+    </div>
+    <div class="intake-hint">
+      <button class="hint" onclick="goChat(this.textContent)">축복식 준비 절차가 궁금해요</button>
+      <button class="hint" onclick="goChat(this.textContent)">40일 정성은 무엇인가요?</button>
+      <button class="hint" onclick="goChat(this.textContent)">축복후보자 서류는 무엇이 필요한가요?</button>
+    </div>
+  </div>
+
+  <section class="board" id="board">
+    <div class="board-head">
+      <h2>창구 안내판</h2>
+      <p>답하는 것과 답하지 않는 것을 먼저 알려드립니다.</p>
+    </div>
+    <div class="board-cols">
+      <div class="board-col">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg>이 창구가 답합니다</h3>
+        <div class="board-row">축복식 준비 절차와 순서</div>
+        <div class="board-row">후보자 등록·서류 안내</div>
+        <div class="board-row">40일 정성, 봉헌식 등 용어와 절차</div>
+        <div class="board-row">규정·지침에 적힌 기준의 원문 확인</div>
+      </div>
+      <div class="board-col na">
+        <h3><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>답하지 않습니다</h3>
+        <div class="board-row">개인 상황에 대한 판단<span class="via">→ 부모님·가정부장님</span></div>
+        <div class="board-row">회차별 일정·마감일 확정<span class="via">→ 회차 공문</span></div>
+        <div class="board-row">문서에 근거가 없는 사안<span class="via">→ 담당자 연결</span></div>
+        <div class="board-row">마음이 많이 힘든 순간의 이야기<span class="via">→ 어른과 상담 연결</span></div>
+      </div>
+    </div>
+    <p class="board-note">답하지 않는 것을 먼저 적어두는 이유 — 챗봇이 모든 것에 답하려 들 때
+    가장 먼저 잃는 것이 신뢰이기 때문입니다.</p>
+  </section>
+
+  <section class="docs" id="docs">
+    <div class="board-head">
+      <h2>근거 문서 대장</h2>
+      <p>답변은 이 대장에 등재된 문서만을 근거로 합니다.</p>
+    </div>
+    <table class="doc-table">
+      <thead><tr><th>NO</th><th>TITLE</th><th>EDITION</th><th class="up-col">UPDATED</th></tr></thead>
+      <tbody>
+        <tr><td class="n">01</td><td class="t">축복 안내서</td><td class="e">2026 정본</td><td class="e up-col">2026-07</td></tr>
+        <tr><td class="n">02</td><td class="t">가정 생활 문답</td><td class="e">2026</td><td class="e up-col">2026-06</td></tr>
+        <tr><td class="n">03</td><td class="t">축복식 준비 지침</td><td class="e">2026</td><td class="e up-col">2026-05</td></tr>
+        <tr><td class="n">04</td><td class="t">후보자 등록 안내</td><td class="e">2026</td><td class="e up-col">2026-05</td></tr>
+        <tr><td class="n">05</td><td class="t">40일 정성 안내</td><td class="e">2025</td><td class="e up-col">2025-11</td></tr>
+        <tr><td class="n">06</td><td class="t">봉헌식 안내</td><td class="e">2025</td><td class="e up-col">2025-09</td></tr>
+        <tr><td class="n">07</td><td class="t">자주 묻는 질문</td><td class="e">수시</td><td class="e up-col">2026-08</td></tr>
+        <tr><td class="n">08</td><td class="t">용어 풀이집</td><td class="e">수시</td><td class="e up-col">2026-07</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer class="foot">
+    <span>블레싱 네비게이션 · 문서기반 안내 창구</span>
+    <span class="sp"></span>
+    <span>하나로 계정 문의: 소속 기관 담당자</span>
+  </footer>
+</div>
+</section>
+
+<!-- ================================================= 채팅 -->
+<section class="view" id="view-chat">
+<div class="chat">
+  <aside class="side" id="side">
+    <a class="brand" href="#home" onclick="goHome();return false">
+      <img src="assets/emblem.svg" alt="">
+      <b>블레싱 네비게이션</b>
+    </a>
+    <button class="btn-new">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      새 접수
+    </button>
+    <p class="side-label">RECENT</p>
+    <button class="sess" aria-current="true">축복식 준비 절차</button>
+    <button class="sess">40일 정성 기간</button>
+    <button class="sess">후보자 서류 목록</button>
+    <div class="sp"></div>
+    <div class="side-foot">마이페이지</div>
+  </aside>
+  <div class="scrim" id="scrim" onclick="toggleSide(false)"></div>
+
+  <div class="main">
+    <header class="chat-head">
+      <button class="icon-btn menu" aria-label="메뉴" onclick="toggleSide(true)">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <div>
+        <h1>축복식 준비 절차</h1>
+        <p class="ref">REF 2026-0806-001 · 대장 8권 기준</p>
+      </div>
+      <span class="sp"></span>
+      <button class="ghost" onclick="goHome()">처음으로</button>
+    </header>
+
+    <div class="thread">
+      <div class="thread-inner">
+        <div class="u-msg"><div class="b">축복식 준비 절차가 궁금해요. 어디서부터 시작해야 할까요?</div></div>
+
+        <article class="reply" aria-label="회신 문서">
+          <div class="reply-head">
+            <span class="docno">회신 2026-0806-001</span>
+            <span class="sp"></span>
+            <span class="scope">근거: 대장 01·03</span>
+          </div>
+          <h2 class="reply-title">축복식 준비 절차 안내</h2>
+          <div class="reply-body">
+            <p class="lead">축복식 준비는 소속 가정 교회를 통한 후보자 등록에서 시작합니다.<span class="fn"><button aria-label="근거 1">1</button><span class="pop"><span class="src">축복 안내서 §4·2 · 2026 정본</span><span class="quote">"축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록을 마쳐야 한다."</span></span></span></p>
+            <p class="para">등록 이후의 준비는 문서에 안내된 순서대로 다음 세 단계입니다.</p>
+            <ol>
+              <li><b>후보자 등록</b> — 소속 교회의 추천을 받아 등록 서류를 제출합니다.<span class="fn"><button aria-label="근거 1">1</button><span class="pop"><span class="src">축복 안내서 §4·2</span><span class="quote">"축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록을 마쳐야 한다."</span></span></span></li>
+              <li><b>준비 교육 이수</b> — 등록 후 안내되는 교육 과정을 이수합니다.<span class="fn"><button aria-label="근거 2">2</button><span class="pop"><span class="src">축복식 준비 지침 §2 · 2026</span><span class="quote">"후보자는 축복식에 앞서 소정의 준비 교육을 이수한다."</span></span></span></li>
+              <li><b>정성 기간</b> — 축복식 전 정해진 기간의 정성을 드립니다.<span class="fn"><button aria-label="근거 3">3</button><span class="pop"><span class="src">축복식 준비 지침 §3 · 2026</span><span class="quote">"축복식에 앞서 각 가정은 정해진 기간의 정성을 준비한다."</span></span></span></li>
+            </ol>
+            <p class="para">회차별 등록 기간과 서류 목록은 공문으로 달라질 수 있습니다.
+            이 부분은 대장 문서에 확정 값이 없으므로, 소속 가정부장님께 확인을 권합니다.</p>
+          </div>
+
+          <div class="attach">
+            <h3><span class="k">붙임</span>근거 원문 3건 · 표시는 실제 참고한 대목</h3>
+            <div class="att-card open">
+              <button onclick="this.parentElement.classList.toggle('open')" aria-expanded="true">
+                <span class="att-no">1</span>
+                <span><span class="att-t">축복 안내서</span> <span class="att-loc">§4·2 · 2026 정본</span></span>
+                <span class="sp"></span>
+                <svg class="caret" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="att-body">
+                <p>축복을 희망하는 가정은 먼저 소속 교회와 상의한다. <mark>축복 후보자는 소속 교회의 추천을 받아 정해진 기간 안에 등록을 마쳐야 한다.</mark> 등록에 필요한 서류와 기간은 회차별 공문으로 안내한다.</p>
+                <p class="ver">EDITION 2026 정본</p>
+              </div>
+            </div>
+            <div class="att-card">
+              <button onclick="this.parentElement.classList.toggle('open')" aria-expanded="false">
+                <span class="att-no">2</span>
+                <span><span class="att-t">축복식 준비 지침</span> <span class="att-loc">§2 · 2026</span></span>
+                <span class="sp"></span>
+                <svg class="caret" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="att-body">
+                <p>등록을 마친 후보자에게는 교육 일정이 개별 안내된다. <mark>후보자는 축복식에 앞서 소정의 준비 교육을 이수한다.</mark></p>
+                <p class="ver">EDITION 2026</p>
+              </div>
+            </div>
+            <div class="att-card">
+              <button onclick="this.parentElement.classList.toggle('open')" aria-expanded="false">
+                <span class="att-no">3</span>
+                <span><span class="att-t">축복식 준비 지침</span> <span class="att-loc">§3 · 2026</span></span>
+                <span class="sp"></span>
+                <svg class="caret" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+              <div class="att-body">
+                <p><mark>축복식에 앞서 각 가정은 정해진 기간의 정성을 준비한다.</mark> 정성의 구체적 방법은 「40일 정성 안내」를 따른다.</p>
+                <p class="ver">EDITION 2026</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="reply-tail">
+            <p class="note">위 답변의 모든 문장은 붙임 원문과 대조되었습니다.
+            문서에 없는 내용(회차 일정 등)은 답하지 않고 확인처를 안내합니다.</p>
+            <span class="sp"></span>
+            <svg class="seal" viewBox="0 0 100 100" aria-label="근거 확인 관인">
+              <circle cx="50" cy="50" r="46" stroke-width="2.5"/>
+              <circle cx="50" cy="50" r="34" stroke-width="1"/>
+              <text x="50" y="44" text-anchor="middle" font-size="13" font-weight="700" font-family="inherit">근거</text>
+              <text x="50" y="62" text-anchor="middle" font-size="13" font-weight="700" font-family="inherit">확인</text>
+              <text x="50" y="15.5" text-anchor="middle" font-size="6.4" letter-spacing="1">BLESSING NAVIGATION</text>
+              <text x="50" y="91" text-anchor="middle" font-size="6.4" letter-spacing="1">3 GROUNDED</text>
+            </svg>
+          </div>
+        </article>
+
+        <div class="act-row">
+          <button class="icon-btn" aria-label="도움이 됐어요"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11v9M3 13v5a2 2 0 0 0 2 2h2V11H5a2 2 0 0 0-2 2zM7 11l4-7a2.4 2.4 0 0 1 2.4 2.4V10h5a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 17.2 20H7"/></svg></button>
+          <button class="icon-btn" aria-label="아쉬워요"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(180deg)"><path d="M7 11v9M3 13v5a2 2 0 0 0 2 2h2V11H5a2 2 0 0 0-2 2zM7 11l4-7a2.4 2.4 0 0 1 2.4 2.4V10h5a2 2 0 0 1 2 2.3l-1.2 6A2 2 0 0 1 17.2 20H7"/></svg></button>
+          <button class="icon-btn" aria-label="복사"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>
+        </div>
+        <div class="follow">
+          <button class="hint">축복후보자 서류는 무엇이 필요한가요?</button>
+          <button class="hint">준비 교육은 얼마나 걸리나요?</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="composer">
+      <div class="composer-inner">
+        <div class="intake-bar">
+          <input type="text" placeholder="이어서 문의하세요" aria-label="질문 입력" enterkeyhint="send">
+          <button class="btn-intake">접수</button>
+        </div>
+        <p class="c-note">근거 대장 8권 기준으로 답합니다 · 근거가 없으면 확인처를 안내합니다</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<script>
+function show(id){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  document.getElementById(id).classList.add('on');
+  window.scrollTo(0,0);
+}
+function goChat(q){show('view-chat');history.replaceState(null,'','#chat')}
+function goHome(){show('view-home');history.replaceState(null,'','#home');toggleSide(false)}
+function toggleSide(open){
+  document.getElementById('side').classList.toggle('open',open);
+  document.getElementById('scrim').classList.toggle('on',open);
+}
+document.querySelectorAll('.fn>button').forEach(b=>{
+  b.addEventListener('click',e=>{
+    e.stopPropagation();
+    const fn=b.parentElement,was=fn.classList.contains('open');
+    document.querySelectorAll('.fn.open').forEach(f=>f.classList.remove('open'));
+    if(!was)fn.classList.add('open');
+  });
+});
+document.addEventListener('click',()=>document.querySelectorAll('.fn.open').forEach(f=>f.classList.remove('open')));
+document.getElementById('home-q').addEventListener('keydown',e=>{if(e.key==='Enter')goChat(e.target.value)});
+if(location.hash==='#chat')show('view-chat');
+</script>
+</body>
+</html>
