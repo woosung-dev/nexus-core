@@ -32,3 +32,7 @@ syste-prompt-ver/_responses/
 # 시스템 프롬프트 실험 원본 응답 덤프 (프롬프트/비교 md는 추적)
 syste-prompt-ver/_experiment/results_*.json
 .gstack/
+
+# 시안 스크린샷 — HTML 에서 다시 찍을 수 있는 파생물이라 추적하지 않는다 (60개·7MB).
+# 시안 원본(html/md)과 HTML 이 참조하는 assets/ 이미지는 추적한다.
+docs/prototypes/**/_shots/
