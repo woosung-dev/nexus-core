@@ -21,6 +21,8 @@ export type BotResponse = {
   system_prompt: string
   history_window: number
   evidence_policy_mode: "legacy" | "strict"
+  // 근거를 무엇으로 조달할지. 미설정 봇은 서버가 file_search 로 채운다.
+  retrieval_mode: "file_search" | "lexical" | "both"
 }
 
 // GET /api/v1/admin/bots (목록)
@@ -41,6 +43,7 @@ export type BotCreateRequest = {
   system_prompt?: string
   llm_model?: string
   evidence_policy_mode?: "legacy" | "strict"
+  retrieval_mode?: "file_search" | "lexical" | "both"
 }
 
 // PUT /api/v1/admin/bots/:id — 봇 수정 요청 (부분 업데이트)

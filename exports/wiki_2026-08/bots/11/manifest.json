@@ -1,0 +1,20 @@
+{
+ "bot_id": 11,
+ "bot_name": "테스트 봇 D-1 ver2",
+ "sources": [
+  {
+   "sha8": "d8a5ef90",
+   "prefix": "reg",
+   "doc": "규정집v20",
+   "display_name": "신한국_축복가정행정_규정집_개정초안_2026v20_축복자녀간축복보완.pdf",
+   "count": 100
+  },
+  {
+   "sha8": "93636bb2",
+   "prefix": "glo",
+   "doc": "대사전v4",
+   "display_name": "세계평화통일가정연합_대사전_가정행복국_행정용어_통합본_축복자녀간축복보완_v4.pdf",
+   "count": 150
+  }
+ ]
+}

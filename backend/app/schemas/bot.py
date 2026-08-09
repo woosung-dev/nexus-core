@@ -27,6 +27,7 @@ class BotResponse(BaseModel):
     system_prompt: str = ""
     history_window: int = 0
     evidence_policy_mode: Literal["legacy", "strict"] = "legacy"
+    retrieval_mode: Literal["file_search", "lexical", "both"] = "file_search"
 
 
 class BotListResponse(BaseModel):
@@ -54,6 +55,7 @@ class BotCreateRequest(BaseModel):
     system_prompt: str = ""
     llm_model: str = "gemini-2.5-flash"
     evidence_policy_mode: Literal["legacy", "strict"] = "legacy"
+    retrieval_mode: Literal["file_search", "lexical", "both"] = "file_search"
 
 
 class BotUpdateRequest(BaseModel):
@@ -70,3 +72,4 @@ class BotUpdateRequest(BaseModel):
     is_active: bool | None = None
     history_window: int | None = None
     evidence_policy_mode: Literal["legacy", "strict"] | None = None
+    retrieval_mode: Literal["file_search", "lexical", "both"] | None = None
