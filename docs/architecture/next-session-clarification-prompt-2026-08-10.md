@@ -1,10 +1,16 @@
 # 다음 세션 프롬프트 — 맥락 부족 시 재질문 트리거 (2026-08-10)
 
-> 사용법: 새 세션을 열고 아래 `---` 사이 전체를 **한 번에** 붙여넣는다.
-> 나눠서 주지 말 것 — Opus 5 는 첫 턴에 과제 전체가 주어질 때 가장 잘 계획한다.
-> 세션 시작 시 `/config` 에서 effort 를 **xhigh** 로 둔다(코딩·에이전트 작업 권장값).
+## 사용법
 
----
+1. 새 세션을 연다
+2. `/config` 에서 effort 를 **xhigh** 로 둔다 (코딩·에이전트 작업 권장값)
+3. 아래 **`---시작---` 다음 줄부터 `---끝---` 앞 줄까지**를 통째로 복사해 **한 번에** 붙여넣는다
+   — 마커 두 줄은 빼고, 그 사이 본문만.
+
+> 나눠서 주지 말 것. Opus 5 는 첫 턴에 과제 전체가 주어질 때 가장 잘 계획한다.
+> 조각으로 주면 계획이 나빠지고 토큰만 더 쓴다.
+
+---시작---
 
 레포: `/Users/woosung/project/agy-project/nexus-core` (브랜치 `main`, 현재 `6cddfa8`)
 
@@ -87,19 +93,19 @@ LLM 은 「무엇을 되물을지」 문장을 만드는 데만 쓴다 — 그�
 보고하고, 너는 그 보고를 다시 읽는다. 여러 파일에 걸친 폭넓은 조사처럼 정말 독립적이고
 큰 갈래일 때만 쓰고, 검증 목적으로는 쓰지 마라.
 
----
-
-## 첫 두 수 (막히면 여기서 시작)
+## 막히면 여기서 시작
 
 ```bash
-# 1. lexical 검색이 무엇을 반환하는지 직접 본다
+# lexical 검색이 무엇을 반환하는지 직접 본다
 sed -n '60,95p'   backend/app/services/wiki/store.py    # Retrieved 자료구조
 sed -n '468,545p' backend/app/services/wiki/store.py    # search() — 이중 RRF, debug 딕셔너리
 
-# 2. 45문항 중 lexical 이 침묵한 6건이 무엇인지 찾는다
-python - <<'PY'
+# 45문항 중 lexical 이 침묵한 6건이 무엇인지 찾는다
+uv run python - <<'PY'
 import json
 d = json.load(open("exports/wiki_eval/answers.json"))
 print(type(d), len(d))
 PY
 ```
+
+---끝---
