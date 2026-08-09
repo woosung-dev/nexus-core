@@ -5,11 +5,12 @@
 from datetime import datetime, timezone
 from typing import Sequence
 
-from sqlalchemy import String, cast, func, or_
+from sqlalchemy import String, case, cast, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.redteam import (
+    RedteamGolden,
     RedteamManageFeedback,
     RedteamQuestionGroup,
     RedteamResponse,
@@ -430,6 +431,93 @@ async def get_testbot_evals(
         .order_by(RedteamTestbotEval.run_label, RedteamTestbotEval.id)
     )
     return result.scalars().all()
+
+
+# ─── 정답지(golden) ────────────────────────────────────────
+
+# 관리자 판정이 끝난 상태. 진행률의 분자다.
+GOLDEN_DECIDED = ("승인", "수정승인", "근거없음", "반려")
+
+
+async def get_golden(session: AsyncSession, group_id: int) -> RedteamGolden | None:
+    result = await session.execute(
+        select(RedteamGolden).where(RedteamGolden.group_id == group_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def update_golden(session: AsyncSession, group_id: int, fields: dict) -> RedteamGolden | None:
+    """관리자 판정 반영. 초안이 없으면 만들지 않는다(초안 생성은 적재 스크립트의 몫).
+
+    golden 본문을 처음 고칠 때 초안 원문을 `draft_golden` 에 보존한다 —
+    무엇이 어떻게 바뀌었는지 사후에 열어볼 수 있어야 한다.
+    """
+    g = await get_golden(session, group_id)
+    if g is None:
+        return None
+
+    if "golden" in fields and fields["golden"] is not None and not g.draft_golden:
+        g.draft_golden = g.golden
+
+    for k, v in fields.items():
+        if v is not None:
+            setattr(g, k, v)
+
+    if fields.get("status") in GOLDEN_DECIDED and g.approved_at is None:
+        g.approved_at = datetime.now(timezone.utc)
+
+    session.add(g)
+    await session.flush()
+    await session.refresh(g)
+    return g
+
+
+async def get_golden_queue(session: AsyncSession) -> dict:
+    """검수 큐 — golden 초안이 있는 그룹 전체 + 진행률.
+
+    위험도(상→중→하) · 그룹 id 순. 상 20건이 먼저 보여야 한다(status 검증완료가 2/20이라
+    가장 밀려 있는 구간이다).
+    """
+    risk_rank = case(
+        (RedteamQuestionGroup.risk == "상", 0),
+        (RedteamQuestionGroup.risk == "중", 1),
+        (RedteamQuestionGroup.risk == "하", 2),
+        else_=9,
+    )
+    result = await session.execute(
+        select(RedteamGolden, RedteamQuestionGroup)
+        .join(RedteamQuestionGroup, RedteamGolden.group_id == RedteamQuestionGroup.id)
+        .order_by(risk_rank, RedteamQuestionGroup.id)
+    )
+    rows = result.all()
+
+    items, by_status, by_assignee = [], {}, {}
+    for g, grp in rows:
+        items.append({
+            "group_id": grp.id,
+            "question": grp.question,
+            "risk": grp.risk,
+            "level": grp.level,
+            "assignee": grp.assignee,
+            "coverage": g.coverage,
+            "status": g.status,
+            "source_docs": g.source_docs or [],
+            "n_evidence": len(g.evidence or []),
+        })
+        by_status[g.status] = by_status.get(g.status, 0) + 1
+        who = grp.assignee or "(미지정)"
+        acc = by_assignee.setdefault(who, {"total": 0, "decided": 0})
+        acc["total"] += 1
+        if g.status in GOLDEN_DECIDED:
+            acc["decided"] += 1
+
+    return {
+        "items": items,
+        "total": len(items),
+        "decided": sum(by_status.get(s, 0) for s in GOLDEN_DECIDED),
+        "by_status": by_status,
+        "by_assignee": by_assignee,
+    }
 
 
 async def add_feedback(

@@ -14,6 +14,9 @@ from app.crud import crud_redteam
 from app.schemas.redteam import (
     CandidateItem,
     CompareWeekResponse,
+    GoldenItem,
+    GoldenQueueResponse,
+    GoldenUpdateRequest,
     GroupCompare,
     GroupDetail,
     GroupListResponse,
@@ -153,6 +156,7 @@ async def get_group_detail(
     reviews = await crud_redteam.get_reviews(session, group_id)
     feedback = await crud_redteam.get_feedback(session, group_id)
     testbot_evals = await crud_redteam.get_testbot_evals(session, group_id)
+    golden = await crud_redteam.get_golden(session, group_id)
 
     base = [ResponseItem.model_validate(r) for r in responses if r.week == 3]
     week2 = [ResponseItem.model_validate(r) for r in responses if r.week == 2]
@@ -177,6 +181,7 @@ async def get_group_detail(
         reviews=[ReviewItem.model_validate(rv) for rv in reviews],
         feedback=[ManageFeedbackItem.model_validate(f) for f in feedback],
         testbot_evals=[TestbotEvalItem.model_validate(t) for t in testbot_evals],
+        golden=GoldenItem.model_validate(golden) if golden else None,
     )
 
 
@@ -278,6 +283,34 @@ async def update_group_manage(
     fields = request.model_dump(exclude_unset=True)  # 보낸 필드만(명시적 null 포함)
     if fields:
         await crud_redteam.update_group_manage(session, group, fields)
+    return await get_group_detail(group_id, session)
+
+
+# ─── 정답지(golden) 검수 ─────────────────────────────────────
+
+
+@router.get("/manage/golden-queue", response_model=GoldenQueueResponse)
+async def get_golden_queue(
+    session: AsyncSession = Depends(get_session),
+) -> GoldenQueueResponse:
+    """정답지 검수 큐 — 초안이 있는 그룹 전체 + 진행률 (위험 상→중→하 순)"""
+    return GoldenQueueResponse(**await crud_redteam.get_golden_queue(session))
+
+
+@router.put("/groups/{group_id}/golden", response_model=GroupDetail)
+async def update_golden(
+    group_id: int,
+    request: GoldenUpdateRequest,
+    session: AsyncSession = Depends(get_session),
+) -> GroupDetail:
+    """관리자 판정 반영 — 승인 / 수정승인 / 근거없음 / 반려.
+
+    초안이 없는 그룹은 404. 초안 적재는 `exports/golden_2026-08/_load.py` 가 한다.
+    """
+    fields = request.model_dump(exclude_unset=True)
+    golden = await crud_redteam.update_golden(session, group_id, fields)
+    if golden is None:
+        raise NotFoundError("이 질문에는 정답지 초안이 없습니다.")
     return await get_group_detail(group_id, session)
 
 

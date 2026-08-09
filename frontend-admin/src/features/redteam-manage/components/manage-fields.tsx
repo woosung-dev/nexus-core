@@ -150,13 +150,14 @@ export function ManageFields({ detail }: { detail: ManageGroupDetail }) {
         <TagInput tags={detail.tags} onChange={(next) => update.mutate({ tags: next })} />
       </div>
 
-      {/* 모범답변 */}
+      {/* 리뷰어 메모 — 원래 "모범답변" 라벨이었으나 46건 전부 메모로 쓰였다.
+          실제 용도에 맞게 이름을 바로잡았다. 정답지는 아래 '정답지 검수' 카드가 담당한다. */}
       <div className="flex flex-col gap-1.5">
-        <Label className="text-[11px] text-muted-foreground">모범답변 (그룹 확정)</Label>
+        <Label className="text-[11px] text-muted-foreground">리뷰어 메모</Label>
         <Textarea
           value={modelAnswer}
           onChange={(e) => setModelAnswer(e.target.value)}
-          placeholder="이 질문에 대한 확정 모범답변을 작성합니다. (리뷰어별 옳은 답변은 아래 참고)"
+          placeholder="이 질문에 대해 남길 의견·지적·요청. (정답지 확정은 아래 '정답지 검수'에서 합니다)"
           className="min-h-28 text-sm"
         />
         <div className="flex items-center gap-2">
@@ -167,7 +168,7 @@ export function ManageFields({ detail }: { detail: ManageGroupDetail }) {
             onClick={() => update.mutate({ model_answer: modelAnswer })}
           >
             {update.isPending ? <Loader2 className="size-3 animate-spin" /> : null}
-            모범답변 저장
+            메모 저장
           </Button>
           {!modelDirty && detail.model_answer && (
             <span className="flex items-center gap-1 text-[11px] text-emerald-600">

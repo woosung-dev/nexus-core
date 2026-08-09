@@ -187,6 +187,88 @@ class RedteamManageFeedback(SQLModel, table=True):
     )
 
 
+class RedteamGolden(SQLModel, table=True):
+    """정답지(golden) — 회귀 하네스 L3 심사의 기준. (그룹당 1행)
+
+    `model_answer`(리뷰어 자유 메모)와 별개다. 저쪽은 46건 전부 메모라 심사 기준으로 못 쓴다.
+    여기는 개발이 규정집·공문·용어집 원문에서 근거 카드를 만들어 넣고(status='초안'),
+    관리자가 화면에서 판정만 한다(승인 / 수정승인 / 근거없음 / 반려).
+    """
+
+    __tablename__ = "redteam_goldens"
+    __table_args__ = (UniqueConstraint("group_id", name="uq_redteam_golden_group"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+
+    group_id: int = Field(
+        sa_column=Column(
+            Integer,
+            ForeignKey("redteam_question_groups.id", ondelete="CASCADE"),
+            nullable=False,
+            index=True,
+        )
+    )
+
+    # 이 질문에 챗봇이 답해야 할 방향 (관리자가 수정하면 여기를 덮어쓴다)
+    golden: str = Field(default="", sa_column=Column(String(), nullable=False, server_default=""))
+    # 근거 [{doc, locator, quote}] — quote 는 원문 그대로. 생성 시 코퍼스 대조로 검증됨
+    evidence: list[dict] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]")
+    )
+    # L2 앵커: [[동의어군], ...] (그룹 안 OR, 그룹 간 AND) / 금지 목록
+    must_any: list = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]")
+    )
+    must_not: list[str] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]")
+    )
+    # 인용한 문서 종류: '규정집v20' | '대사전v4' | '공문'
+    # — 대사전 사용 승인이 미결이라, 불허 회신 시 이 태그로 골라 되돌린다
+    source_docs: list[str] = Field(
+        default_factory=list, sa_column=Column(JSON, nullable=False, server_default="[]")
+    )
+    corpus_version: str = Field(
+        default="", sa_column=Column(String(), nullable=False, server_default="")
+    )
+    # 문서만으로 답이 확정되는가: '충분' | '부분' | '근거없음'
+    coverage: str | None = Field(default=None)
+    # coverage != '충분' 일 때 가정행복국이 결정해 줘야 하는 것
+    open_question: str = Field(
+        default="", sa_column=Column(String(), nullable=False, server_default="")
+    )
+    draft_engine: str = Field(
+        default="codex", sa_column=Column(String(), nullable=False, server_default="codex")
+    )
+
+    # ─── 관리자 판정 ───
+    # '초안' | '승인' | '수정승인' | '근거없음' | '반려'
+    status: str = Field(
+        default="초안", sa_column=Column(String(), nullable=False, server_default="초안", index=True)
+    )
+    approver: str | None = Field(default=None)
+    approved_at: datetime | None = Field(
+        default=None, sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    admin_note: str = Field(
+        default="", sa_column=Column(String(), nullable=False, server_default="")
+    )
+    # 관리자가 고치기 전 초안 원문 — 무엇이 어떻게 바뀌었는지 사후 추적용
+    draft_golden: str = Field(
+        default="", sa_column=Column(String(), nullable=False, server_default="")
+    )
+
+    created_at: datetime = Field(
+        sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),
+        default_factory=get_utc_now,
+    )
+    updated_at: datetime = Field(
+        sa_column=Column(
+            DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+        ),
+        default_factory=get_utc_now,
+    )
+
+
 class RedteamTestbotEval(SQLModel, table=True):
     """테스트 봇 재검증 — 3주차 상·중 질문을 테스트 봇에 재질의한 답변 + AI(codex) 3평가.
 

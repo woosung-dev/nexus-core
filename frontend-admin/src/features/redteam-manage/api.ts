@@ -5,6 +5,8 @@
 import { apiClient } from "@/lib/api-client"
 import { linkCandidate } from "../redteam/api"
 import type {
+  GoldenQueueResponse,
+  GoldenUpdate,
   GroupCompare,
   GroupManageUpdate,
   ManageFeedbackItem,
@@ -31,6 +33,7 @@ export const manageKeys = {
   unmatched: (params: UnmatchedParams) => [...manageKeys.all, "unmatched", params] as const,
   tags: () => [...manageKeys.all, "tags"] as const,
   report: () => [...manageKeys.all, "report"] as const,
+  goldenQueue: () => [...manageKeys.all, "golden-queue"] as const,
 }
 
 // ─── API 함수 ──────────────────────────────────────────────────
@@ -122,6 +125,22 @@ export async function addManageFeedback(
 
 export async function deleteManageFeedback(feedbackId: number): Promise<void> {
   await apiClient.delete(`${BASE}/feedback/${feedbackId}`)
+}
+
+// ─── 정답지(golden) 검수 ───────────────────────────────────────
+
+export async function fetchGoldenQueue(): Promise<GoldenQueueResponse> {
+  const { data } = await apiClient.get<GoldenQueueResponse>(`${BASE}/manage/golden-queue`)
+  return data
+}
+
+/** 관리자 판정 저장 — 전체 GroupDetail 을 돌려받아 상세 캐시를 갱신한다 */
+export async function updateGolden(
+  groupId: number,
+  patch: GoldenUpdate
+): Promise<ManageGroupDetail> {
+  const { data } = await apiClient.put<ManageGroupDetail>(`${BASE}/groups/${groupId}/golden`, patch)
+  return data
 }
 
 // 미분류 큐 → 그룹 연결은 기존 redteam links 엔드포인트 재사용
