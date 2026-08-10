@@ -270,3 +270,59 @@ async def test_shadow_판정_실패는_답변을_막지_않는다(monkeypatch):
     await chat_service._judge_answerability_async(
         11, "gemini-3.5-flash-lite", 5, 9, "질문", [SimpleNamespace(src_id="reg-33")]
     )
+
+
+# ---- 기록이 실패해도 답변은 살아야 한다 -------------------------------------------
+
+@pytest.mark.asyncio
+async def test_기록이_DB오류를_내도_바깥_트랜잭션은_살아_있다():
+    """**`try/except` 만으로는 이게 안 된다.**
+
+    DB 오류가 나면 파이썬 예외는 잡히지만 트랜잭션이 오염된 채로 남아 호출자의
+    `commit()` 이 `PendingRollbackError` 로 죽는다. 그러면 어시스턴트 메시지까지
+    통째로 날아가 사용자는 500 을 받는다 — 기록하려다 답변을 잃는 정반대 결과다.
+    실제 Postgres 로 재현했고, SAVEPOINT 로 고쳤다.
+
+    여기서는 `begin_nested()` 가 **실제로 호출되는지**와 실패가 밖으로 안 새는지를 잰다.
+    """
+    entered = {"n": 0}
+
+    class _Savepoint:
+        async def __aenter__(self):
+            entered["n"] += 1
+            return self
+
+        async def __aexit__(self, *exc):
+            # 실패를 SAVEPOINT 까지만 되감고 삼키지는 않는다(바깥 except 가 받는다).
+            return False
+
+    session = MagicMock()
+    session.begin_nested = lambda: _Savepoint()
+    session.add = MagicMock(side_effect=RuntimeError("insert 실패"))
+
+    # 예외가 밖으로 새지 않는다
+    await chat_service._record_unanswered(
+        session,
+        bot=SimpleNamespace(id=11),
+        chat_session=SimpleNamespace(id=9),
+        message_id=5,
+        question="축복 헌금이 얼마인가요?",
+        reasons=[Reason.SELF_REFUSAL],
+    )
+    assert entered["n"] == 1, "SAVEPOINT 없이 쓰면 바깥 트랜잭션이 오염된다"
+
+
+@pytest.mark.asyncio
+async def test_신호가_없으면_기록_자체를_시도하지_않는다():
+    """정상 답변이 대부분이다. 빈 SAVEPOINT 왕복을 만들지 않는다."""
+    session = MagicMock()
+    session.begin_nested = MagicMock(side_effect=AssertionError("불려선 안 된다"))
+
+    await chat_service._record_unanswered(
+        session,
+        bot=SimpleNamespace(id=11),
+        chat_session=SimpleNamespace(id=9),
+        message_id=5,
+        question="축복 헌금이 얼마인가요?",
+        reasons=[],
+    )

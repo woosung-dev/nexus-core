@@ -209,8 +209,14 @@ async def _record_unanswered(
 ) -> None:
     """관찰된 신호를 `unanswered_questions` 에 남긴다. 커밋은 호출자가 한다.
 
-    **이 레이어가 답변을 막아서는 안 된다.** 기록 실패는 경고만 남기고 통과한다 —
-    `ops_facts_service.load_runtime_facts` 와 같은 규약이다.
+    **이 레이어가 답변을 막아서는 안 된다.**
+
+    ⚠ `try/except` 만으로는 그게 안 된다. DB 오류가 나면 파이썬 예외는 잡히지만
+    **트랜잭션이 오염된 채로 남아** 호출자의 `commit()` 이 `PendingRollbackError` 로 죽는다.
+    그러면 어시스턴트 메시지까지 통째로 날아가고 사용자는 500 을 받는다 — 기록하려다
+    답변을 잃는 것이라 정반대 결과다. 실측으로 확인했다.
+
+    그래서 SAVEPOINT 안에서 쓴다. 실패하면 여기까지만 되감기고 바깥 트랜잭션은 멀쩡하다.
     """
     if not reasons:
         return
@@ -218,17 +224,18 @@ async def _record_unanswered(
         from app.crud import crud_unanswered
 
         norm = normalize_question(question)
-        for reason in reasons:
-            await crud_unanswered.record(
-                session,
-                bot_id=bot.id,
-                session_id=chat_session.id,
-                message_id=message_id,
-                question_text=question,
-                question_norm=norm,
-                reason=reason,
-                detail=detail or {},
-            )
+        async with session.begin_nested():
+            for reason in reasons:
+                await crud_unanswered.record(
+                    session,
+                    bot_id=bot.id,
+                    session_id=chat_session.id,
+                    message_id=message_id,
+                    question_text=question,
+                    question_norm=norm,
+                    reason=reason,
+                    detail=detail or {},
+                )
     except Exception:
         logger.exception(
             "못 답한 질문 기록 실패 — 응답은 그대로 진행 bot_id=%s", getattr(bot, "id", None)
