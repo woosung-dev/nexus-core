@@ -41,6 +41,7 @@ from sqlalchemy import text  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
 from app.schemas.clarification_policy import ClarificationPolicy  # noqa: E402
+from app.services.chat_service import CLARIFICATION_MIN_SCORE  # noqa: E402
 from app.services.clarification_service import retrieval_query_from_summary  # noqa: E402
 from app.services.clarification_trigger import decide  # noqa: E402
 from app.services.wiki.service import _select_units, answer_with_wiki  # noqa: E402
@@ -58,9 +59,9 @@ MAX_BRANCHES = 8  # 문항당 분기 상한. 전수 조합을 버려서 폭발�
 QUESTIONS = REPO / "exports" / "wiki_eval" / "questions.json"
 FROZEN = REPO / "exports" / "wiki_eval" / "answers.json"
 POLICY = REPO / "docs" / "architecture" / "clarification-policy-v2-2026-08-10.json"
-# 규칙 매칭 BM25 하한. chat_service.CLARIFICATION_MIN_SCORE 와 같은 값이어야 한다 —
-# 다르면 측정과 실물이 다른 규칙을 고른다. 스윕 근거는 정책 JSON 의 _note.
-MIN_SCORE = 15.0
+# 규칙 매칭 BM25 하한. **베껴 쓰지 마라** — 값이 갈리면 측정과 실물이 다른 규칙을 고른다.
+# 프로덕션 상수를 직접 읽는다. 스윕 근거는 정책 JSON 의 _note, 하네스는 _sweep.py.
+MIN_SCORE = CLARIFICATION_MIN_SCORE
 RESULTS = DIR / "results.json"
 ANSWERS = DIR / "answers.json"
 
