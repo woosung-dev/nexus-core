@@ -98,6 +98,72 @@ python3 exports/wiki_eval/_audit_report.py
 산출물: `exports/wiki_eval/audit_report.html` (225셀 · 위반 143건 / 30문항) ·
 `exports/wiki_eval/report.html` (키워드 커버리지).
 
+## 6-A. 검증 (2026-08-11 추가) — 어느 봇·어느 프롬프트로 쟀나
+
+**답변 생성은 라이브 봇으로 됐다.** `_run_stdout.log` 가 기록한다:
+
+```
+봇 11 · gemini-3.5-flash-lite · system_prompt 1341자 · 45문항
+```
+
+1,341자 = **Neon 라이브 봇 11 「테스트 봇 D-1 ver2」**. 즉 위 표는 라이브 프롬프트 기준이다.
+
+### ⚠ 그런데 감사 ④′ 단계는 두 프롬프트를 섞어 썼다 (실제 결함)
+
+```bash
+grep -h "④′ 프롬프트 대조" exports/wiki_eval/_audit.log
+```
+```
+03:02  ④′ 프롬프트 대조 — 9건  (system_prompt 1341자)   ← 라이브
+03:16  ④′ 프롬프트 대조 — 92건 (system_prompt 1341자)   ← 라이브
+22:50  ④′ 프롬프트 대조 — 42건 (system_prompt 5608자)   ← 로컬 opus2_v4 (틀림)
+```
+
+전수 재측정으로 새로 채운 77셀의 감사가 로컬 프롬프트로 돌았다.
+`fabricated = violation AND not in_prompt` 이라 `in_prompt` 판정이 틀리면 지어냄 수치가 흔들린다.
+
+### 영향 = 0. 아래로 확인했다
+
+- 라이브 프롬프트(1,341자)가 실제로 뒷받침하는 주장은 **가정행복국 전화번호 하나뿐**이다
+  (`담당 교회장 또는 가정행복국(02-3271-0502)으로 안내합니다`). 로컬 프롬프트엔 이 번호가 **없다**.
+- `in_prompt=True` 로 지어냄에서 빠진 **38건 전부가 이 전화번호 주장**이고 전부 올바르게 분류됐다.
+- 지어냄으로 센 것 중 「가정행복국」을 언급한 6건은 전화번호가 아니라 「심사를 거쳐야 한다」·
+  「보고해야 한다」 같은 **절차 주장**이라 어느 프롬프트로 대조해도 근거가 없다.
+- **`wiki_budget`(= `lexical`)은 오염 후보 0건.** 3.4% 는 그대로다.
+
+```bash
+python3 -c "
+import json,pathlib,collections
+AU=json.loads(pathlib.Path('exports/wiki_eval/audit.json').read_text())['cells']
+bad=collections.Counter()
+for k,c in AU.items():
+    for x in c['claims']:
+        if x.get('violation') and not x.get('in_prompt') and ('3271-0502' in x['text'] or '가정행복국' in x['text']):
+            bad[c['arm']]+=1
+print(dict(bad))"   # → {'rag':3,'hybrid':1,'wiki':1,'wiki_first':1}  · wiki_budget 없음
+```
+
+### ⚠⚠ 재실행 시 물리는 함정 — 같은 id, 다른 봇
+
+`_run.py:38` 은 `backend/.env` 를 그대로 읽고, **`.env` 의 활성 `DATABASE_URL` 은 localhost(docker)** 다.
+
+| | 로컬 docker | Neon 라이브 |
+|---|---|---|
+| bots 총계 | 21 | **11** |
+| **봇 11** | `opus2_v4` · 5,608자 | **테스트 봇 D-1 ver2** · 1,341자 |
+| 봇 8 / 10 | `gemini_3_v4` / `opus_v4` | 테스트 봇 D-1 / D-2 |
+| wiki 코퍼스 | 봇 11 (138쪽/250건) | 봇 11 (138쪽/250건) |
+
+**아무 생각 없이 재실행하면 「봇 11」이라는 같은 id 로 전혀 다른 봇을 잰다.**
+화면엔 `봇 11` 이라고만 찍힌다. **방어책은 출력된 프롬프트 길이다 — 1341자가 아니면 라이브가 아니다.**
+라이브로 재려면 `.env` 를 고치지 말고 명령 앞에 붙일 것:
+
+```bash
+cd backend && DATABASE_URL="<.env 11행 Neon URL>" uv run python -u ../exports/wiki_eval/_run.py --arms B2 --retry-failed
+```
+
+---
+
 ## 7. 이 결과가 바꾸는 것
 
 **현재 라이브 봇 21개가 전부 `file_search` 다 — 즉 가장 많이 지어내는 설정으로 돌고 있다.**
@@ -110,3 +176,62 @@ python3 exports/wiki_eval/_audit_report.py
 3. 괜찮으면 상담·위기·카카오 경로부터 바꾼다
 
 기본값 자체를 `lexical` 로 바꿀지는 커버리지 −12.4pp 를 감수할지의 문제라 별도 결정이다.
+
+---
+
+## 8. 전환 런북 (2026-08-11 준비 · 미실행)
+
+### 대상은 봇 11 하나뿐이다
+
+라이브에서 `wiki_pages` 를 가진 봇은 **봇 11 「테스트 봇 D-1 ver2」** 뿐이다(138쪽/250건).
+다른 봇을 `lexical` 로 바꾸면 `WikiCorpusUnavailable` 로 **조용히 `file_search` 로 되돌아간다**
+(`chat_service.py:221`) — 관리자 화면엔 `lexical` 로 표시되는데 동작은 그대로다.
+
+전환 전 라이브 상태 (2026-08-11 확인):
+```
+봇11: retrieval_mode=file_search · evidence_policy_mode=legacy · clarify_enabled=False
+봇11 FAQ: 0건 (FAQ 71건은 봇 2·6·7 소유)
+```
+
+### 권장 경로 — 관리자 UI, 축 하나만
+
+**「안전 우선」 프리셋을 쓰지 마라.** 그 프리셋은 `retrieval_mode=lexical` 과
+`evidence_policy_mode=strict` 를 **함께** 바꾼다(`frontend-admin/.../schemas.ts:130-136`).
+관찰이 목적이므로 **변수는 하나만 움직인다.**
+
+→ 봇 편집 화면에서 **조달 방식만 `lexical`**, 근거 검증은 `legacy` 유지. 표시는 「사용자 지정」이 된다.
+
+strict 를 같이 켜도 봇 11 에선 큰 사고는 안 난다(FAQ 0건). 다만 **어휘 경로에서 strict 는 사실상
+무동작**이다 — `_citations()`(`wiki/service.py:114-131`)가 주입 유닛마다 `approximate=False`
+인용을 만들어 `has_direct_citation` 이 항상 참이다. 켜 봐야 안전해지지 않는다.
+
+### SQL 대안 (UI 를 못 쓸 때만)
+
+```bash
+# 전환
+DATABASE_URL="<.env 11행 Neon URL>"   # 셸에 두지 말고 명령 앞에 붙일 것
+psql "$DATABASE_URL" -c "UPDATE bots SET retrieval_mode='lexical' WHERE id=11 AND name='테스트 봇 D-1 ver2';"
+
+# 검증 — 1행 UPDATE 되고 값이 바뀌었는지
+psql "$DATABASE_URL" -c "SELECT id,name,retrieval_mode,evidence_policy_mode FROM bots WHERE id=11;"
+
+# 롤백 (한 줄)
+psql "$DATABASE_URL" -c "UPDATE bots SET retrieval_mode='file_search' WHERE id=11;"
+```
+`AND name=…` 를 붙인 이유: **로컬과 라이브의 봇 11 이 서로 다른 봇**이라(§6-A) 잘못된 DB 에
+붙었을 때 0행으로 끝나게 하는 안전장치다.
+
+### 관찰할 것 셋
+
+| 항목 | 왜 | 어디서 |
+|---|---|---|
+| 카카오 **추천질문 소실** | 어휘 경로는 followups 를 안 준다(알려진 회귀, `chat_service.py:227` 주석) | 카카오 채널 응답 |
+| **「확인되지 않습니다」 증가** | 커버리지 −12.4pp 의 사용자 체감 형태 | 대화 로그 |
+| **폴백 빈도** | 어휘 검색이 빈손이면 file_search 로 되돌아간다 = 전환 효과 없음 | 로그 `어휘 검색 결과 없음` |
+
+지연은 7.1초 → 1.8초로 짧아지므로 스트리밍 상실은 체감상 상쇄될 가능성이 크다.
+
+### 곁다리 — UI 문구가 낡았다
+
+「안전 우선」 프리셋 설명이 *"지어냄이 1/3 로 줄고"* 인데, 이건 25문항 표본 수치다.
+45문항 정본은 **14.2% → 3.4% = 4.2배**다(`schemas.ts:135`). 별건으로 고칠 것.
