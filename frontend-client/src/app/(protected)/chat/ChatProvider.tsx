@@ -13,6 +13,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import { useParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  ChatCompletionResponse,
   ChatSessionListResponse,
   ChatSessionResponse,
   MessageResponse,
@@ -60,7 +61,9 @@ interface ChatContextValue {
   awaiting: boolean;
   // 사이드바 클릭/직접 URL 진입 시 해당 세션 메시지 fetch 중. 스켈레톤/스피너 표시용.
   isLoadingMessages: boolean;
-  sendMessage: (content: string) => Promise<void>;
+  // clarificationRound: 되묻기 카드에 답해서 보내는 요청이면 그 라운드. 1 이상이면 서버가
+  // 판정을 건너뛴다 — 되묻기는 한 번까지다.
+  sendMessage: (content: string, clarificationRound?: number) => Promise<void>;
 }
 
 // 인용 백필(persona-free 재검색)은 응답 저장 후에야 시작해서 실서버 실측 ~15초 걸린다.
@@ -181,7 +184,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [sessionId, getToken]);
 
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, clarificationRound = 0) => {
       if (!content.trim() || awaiting) return;
 
       const trimmed = content.trim();
@@ -276,12 +279,13 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               session_id: parseInt(activeSessionId!, 10),
               stream: false,
               use_rag: true,
+              clarification_round: clarificationRound,
             }),
           },
           getToken,
         );
         if (!compRes.ok) throw new Error(`completions failed ${compRes.status}`);
-        const data = await compRes.json();
+        const data: ChatCompletionResponse = await compRes.json();
 
         // ★ 응답 받은 시점에 사용자가 이미 다른 세션으로 이동했다면 state 오염 방지.
         // 사이드바 캐시(invalidate) 와 followups store 갱신은 그대로 (다른 세션과 무관).
@@ -298,6 +302,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             session_id: parseInt(activeSessionId!, 10),
             role: "assistant",
             content: data.content || "",
+            // 되물은 턴이면 선택지 카드를 바로 그린다. 아래 refetchMessages 가 곧 전체를
+            // 갈아 끼우지만, 서버도 messages.clarification 에 남기므로 카드는 유지된다.
+            clarification: data.clarification ?? null,
             created_at: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, assistantMsg]);
@@ -344,7 +351,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           // 백필이 아직이면 확보될 때까지 폴링한다. 응답 반환을 막지 않도록 await 하지 않는다.
           // 이 시점엔 awaiting=false 라 사용자가 새 메시지를 보냈을 수 있으므로, 전체 교체 대신
           // id 로 citations 만 병합해 낙관적 메시지를 덮어쓰지 않는다.
-          if (!first || !citationsOf(first, targetId)) {
+          // 되물은 턴은 폴링하지 않는다. 본문이 질문이라 서버가 인용 백필을 아예 안 돌린다 —
+          // 폴링해 봐야 30초 동안 빈손이다.
+          if (!data.clarification && (!first || !citationsOf(first, targetId))) {
             void (async () => {
               for (let i = 0; i < CITATION_POLL_MAX_TRIES; i++) {
                 await new Promise((r) => setTimeout(r, CITATION_POLL_INTERVAL_MS));
