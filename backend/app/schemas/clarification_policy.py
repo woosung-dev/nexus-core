@@ -10,6 +10,11 @@ class ClarificationPolicyOption(BaseModel):
 
     id: str = ""
     label: str = ""
+    # 질문자에게는 있을 수 있는 경우인데 **규정집이 아직 다루지 않는** 갈래.
+    # 지우면 공백이 숨고, 그냥 두면 봇이 인접 조항을 그쪽까지 일반화해 지어낸다
+    # (2026-08-10 실측: 「기성·독신」을 한 선택지로 묶었더니 독신 가정에 탕감봉·40일
+    # 성별을 적용하는 주장이 4건 나왔다). 표시해 두고 답변 대신 고정 문구를 낸다.
+    unresolved: bool = False
 
 
 class ClarificationPolicyDocumentRef(BaseModel):

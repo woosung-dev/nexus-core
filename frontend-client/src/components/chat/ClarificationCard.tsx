@@ -153,8 +153,17 @@ export function ClarificationCard({
   }
 
   const questions = clarification.questions;
+  // 규정집이 아직 다루지 않는 갈래를 고른 경우. 답을 만들게 두면 인접 조항을 그쪽까지
+  // 일반화해 지어낸다(2026-08-10 감사: 「기성·독신」 한 선택지에서 지어냄 4건).
+  // 그래서 재질의를 아예 보내지 않고 공백을 그대로 보여 준다.
+  const unresolvedPicks = questions.flatMap((question) =>
+    (values[question.id] ?? []).filter((value) =>
+      (question.unresolved_options ?? []).includes(value),
+    ),
+  );
   // 필수 항목이 전부 채워져야 보낼 수 있다. 관리자가 정한 슬롯이므로 건너뛰기를 두지 않는다.
   const canSubmit =
+    unresolvedPicks.length === 0 &&
     questions.length > 0 &&
     questions.every((question) => !question.required || (values[question.id]?.length ?? 0) > 0);
 
@@ -185,6 +194,16 @@ export function ClarificationCard({
         }
         disabled={sent || disabled}
       />
+      {unresolvedPicks.length > 0 && (
+        <div className="mt-4 flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
+          <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" />
+          <p className="text-sm leading-6 text-zinc-700">
+            <span className="font-semibold">{unresolvedPicks.join(", ")}</span> 에 대한 기준은
+            아직 규정집에 정리되지 않았습니다. 정리되는 대로 업데이트할 예정이며, 급하시면
+            담당 교회장님이나 가정행복국(02-3271-0502)으로 문의해 주세요.
+          </p>
+        </div>
+      )}
       <div className="mt-4">
         <button
           type="button"

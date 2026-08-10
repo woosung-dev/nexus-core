@@ -22,6 +22,7 @@ from app.schemas.clarification_policy import (
     ClarificationPolicyDocumentRef,
     validate_active_policy,
 )
+from app.services.clarification_service import _policy_questions
 from app.services.clarification_trigger import match_policy_rule
 
 POLICY_PATH = (
@@ -64,6 +65,37 @@ def test_target_question_matches_its_rule(policy, number, question, expected):
     rule, score = match_policy_rule(question, policy, min_score=MIN_SCORE)
     matched = rule.id if rule else None
     assert matched == expected, f"#{number} → {matched} (BM25 {score:.2f}), 기대 {expected}"
+
+
+def test_unresolved_options_are_marked_not_deleted(policy):
+    """규정집이 안 다루는 갈래는 **지우지 않고 표시한다.**
+
+    지우면 공백이 화면에서 숨고, 그냥 두면 봇이 인접 조항을 그쪽까지 일반화해 지어낸다
+    (2026-08-10 감사: 「기성·독신」을 한 선택지로 묶었더니 독신 가정에 탕감봉·40일 성별을
+    적용하는 주장이 4건). 표시해 두면 화면이 답변 대신 「정리 중」을 띄운다.
+    """
+    marked = {
+        (rule.id, option.label)
+        for rule in policy.rules
+        for slot in rule.required_slots
+        for option in slot.options
+        if option.unresolved
+    }
+    assert marked == {
+        ("family-start-12day", "독신 축복"),
+        ("family-start-pre-rite", "독신 축복"),
+    }
+    # 「기성」과 묶여 있으면 안 된다 — 그 묶임이 지어냄의 원인이었다.
+    labels = {o.label for r in policy.rules for s in r.required_slots for o in s.options}
+    assert "기성·독신 축복" not in labels
+
+
+def test_policy_questions_carry_unresolved_options(policy):
+    """화면이 쓰는 것은 `ClarificationQuestion.unresolved_options` 다."""
+    rule = next(r for r in policy.rules if r.id == "family-start-pre-rite")
+    question = _policy_questions(rule.required_slots)[0]
+    assert "독신 축복" in question.options  # 선택지에는 남아 있고
+    assert question.unresolved_options == ["독신 축복"]  # 표시만 붙는다
 
 
 def test_rules_would_pass_admin_validation_except_document_refs(policy):

@@ -222,7 +222,23 @@ def _branches(record: dict) -> list[list[tuple[str, str]]]:
 
     그래서 분기 하나하나가 있을 법한 사람 한 명이다.
     """
-    cards = record.get("questions") or []
+    # 선택지는 저장된 스냅샷이 아니라 **현행 정책**에서 읽는다. 판정을 다시 안 돌려도
+    # 규칙을 고치면 분기가 따라오고, `unresolved`(규정집이 안 다루는 갈래)를 걸러낼 수 있다 —
+    # 화면도 그 갈래는 재질의를 안 보내므로, 측정이 프로덕션에 없는 경로를 만들면 안 된다.
+    rule = next((r for r in _policy().rules if r.id == record.get("rule_id")), None)
+    if rule is None:
+        return []
+    cards = [
+        {
+            "id": slot.id,
+            "question": slot.question,
+            "options": [o.label for o in slot.options if not o.unresolved],
+        }
+        for slot in rule.required_slots
+    ]
+    dropped = [o.label for slot in rule.required_slots for o in slot.options if o.unresolved]
+    if dropped:
+        log.info("n=%s 정리 중 선택지 제외: %s", record["n"], ", ".join(dropped))
     if not cards:
         return []
     pinned = PINNED.get(record["n"], {})

@@ -24,7 +24,16 @@
     "",
     "document_refs 는 비워 뒀다. validate_active_policy 가 봇의 File Search 스토어에 있는",
     "document_id 를 요구하는데 대상 봇(29)은 lexical 이라 스토어가 없다. 어휘 경로의",
-    "decide() 는 document_refs 를 읽지 않는다."
+    "decide() 는 document_refs 를 읽지 않는다.",
+    "",
+    "2026-08-10 정정 — 「기성·독신 축복」을 「기성 축복」과 「독신 축복」으로 쪼갰다.",
+    "감사에서 지어냄 4건이 전부 이 묶인 선택지 하나에서 나왔다: 규정집은 기성축복가정의",
+    "가정출발(3일행사)은 다루지만 독신 가정의 가정출발 절차는 다루지 않아, 묶은 라벨을",
+    "고르면 봇이 탕감봉·40일 성별·가정출발교육을 독신까지 일반화했다.",
+    "독신 축복은 지우지 않고 unresolved 로 표시한다 — 지우면 공백이 화면에서 숨는다.",
+    "그 선택지를 고르면 화면이 재질의를 보내지 않고 「아직 정리되지 않았습니다」를 띄운다.",
+    "선택지 상한이 5개(validate_active_policy)라 「잘 모르겠어요」를 뺐다 — 이 슬롯은",
+    "질문자 본인의 축복 구성이라 모를 여지가 적고, allow_custom 으로 직접 입력이 열려 있다."
   ],
   "enabled": true,
   "rules": [
@@ -48,11 +57,27 @@
           "question": "어떤 축복에 대한 질문인가요?",
           "selection_mode": "single",
           "options": [
-            { "id": "child_to_child", "label": "축복자녀 간 축복" },
-            { "id": "child_to_first_gen", "label": "축복자녀-미혼 1세 축복" },
-            { "id": "first_gen", "label": "미혼 1세 간 축복" },
-            { "id": "matured", "label": "기성·독신 축복" },
-            { "id": "unknown", "label": "잘 모르겠어요" }
+            {
+              "id": "child_to_child",
+              "label": "축복자녀 간 축복"
+            },
+            {
+              "id": "child_to_first_gen",
+              "label": "축복자녀-미혼 1세 축복"
+            },
+            {
+              "id": "first_gen",
+              "label": "미혼 1세 간 축복"
+            },
+            {
+              "id": "matured",
+              "label": "기성 축복"
+            },
+            {
+              "id": "single_blessing",
+              "label": "독신 축복",
+              "unresolved": true
+            }
           ],
           "allow_custom": true
         }
@@ -79,11 +104,27 @@
           "question": "두 분은 어떤 구성으로 축복을 받으시나요?",
           "selection_mode": "single",
           "options": [
-            { "id": "child_to_child", "label": "축복자녀 간 축복" },
-            { "id": "child_to_first_gen", "label": "축복자녀-미혼 1세 축복" },
-            { "id": "first_gen", "label": "미혼 1세 간 축복" },
-            { "id": "matured", "label": "기성·독신 축복" },
-            { "id": "unknown", "label": "잘 모르겠어요" }
+            {
+              "id": "child_to_child",
+              "label": "축복자녀 간 축복"
+            },
+            {
+              "id": "child_to_first_gen",
+              "label": "축복자녀-미혼 1세 축복"
+            },
+            {
+              "id": "first_gen",
+              "label": "미혼 1세 간 축복"
+            },
+            {
+              "id": "matured",
+              "label": "기성 축복"
+            },
+            {
+              "id": "single_blessing",
+              "label": "독신 축복",
+              "unresolved": true
+            }
           ],
           "allow_custom": true
         }
@@ -110,9 +151,18 @@
           "question": "축복식 일자 기준으로 만 25세 이상이신가요?",
           "selection_mode": "single",
           "options": [
-            { "id": "over_25", "label": "만 25세 이상" },
-            { "id": "under_25", "label": "만 25세 미만" },
-            { "id": "undecided", "label": "축복식 일자가 아직 정해지지 않았어요" }
+            {
+              "id": "over_25",
+              "label": "만 25세 이상"
+            },
+            {
+              "id": "under_25",
+              "label": "만 25세 미만"
+            },
+            {
+              "id": "undecided",
+              "label": "축복식 일자가 아직 정해지지 않았어요"
+            }
           ],
           "allow_custom": true
         },
@@ -122,11 +172,26 @@
           "question": "상대분은 어떤 경로로 만나셨나요?",
           "selection_mode": "single",
           "options": [
-            { "id": "official_intro", "label": "공적 소개" },
-            { "id": "parents_confirmed", "label": "부모 간 상대확정" },
-            { "id": "outreach", "label": "교류상대 전도" },
-            { "id": "personal", "label": "개인적으로 만났어요" },
-            { "id": "unknown", "label": "잘 모르겠어요" }
+            {
+              "id": "official_intro",
+              "label": "공적 소개"
+            },
+            {
+              "id": "parents_confirmed",
+              "label": "부모 간 상대확정"
+            },
+            {
+              "id": "outreach",
+              "label": "교류상대 전도"
+            },
+            {
+              "id": "personal",
+              "label": "개인적으로 만났어요"
+            },
+            {
+              "id": "unknown",
+              "label": "잘 모르겠어요"
+            }
           ],
           "allow_custom": true
         }
@@ -153,10 +218,22 @@
           "question": "지금 B4U 회원등급이 어떻게 되시나요?",
           "selection_mode": "single",
           "options": [
-            { "id": "waiting", "label": "대기자" },
-            { "id": "applicant", "label": "신청자" },
-            { "id": "candidate", "label": "후보자" },
-            { "id": "unknown", "label": "잘 모르겠어요" }
+            {
+              "id": "waiting",
+              "label": "대기자"
+            },
+            {
+              "id": "applicant",
+              "label": "신청자"
+            },
+            {
+              "id": "candidate",
+              "label": "후보자"
+            },
+            {
+              "id": "unknown",
+              "label": "잘 모르겠어요"
+            }
           ],
           "allow_custom": true
         },
@@ -166,9 +243,18 @@
           "question": "어느 쪽에 해당하시나요?",
           "selection_mode": "single",
           "options": [
-            { "id": "blessed_child", "label": "축복자녀" },
-            { "id": "single_first_gen", "label": "미혼 1세" },
-            { "id": "international", "label": "국제매칭 희망자" }
+            {
+              "id": "blessed_child",
+              "label": "축복자녀"
+            },
+            {
+              "id": "single_first_gen",
+              "label": "미혼 1세"
+            },
+            {
+              "id": "international",
+              "label": "국제매칭 희망자"
+            }
           ],
           "allow_custom": true
         }

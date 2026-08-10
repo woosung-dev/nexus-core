@@ -17,6 +17,10 @@ class ClarificationQuestion(BaseModel):
     allow_custom: bool = True
     required: bool = False
     policy: bool = False
+    # `options` 중 규정집이 아직 다루지 않는 것들(라벨 그대로). 화면은 이걸 고르면
+    # 재질의를 보내지 않고 「정리 중」 문구를 띄운다 — 답하게 두면 지어낸다.
+    # `options` 를 객체 목록으로 바꾸지 않는다: 프로토타입이 이미 문자열 배열로 읽는다.
+    unresolved_options: list[str] = Field(default_factory=list)
 
 
 class ClarificationAnswer(BaseModel):

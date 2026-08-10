@@ -64,6 +64,9 @@ export interface ClarificationQuestion {
   question: string;
   selection_mode: "single" | "multiple";
   options: string[];
+  // options 중 규정집이 아직 다루지 않는 것들. 고르면 재질의를 보내지 않고
+  // 「정리 중」 문구를 띄운다 — 답하게 두면 인접 조항을 그쪽까지 일반화해 지어낸다.
+  unresolved_options?: string[];
   allow_custom: boolean;
   required: boolean;
   policy: boolean;
