@@ -1,9 +1,10 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Bot, FileText, HelpCircle, Inbox, LayoutDashboard, Settings, Users, Box, MessageSquare, Sparkles, ShieldAlert, Network } from "lucide-react"
+import { Bot, FileText, HelpCircle, Inbox, LayoutDashboard, Users, Box, MessageSquare, Sparkles, ShieldAlert, Network } from "lucide-react"
 
-const items = [
+// 메뉴 이름의 단일 출처 — 헤더 브레드크럼이 이 배열을 그대로 읽는다.
+export const NAV_ITEMS = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Bots", url: "/bots", icon: Bot },
   { title: "FAQs", url: "/faqs", icon: HelpCircle },
@@ -33,7 +34,7 @@ export function AdminSidebar({ className }: { className?: string }) {
       <div className="flex-1 overflow-auto py-4 bg-sidebar">
         <nav className="grid gap-1 px-4">
           <p className="px-2 text-xs font-semibold uppercase tracking-wider opacity-70 mb-2">Management</p>
-          {items.map((item) => {
+          {NAV_ITEMS.map((item) => {
             const isActive = pathname.startsWith(item.url)
             return (
               <Link
@@ -49,15 +50,6 @@ export function AdminSidebar({ className }: { className?: string }) {
             )
           })}
         </nav>
-      </div>
-      <div className="p-4 border-t border-sidebar-border bg-sidebar">
-        <Link
-          href="/settings"
-          className="flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
-        >
-          <Settings className="size-4" />
-          Settings
-        </Link>
       </div>
     </div>
   )

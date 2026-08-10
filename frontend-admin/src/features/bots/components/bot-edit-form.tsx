@@ -613,21 +613,21 @@ export function BotEditForm({ bot }: BotEditFormProps) {
                   <FormItem className="flex flex-row items-center justify-between gap-4 rounded-lg border p-4">
                     <div className="space-y-0.5">
                       <div className="flex flex-wrap items-center gap-2">
-                        <FormLabel className="text-base">맥락 보완 파일럿</FormLabel>
+                        <FormLabel className="text-base">맥락 보완</FormLabel>
                         <Badge variant="outline" className="text-[10px] font-normal">
-                          미리보기 전용
+                          실사용 반영
                         </Badge>
                       </div>
                       <FormDescription>
-                        모호한 요청에 선택형 추가 질문을 생성하는 실제 LLM 테스트를 이 봇에서만 허용합니다.
+                        모호한 요청에 선택형 추가 질문을 생성합니다. 되묻기는 대화당 한 번까지입니다.
                       </FormDescription>
-                      {/* 켜도 사용자 대화는 안 바뀐다 — clarify_enabled 를 읽는 곳은
-                          미리보기 엔드포인트 하나뿐이다(clarification_preview.py). */}
-                      <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/40 dark:bg-amber-950/30">
-                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                      {/* 켜면 실제 대화에 적용된다 — chat_service.py 의 `_clarification_for` 가
+                          clarify_enabled 를 보고 아래 정책의 규칙을 그대로 쓴다. */}
+                      <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
                         <p className="text-[11px] leading-relaxed text-foreground/90">
-                          아래 「추가 확인 질문 정책」의 <b>「테스트하기」에서만 동작합니다.</b>{" "}
-                          실제 사용자 대화에는 아직 연결돼 있지 않습니다.
+                          이 스위치를 켜면 <b>실제 사용자 대화에 바로 적용됩니다.</b>{" "}
+                          아래 「추가 확인 질문 정책」에 저장한 규칙이 그대로 쓰입니다.
                         </p>
                       </div>
                       <FormMessage />

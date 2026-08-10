@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { CircleUser, ClipboardList, ExternalLink, Menu, ShieldCheck } from "lucide-react"
+import { ClipboardList, ExternalLink, Menu, ShieldCheck } from "lucide-react"
 
 import {
   Breadcrumb,
@@ -13,25 +13,13 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
-import { AdminSidebar } from "./admin-sidebar"
+import { AdminSidebar, NAV_ITEMS } from "./admin-sidebar"
 
+// 사이드바 배열이 이름의 출처다 — 메뉴에 항목을 더하면 브레드크럼도 같이 따라온다.
 function generateBreadcrumbLabel(pathname: string) {
-  if (pathname.includes("/dashboard")) return "Dashboard"
-  if (pathname.includes("/bots")) return "Bots"
-  if (pathname.includes("/faqs")) return "FAQs"
-  if (pathname.includes("/documents")) return "Documents"
-  if (pathname.includes("/users")) return "Users"
-  if (pathname.includes("/settings")) return "Settings"
-  return "Home"
+  const item = NAV_ITEMS.find((entry) => pathname.startsWith(entry.url))
+  return item?.title ?? "Home"
 }
 
 export function AdminHeader() {
@@ -84,20 +72,6 @@ export function AdminHeader() {
           </Link>
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <CircleUser className="h-5 w-5" />
-              <span className="sr-only">Toggle user menu</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Admin Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Settings</DropdownMenuItem>
-            <DropdownMenuItem>Logout</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </header>
   )
