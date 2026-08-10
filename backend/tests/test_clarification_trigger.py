@@ -4,6 +4,7 @@
 File Search 없는 `generate_structured` 를 쓰므로 그쪽 이름으로 받는다.
 """
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -123,6 +124,42 @@ async def test_judge_failure_never_silences_the_product(boom):
     )
 
     assert decision.status == "answer"
+
+
+async def test_매달린_판정은_상한에서_끊고_답변을_진행한다(monkeypatch):
+    """`TimeoutError` 를 받는 except 는 있었지만 **던지는 것이 없었다.**
+
+    공급자 SDK 에 클라이언트 타임아웃이 없어 2026-08-10 측정에서 한 호출이 12분 46초간
+    매달렸다. 되묻기는 사용자 응답 경로에 있으므로 그대로 켜면 그 시간이 사용자 대기가 된다.
+    """
+    started = asyncio.Event()
+
+    class _HangingJudge:
+        async def generate_structured(self, **kwargs):
+            started.set()
+            await asyncio.sleep(300)  # 영원히 — 상한이 없으면 이 테스트가 멈춘다
+            raise AssertionError("여기에 도달하면 상한이 걸리지 않은 것이다")
+
+    monkeypatch.setattr(clarification_trigger, "JUDGE_TIMEOUT_SEC", 0.05)
+    loop = asyncio.get_running_loop()
+    began = loop.time()
+    decision = await clarification_trigger.decide(
+        question="축복식 참가 자격이 뭔가요?", units=UNITS, bot=BOT, rag_service=_HangingJudge()
+    )
+    elapsed = loop.time() - began
+
+    assert started.is_set()          # 모델을 실제로 불렀다
+    assert decision.status == "answer"  # fail-open — 판정이 죽어도 답변은 나간다
+    assert elapsed < 5               # 300초를 기다리지 않았다
+
+
+def test_상한은_사용자가_기다릴_수_있는_값이다():
+    """하네스 값(90초)을 그대로 프로덕션에 옮기지 않았다는 것을 실행으로 남긴다.
+
+    측정 분포(판정 181회): 중앙 4.24s · p95 4.61s · 건강한 최대 5.6s.
+    그 위는 61.8s · 149.8s · 766.2s 로 절벽이라 「느린 호출」이 아니라 멈춘 것이다.
+    """
+    assert 5.6 < clarification_trigger.JUDGE_TIMEOUT_SEC <= 15
 
 
 async def test_empty_retrieval_answers_without_calling_the_model():
