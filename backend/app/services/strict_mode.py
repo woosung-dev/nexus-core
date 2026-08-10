@@ -50,7 +50,8 @@ def is_refusal_faq(answer: str) -> bool:
 # 측정에서, src_id 만 보면 과잉 거절이 22.5%(9/40) 인데 조문을 함께 보면 5.0%(2/40) 로
 # 떨어진다. 죽던 것은 「축복 헌금 얼마예요」(제55·56조) 같은 **정답**이었다.
 # 같은 측정에서 주입 목록 밖 근거를 쓴 답변은 96셀 전부에서 0건이다.
-_SRC_ID_RE = re.compile(r"\b(?:reg|glo)-\d+\b")
+_SRC_ID = r"(?:reg|glo)-\d+"
+_SRC_ID_RE = re.compile(rf"\b{_SRC_ID}\b")
 # 규정집 조문(`제55조`) 과 대사전 항목(`행정 134`). `locator` 가 그 형태로 저장돼 있다.
 _ARTICLE_RE = re.compile(r"제\s*(\d+)\s*조")
 _GLOSSARY_RE = re.compile(r"행정\s*(\d+)")
@@ -84,3 +85,61 @@ def has_grounded_citation(answer: str, units: list[SourceUnit]) -> bool:
     for unit in units:
         injected_loc |= _locator_keys(unit.locator)
     return bool(_locator_keys(answer) & injected_loc)
+
+
+# ── 화면 표시 — 기계 id 벗기기 ──────────────────────────────────────────────
+#
+# 모델은 주입 라벨(`[reg-41] 규정집v20 제41조`, `wiki/service.py:69`)을 흉내내 기계 id 를
+# 본문에 남긴다. 봇 프롬프트에는 인용 형식 지시가 없다 — 모델이 스스로 만든 것이고
+# 사용자에게는 뜻이 없는 문자열이다.
+#
+# **생성을 막으면 안 된다.** 위 게이트가 그 표기를 읽는다. 게이트를 통과한 뒤,
+# 화면에 나가기 전에 벗긴다. 그래서 이 함수가 게이트와 같은 모듈에 있다 —
+# 읽는 문법과 벗기는 문법이 갈라지면 조용히 어긋난다.
+#
+# 지우는 것은 **페이로드가 기계 id 뿐인 표기**다. 사람이 찾아볼 수 있는 조문·항목 표기
+# (`(근거: 규정집v20 제71조, 표 2)`)는 정보라서 남긴다.
+#
+# 냉동 기준선(`exports/wiki_eval/answers.json`) 답변 225개 실측:
+# 기계 id 243 → 6 (98% 제거) · 조문 표기 20 → 20 (100% 보존) · 구두점 잔여 0.
+# 남는 것은 산문에 박힌 형태(`- 근거: 규정 reg-17, reg-33, glo-34`)뿐이라 그냥 둔다 —
+# 거기서 id 만 빼면 문장이 토막난다.
+_ID_LIST = rf"\[?\s*{_SRC_ID}\s*\]?(?:\s*[,·]\s*\[?\s*{_SRC_ID}\s*\]?)*"
+_MARKER_LABEL = r"(?:src|출처|(?:규정\s*)?근거(?:\s*[^\]:：\n]{0,6})?)"
+_MARKER = (
+    rf"\[\[?\s*{_MARKER_LABEL}\s*[::]\s*{_ID_LIST}\s*\]\]?"
+    rf"|\(\s*{_MARKER_LABEL}\s*[::]\s*{_ID_LIST}\s*\)"
+    rf"|\[\s*{_SRC_ID}(?:\s*[,·]\s*{_SRC_ID})*\s*\]"
+)
+# 인접 마커는 한 덩어리로 먹는다. `합니다. [[src: reg-43]], [[src: glo-2]]` 에서 사이
+# 쉼표를 남기면 「합니다. ,」 가 화면에 뜬다.
+_MARKER_RUN_RE = re.compile(rf"[ \t]*(?:{_MARKER})(?:[ \t]*[,·]?[ \t]*(?:{_MARKER}))*")
+_EMPTY_PARENS_RE = re.compile(r"\(\s*\)")
+
+
+def strip_source_markers(answer: str) -> str:
+    """답변 본문에서 기계 id 표기를 벗긴다. 조문 표기는 남긴다."""
+    if not answer:
+        return answer
+    text = _MARKER_RUN_RE.sub("", answer)
+    text = _EMPTY_PARENS_RE.sub("", text)  # 마커만 들어 있던 괄호
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    # `.`·`,` 로만 좁힌다. `)` 까지 넣으면 「축복결혼식 (축복식)」을 건드린다.
+    text = re.sub(r"[ \t]+([.,])", r"\1", text)
+    return re.sub(r"(?m)[ \t]+$", "", text)
+
+
+def strip_source_markers_from_citations(citations: list[RAGCitation]) -> None:
+    """인용의 `segments` 에도 같은 것을 적용한다 (제자리 수정).
+
+    ⚠ 이걸 빼면 각주가 조용히 사라진다.
+    프론트가 `content.indexOf(segment)` 로 각주를 앵커하므로
+    (`frontend-client/src/components/chat/citationMarkers.ts`), 본문만 벗기면 segment 가
+    더 이상 본문의 부분문자열이 아니게 된다. `apply_term_rules_to_citations` 와 같은
+    이유·같은 계약이다.
+
+    `evidence` 는 원문 청크(`content`)의 부분문자열이므로 **건드리지 않는다.**
+    """
+    for citation in citations:
+        if citation.segments:
+            citation.segments = [strip_source_markers(s) for s in citation.segments]
