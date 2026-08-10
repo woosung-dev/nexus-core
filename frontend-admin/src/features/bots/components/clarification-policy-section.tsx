@@ -2,9 +2,10 @@
 
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Copy, GripVertical, Plus, Trash2 } from "lucide-react"
+import { AlertTriangle, Copy, GripVertical, Plus, Trash2 } from "lucide-react"
 
 import { documentKeys, fetchDocuments } from "@/features/documents/api"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -358,13 +359,24 @@ export function ClarificationPolicySection({ botId, initialPolicy, onPersist }: 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>추가 확인 질문 정책</CardTitle>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle>추가 확인 질문 정책</CardTitle>
+          <Badge variant="outline" className="text-[10px] font-normal">미리보기 전용</Badge>
+        </div>
         <CardDescription>상황에 따라 안내가 달라지는 요청에서, 답변 전에 꼭 확인할 항목을 정합니다.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
-        <div className="flex items-center justify-between rounded-lg border p-4">
+        <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
           <div><p className="font-medium">필수 확인 질문 사용</p><p className="mt-1 text-sm text-muted-foreground">활성 규칙에서 누락된 항목은 먼저 질문합니다.</p></div>
           <Switch checked={policy.enabled} disabled={saving} onCheckedChange={togglePolicy} />
+        </div>
+        {/* 규칙은 저장되지만 런타임이 안 읽는다 — 실제 대화에 쓰이는 곳이 없다. */}
+        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/40 dark:bg-amber-950/30">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="text-[11px] leading-relaxed text-foreground/90">
+            규칙은 저장되지만 <b>실제 사용자 대화에는 아직 적용되지 않습니다.</b>{" "}
+            지금은 아래 「테스트하기」에서만 결과를 확인할 수 있습니다.
+          </p>
         </div>
         {error && <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
 

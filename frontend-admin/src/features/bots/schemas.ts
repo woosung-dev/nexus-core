@@ -85,30 +85,36 @@ export const PLAN_TYPE_OPTIONS = [
 ] as const;
 
 // --- 근거 조달 방식 ---
-// 수치는 봇 11 · 45문항 실측이다. 커버리지·지연은 2026-08-09 측정,
-// 지어냄율은 같은 답변을 규정 원문 250건에 대고 잰 근거 감사 결과다.
-// (docs/architecture/handoff-overnight-2026-08-10.md)
+// 아래 9개 수치는 모두 같은 실행에서 나왔다 — 봇 11 · 45문항 전수(225셀).
+// 커버리지·지연은 exports/wiki_eval/answers.json(kw_pct·elapsed_s),
+// 지어냄율은 같은 답변을 규정 원문 250건에 대고 잰 audit_summary.json(fab_rate) 이다.
+// (docs/architecture/handoff-evidence-audit-45set-2026-08-10.md)
+//
+// 재측정하면 RETRIEVAL_METRICS_SOURCE 와 아래 수치를 반드시 함께 바꾼다.
+// 앞서 25문항 값이 45문항으로 갱신될 때 화면이 안 따라와 한동안 거짓을 표시했다.
+export const RETRIEVAL_METRICS_SOURCE = "봇 11 · 45문항 · 2026-08-09 측정";
+
 export const RETRIEVAL_MODE_OPTIONS = [
   {
     value: "file_search",
     label: "의미 검색 (file_search)",
-    summary: "커버리지 57.9% · 7.0초 · 지어냄 8.2%",
+    summary: "커버리지 56.6% · 7.3초 · 지어냄 14.2%",
     detail:
       "Gemini 가 스토어에서 직접 찾는다. 가장 많이 맞히지만 가장 많이 지어낸다.",
   },
   {
     value: "lexical",
     label: "어휘 검색 (규정 원문 주입)",
-    summary: "커버리지 40.2% · 1.6초 · 지어냄 2.7%",
+    summary: "커버리지 44.2% · 1.9초 · 지어냄 3.4%",
     detail:
       "BM25 로 규정 원문을 뽑아 그것만 준다. 덜 맞히고 덜 틀린다. 가장 빠르다.",
   },
   {
     value: "both",
     label: "둘 다",
-    summary: "커버리지 50.4% · 6.1초 · 지어냄 11.2%",
+    summary: "커버리지 50.1% · 5.8초 · 지어냄 11.4%",
     detail:
-      "의미 검색에 규정 원문을 얹는다. 커버리지는 중간이지만 지어냄이 가장 많았다.",
+      "의미 검색에 규정 원문을 얹는다. 커버리지는 중간인데 원문과 어긋나는 답(모순)이 가장 많았다.",
   },
 ] as const;
 
@@ -132,7 +138,7 @@ export const ANSWER_PRESETS = [
     for: "상담·위기 봇 · 카카오 채널",
     retrieval_mode: "lexical",
     evidence_policy_mode: "strict",
-    note: "지어냄이 1/3 로 줄고 응답이 4배 빠르다. 대신 답하지 못하는 질문이 늘어난다.",
+    note: "지어냄이 약 1/4 로 줄고 응답이 4배 빠르다. 대신 답하지 못하는 질문이 늘어난다.",
   },
   {
     key: "balanced",
@@ -140,7 +146,7 @@ export const ANSWER_PRESETS = [
     for: "커버리지를 우선하되 속도도 필요한 봇",
     retrieval_mode: "both",
     evidence_policy_mode: "legacy",
-    note: "커버리지는 중간이지만 근거 감사에서 지어냄이 가장 많았다 — 권장하지 않는다.",
+    note: "커버리지는 중간인데 원문과 어긋나는 답이 가장 많다(6건 vs 정확 우선 3건) — 권장하지 않는다.",
   },
 ] as const;
 

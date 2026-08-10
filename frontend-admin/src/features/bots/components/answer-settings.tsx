@@ -36,6 +36,7 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   ANSWER_PRESETS,
   LLM_MODEL_OPTIONS,
+  RETRIEVAL_METRICS_SOURCE,
   RETRIEVAL_MODE_OPTIONS,
   getModelProvider,
   matchPreset,
@@ -104,7 +105,7 @@ export function AnswerSettings({
         </div>
         <p className="text-xs text-muted-foreground">
           이 봇이 근거를 어떻게 조달하고 얼마나 엄격하게 검증할지 한 번에
-          정합니다. 수치는 45문항 실측입니다.
+          정합니다. 수치는 {RETRIEVAL_METRICS_SOURCE} 값입니다.
         </p>
 
         <div
@@ -223,6 +224,9 @@ export function AnswerSettings({
                       {option.detail}
                     </span>
                   ))}
+                  <span className="mt-1 block text-[11px] text-muted-foreground">
+                    {RETRIEVAL_METRICS_SOURCE}
+                  </span>
                 </FormDescription>
                 <FormMessage />
               </FormItem>
