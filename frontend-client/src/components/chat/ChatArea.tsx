@@ -8,6 +8,7 @@ import api from "@/lib/api";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
 import { FeedbackType } from "@/types/api";
+import { ClarificationCard } from "./ClarificationCard";
 import { FeedbackReasonForm } from "./FeedbackReasonForm";
 import { FollowupPills } from "./FollowupPills";
 import { MessageCitations } from "./MessageCitations";
@@ -22,7 +23,7 @@ type FeedbackState = {
 };
 
 export function ChatArea({ sessionId }: { sessionId?: string }) {
-  const { messages: providerMessages, awaiting, isLoadingMessages } = useChat();
+  const { messages: providerMessages, awaiting, isLoadingMessages, sendMessage } = useChat();
   const { latestFollowups, setComposerDraft } = useChatStore();
   // streaming 텍스트는 더 이상 별도 인디케이터로 보여주지 않음 (응답 도착하면 messages 로 들어감)
   const streamingText = "";
@@ -472,6 +473,19 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                                 ? { num: citeFocus.num, nonce: citeFocus.nonce }
                                 : null
                             }
+                          />
+                        )}
+                        {/* 되묻기 카드: 봇이 되물은 턴에만. 마지막 응답일 때만 누를 수 있다 —
+                            지난 턴의 카드는 이미 답한 것이라 다시 보내면 대화가 어긋난다. */}
+                        {!isUser && msg.clarification && (
+                          <ClarificationCard
+                            clarification={msg.clarification}
+                            originalQuestion={
+                              [...messages.slice(0, idx)].reverse().find((m) => m.role === "user")
+                                ?.content ?? ""
+                            }
+                            disabled={idx !== messages.length - 1 || awaiting}
+                            onSubmit={(message, nextRound) => void sendMessage(message, nextRound)}
                           />
                         )}
                         {/* 후속 질문: 가장 마지막 봇 응답에만 노출, 스트리밍 중에는 숨김 */}

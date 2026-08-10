@@ -18,6 +18,7 @@ from app.models.bot import Bot
 from app.models.chat import ChatSession
 from app.models.enums import MessageRole
 from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse
+from app.schemas.clarification import ChatClarification
 from app.schemas.rag import RAGResponse
 from app.services.faq_service import search_faq_override
 from app.services.followup_service import generate_followups
@@ -94,6 +95,62 @@ def _effective_retrieval_mode(bot: Bot) -> str:
         )
         return "file_search"
     return mode
+
+
+# ── 되묻기 ────────────────────────────────────────────────────
+# 되물을 때 나가는 본문. **LLM 이 짓지 않는다** — 문구는 이 상수와 관리자가 쓴 슬롯 질문뿐이다.
+CLARIFICATION_ASK_MESSAGE = "정확히 안내해 드리려고 합니다. 아래만 확인해 주세요."
+# 되물을 항목을 관리자가 정해 두지 않았다. 문구를 지어내느니 사람에게 넘긴다.
+CLARIFICATION_HANDOFF_MESSAGE = UNANSWERED_MESSAGE
+
+# 규칙 매칭 BM25 하한. 45문항 판정 양성 6건으로 스윕했다
+# (docs/architecture/clarification-policy-v2-2026-08-10.json 의 _note 에 표):
+#     0  → 5/6. #39(축복정리)가 자격 규칙에 10.94 로 잘못 걸린다
+#     15 → 6/6. #39 10.94 < 15 < #45 25.78
+# **n=6 스윕이라 근거가 얇다.** 판정을 다시 돌리면 실제 양성 집합으로 재스윕할 것.
+CLARIFICATION_MIN_SCORE = 15.0
+
+
+async def _clarification_for(
+    bot: Bot, question: str, trace: RetrievalTrace, round_number: int
+) -> ChatClarification | None:
+    """되물을지 판정한다. 되물 것이 없으면 None — 답변 경로를 그대로 둔다.
+
+    `bot.clarify_enabled` 가 거짓이면 **호출조차 하지 않는다.** 판정은 turn 당 Gemini 를
+    한 번 더 쓰고, 일일 쿼터를 태운 이력이 있다(리셋 KST 16:00).
+
+    되묻기는 한 번까지다 — 프롬프트 3번 항목이 이미 그렇게 정해 뒀다. 카드에 답해서 온
+    요청은 `round_number >= 1` 이라 여기서 걸러진다.
+    """
+    if not getattr(bot, "clarify_enabled", False) or round_number >= 1:
+        return None
+
+    from app.services.clarification_trigger import decide
+
+    try:
+        decision = await decide(
+            question=question,
+            units=trace.units,
+            bot=bot,
+            min_score=CLARIFICATION_MIN_SCORE,
+        )
+    except Exception as exc:  # 판정 실패가 답변을 막으면 안 된다 — decide 내부도 fail-open 이다.
+        logger.warning("되묻기 판정 오류 — 답변 진행 bot_id=%s: %s", bot.id, exc)
+        return None
+
+    if decision.status == "answer":
+        return None
+    logger.info(
+        "되묻기 %s bot_id=%s rule=%s missing=%s",
+        decision.status, bot.id, decision.rule_id, decision.missing,
+    )
+    return ChatClarification(
+        status=decision.status,
+        questions=decision.questions,
+        rule_id=decision.rule_id,
+        round=round_number,
+    )
+
 
 # 비동기 백필 태스크 참조 보관소 — GC 로 태스크가 취소되는 것을 방지.
 _citation_backfill_tasks: set[asyncio.Task] = set()
@@ -618,6 +675,24 @@ class ChatService:
                     rag_response.citations = []
                     rag_response.followups = []
 
+                # ── 되묻기 ──
+                # **strict 게이트보다 뒤여야 한다.** 되묻기 응답은 인용이 0건이고 거절문도
+                # 아니라, 앞에 놓으면 `_strict_blocks` 가 참이 되어 봇이 되물은 질문이
+                # `STRICT_EVIDENCE_MESSAGE` 로 통째로 치환된다. 지금은 라이브 11봇이 전부
+                # `evidence_policy_mode='legacy'` 라 안 터지지만 strict 를 켜는 순간 터진다.
+                clarification = await _clarification_for(
+                    bot, request.message, trace, request.clarification_round
+                )
+                if clarification is not None:
+                    rag_response.answer = (
+                        CLARIFICATION_ASK_MESSAGE
+                        if clarification.status == "ask"
+                        else CLARIFICATION_HANDOFF_MESSAGE
+                    )
+                    # 되물으면서 근거를 같이 보이면 「답은 했는데 또 묻는다」로 읽힌다.
+                    rag_response.citations = []
+                    rag_response.followups = []
+
                 # ── 1층. 결정론 게이트 ──
                 # 사용자에게 문구가 나가는 조건은 **이것 하나뿐**이다. 지금은 빈 말풍선이
                 # 그대로 나가므로 치환해도 과잉 거절 위험이 0이다.
@@ -648,6 +723,7 @@ class ChatService:
                     content=rag_response.answer,
                     citations=[c.model_dump() for c in rag_response.citations],
                     followups=rag_response.followups,
+                    clarification=clarification.model_dump() if clarification else None,
                 )
                 chat_session.updated_at = datetime.now(timezone.utc)
 
@@ -667,18 +743,24 @@ class ChatService:
                 await self.session.commit()
 
                 # ── 2층. shadow 판정 — 응답을 보낸 뒤 돌린다. 기록 전용, 사용자 지연 0 ──
-                _schedule_answerability_judge(
-                    bot_id=bot.id,
-                    model_name=bot.llm_model,
-                    message_id=assistant_msg.id,
-                    session_id=chat_session.id,
-                    question=request.message,
-                    units=trace.units,
-                )
+                # 되물은 턴은 건너뛴다. `_clarification_for` 가 방금 같은 판정을 돌렸으므로
+                # 여기서 또 부르면 Gemini 호출이 turn 당 2회가 된다.
+                if clarification is None:
+                    _schedule_answerability_judge(
+                        bot_id=bot.id,
+                        model_name=bot.llm_model,
+                        message_id=assistant_msg.id,
+                        session_id=chat_session.id,
+                        question=request.message,
+                        units=trace.units,
+                    )
 
                 # 메인 답변 경로(persona)가 인용을 못 남기면 interactions 로 근사 인용을 비동기 백필.
                 # 인용이 이미 붙었으면 근거 구절만 따로 채운다 — 어느 쪽이든 응답은 막지 않는다.
-                if not rag_response.citations and bot.evidence_policy_mode != "strict":
+                # 되물은 턴은 둘 다 건너뛴다 — 본문이 질문이라 채울 근거가 없다.
+                if clarification is not None:
+                    pass
+                elif not rag_response.citations and bot.evidence_policy_mode != "strict":
                     _schedule_citation_backfill(
                         bot_id=bot.id,
                         model_name=bot.llm_model,
@@ -702,8 +784,11 @@ class ChatService:
                     content=rag_response.answer,
                     bot_id=bot.id,
                     citations=rag_response.citations,
-                    source="rag",
+                    source=(
+                        f"clarification_{clarification.status}" if clarification else "rag"
+                    ),
                     followups=rag_response.followups,
+                    clarification=clarification,
                 )
 
         if bot.evidence_policy_mode == "strict":

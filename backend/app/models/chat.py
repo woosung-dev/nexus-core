@@ -66,6 +66,13 @@ class Message(SQLModel, table=True):
         sa_column=Column(JSON, nullable=True),
         description="후속 추천 질문 JSON 배열 [str]",
     )
+    # 봇이 되물은 턴에만 채워진다. 화면이 응답 직후 `refetchMessages()` 로 메시지를 통째로
+    # 다시 불러오므로, 여기 안 남기면 선택지 카드가 1초 뒤 사라진다.
+    clarification: dict | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+        description="되묻기 카드 JSON {status, questions, rule_id, round}",
+    )
 
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),

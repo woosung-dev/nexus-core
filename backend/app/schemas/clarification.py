@@ -17,6 +17,10 @@ class ClarificationQuestion(BaseModel):
     allow_custom: bool = True
     required: bool = False
     policy: bool = False
+    # `options` 중 규정집이 아직 다루지 않는 것들(라벨 그대로). 화면은 이걸 고르면
+    # 재질의를 보내지 않고 「정리 중」 문구를 띄운다 — 답하게 두면 지어낸다.
+    # `options` 를 객체 목록으로 바꾸지 않는다: 프로토타입이 이미 문자열 배열로 읽는다.
+    unresolved_options: list[str] = Field(default_factory=list)
 
 
 class ClarificationAnswer(BaseModel):
@@ -61,6 +65,25 @@ class ClarificationPreviewResponse(BaseModel):
     handoff_message: str | None = None
     diagnostics: ClarificationDiagnostics = Field(default_factory=ClarificationDiagnostics)
     policy_context: str | None = None
+
+
+class ChatClarification(BaseModel):
+    """실제 대화가 되물을 때 응답에 싣는 것. 프로토타입 계약과 별개다.
+
+    `ClarificationPreviewResponse` 를 재사용하지 않는다 — 그쪽은
+    `source: "fixture"|"live"|"fallback"` 과 `fallback`·`diagnostics` 를 요구하는데
+    실제 대화에는 픽스처도 진단도 없다. 화면이 실제로 쓰는 `ClarificationQuestion`
+    모양만 공유하면 프로토타입의 `OptionFields` 를 그대로 재사용할 수 있다.
+
+    `round` 는 되묻기를 한 번으로 묶기 위한 것이다. 0 = 처음 되물었다.
+    이 값이 실린 응답에 사용자가 답하면 클라이언트가 그대로 돌려보내고,
+    서버는 1 이상이면 판정을 건너뛴다.
+    """
+
+    status: Literal["ask", "handoff"]
+    questions: list[ClarificationQuestion] = Field(default_factory=list)
+    rule_id: str | None = None
+    round: int = 0
 
 
 class ClarificationAnswerRequest(BaseModel):

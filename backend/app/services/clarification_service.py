@@ -345,6 +345,7 @@ def _policy_questions(slots: list[ClarificationRequiredSlot]) -> list[Clarificat
             question=slot.question,
             selection_mode=slot.selection_mode,
             options=[option.label for option in slot.options],
+            unresolved_options=[option.label for option in slot.options if option.unresolved],
             allow_custom=slot.allow_custom,
             required=True,
             policy=True,

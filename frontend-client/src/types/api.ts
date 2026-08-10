@@ -57,12 +57,39 @@ export interface Citation {
   evidence?: string[] | null;
 }
 
+// 봇이 되물을 때 나오는 선택지 카드. 백엔드 `ChatClarification` 과 같은 모양이다.
+// `questions` 는 관리자가 쓴 슬롯 문구 그대로다 — LLM 이 짓지 않는다.
+export interface ClarificationQuestion {
+  id: string;
+  question: string;
+  selection_mode: "single" | "multiple";
+  options: string[];
+  // options 중 규정집이 아직 다루지 않는 것들. 고르면 재질의를 보내지 않고
+  // 「정리 중」 문구를 띄운다 — 답하게 두면 인접 조항을 그쪽까지 일반화해 지어낸다.
+  unresolved_options?: string[];
+  allow_custom: boolean;
+  required: boolean;
+  policy: boolean;
+}
+
+export interface ChatClarification {
+  status: "ask" | "handoff";
+  questions: ClarificationQuestion[];
+  rule_id?: string | null;
+  // 되묻기는 한 번까지. 이 값 + 1 을 다음 요청에 실어 보내면 서버가 판정을 건너뛴다.
+  round: number;
+}
+
 export interface MessageResponse {
   id: number;
   session_id: number;
   role: MessageRole;
   content: string;
   citations?: Citation[] | null;
+  followups?: string[] | null;
+  // 되물은 턴에만 채워진다. 응답 직후 refetch 가 메시지를 통째로 갈아 끼우므로
+  // DB 에서 다시 실려 온다 — 새로고침해도 카드가 남는다.
+  clarification?: ChatClarification | null;
   feedback?: "up" | "down" | null;
   feedback_reasons?: string[];
   feedback_comment?: string | null;
@@ -94,6 +121,20 @@ export interface ChatCompletionRequest {
   session_id?: number | null;
   stream?: boolean;
   use_rag?: boolean;
+  // 되묻기 카드에 답해서 보내는 요청이면 그 라운드. 1 이상이면 서버가 판정을 건너뛴다.
+  clarification_round?: number;
+}
+
+export interface ChatCompletionResponse {
+  session_id: number;
+  content: string;
+  bot_id: number;
+  citations?: Citation[] | null;
+  // "faq_override" | "rag" | "llm" | "policy_block"
+  //   | "clarification_ask" | "clarification_handoff"
+  source?: string | null;
+  followups?: string[] | null;
+  clarification?: ChatClarification | null;
 }
 
 export interface UserResponse {
