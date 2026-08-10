@@ -105,12 +105,16 @@ CLARIFICATION_ASK_MESSAGE = "정확히 안내해 드리려고 합니다. 아래�
 # 되물을 항목을 관리자가 정해 두지 않았다. 문구를 지어내느니 사람에게 넘긴다.
 CLARIFICATION_HANDOFF_MESSAGE = UNANSWERED_MESSAGE
 
-# 규칙 매칭 BM25 하한. 45문항 판정 양성 6건으로 스윕했다
-# (docs/architecture/clarification-policy-v2-2026-08-10.json 의 _note 에 표):
-#     0  → 5/6. #39(축복정리)가 자격 규칙에 10.94 로 잘못 걸린다
-#     15 → 6/6. #39 10.94 < 15 < #45 25.78
-# **n=6 스윕이라 근거가 얇다.** 판정을 다시 돌리면 실제 양성 집합으로 재스윕할 것.
-CLARIFICATION_MIN_SCORE = 15.0
+# 규칙 매칭 BM25 하한. **45문항 전수**로 스윕했다 (exports/clarify_eval/_sweep.py).
+# 판정 양성만 표본으로 쓰던 앞 스윕(n=6)은 그 집합이 실행마다 흔들려서 버렸다 — 하한은
+# 판정 뒤 `match_policy_rule` 에서만 쓰이고 그건 LLM 없는 어휘 비교라 전수로 돌릴 수 있다.
+#     거짓양성 최고  #8  14.46 → family-start-pre-rite (「교류 신청 예절」이다)
+#     참양성 최저    #45 25.78 → b4u-tier
+#     안전 구간 (14.46, 25.78] 은 비어 있다 — 이 안 어떤 값이든 45/45 로 결과가 같다
+# 20.0 은 그 구간의 기하 중점(19.31) 근처다. 양쪽 여유가 ×1.38 / ×1.29 로 균형이 맞는다.
+# 앞 값 15.0 은 오매칭 경계에서 0.54 밖에 안 떨어져 있었다.
+# **request_examples 를 고치면 경계가 움직인다 — _sweep.py 를 다시 돌려라.**
+CLARIFICATION_MIN_SCORE = 20.0
 
 
 async def _clarification_for(
