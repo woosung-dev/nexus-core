@@ -34,6 +34,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -59,6 +60,18 @@ logger = logging.getLogger(__name__)
 # 근거 충분성의 대리 지표가 아니므로 임계값을 두는 것이 정당하다. 절대 크기 대신
 # 1위 규칙이 2위를 몇 배로 이겼는지만 본다 — BM25 원점수는 질문 길이에 딸려 움직인다.
 MIN_RULE_DOMINANCE = 1.5
+
+# 판정 1회 상한. **이 판정은 답변을 막고 서 있다** — shadow 판정과 달리 응답을 보내기
+# 전에 부른다(`chat_service._clarification_for`). 상한이 없으면 매달린 시간을 사용자가
+# 그대로 기다린다. 2026-08-10 측정에서 실제로 한 문항이 12분 매달려 진행이 멈췄다
+# (네트워크는 정상이었다). Gemini SDK 에 클라이언트 타임아웃이 없다.
+#
+# 20초는 같은 워크로드 실측(45문항 · n=152)의 최대 4.19초에 4.8배 여유를 둔 값이다:
+#     중앙값 1,474ms · p90 1,773ms · p95 1,929ms · 최대 4,189ms
+# 더 길게 잡을 이유가 없다 — 타임아웃은 fail-open 이라 평소 답변으로 돌아갈 뿐이다.
+# `clarification_service.CLARIFICATION_TIMEOUT_SEC`(150초)를 쓰지 않는 이유가 이것이다.
+# 그건 File Search 계획 호출용이고 사용자를 막지 않는다.
+JUDGE_TIMEOUT_SEC = 20.0
 
 _JUDGE_SYSTEM_PROMPT = """너는 「이 질문은 되물어야 하는가」만 판정한다.
 
@@ -156,6 +169,7 @@ async def judge_answerability(
     bot: SimpleNamespace,
     rag_service=None,
     max_unit_chars: int = 2_000,
+    timeout: float = JUDGE_TIMEOUT_SEC,
 ) -> AnswerabilityVerdict | None:
     """주입될 원문만 보고 답할 수 있는지 판정한다. 실패하면 None(=답변 진행)."""
     if not units:
@@ -167,13 +181,23 @@ async def judge_answerability(
     service = rag_service or get_rag_service(provider=model_name)
     prompt = f"[질문]\n{question}\n\n[원문]\n{_units_block(units, max_unit_chars)}"
     try:
-        verdict = await service.generate_structured(
-            prompt=prompt,
-            system_prompt=_JUDGE_SYSTEM_PROMPT,
-            model_name=model_name,
-            response_schema=AnswerabilityVerdict,
+        # `asyncio.TimeoutError` 는 `TimeoutError` 다(3.11+). 아래 except 가 그대로 받아
+        # fail-open 한다 — 상한을 두는 것이 판정을 더 엄격하게 만들지 않는다.
+        verdict = await asyncio.wait_for(
+            service.generate_structured(
+                prompt=prompt,
+                system_prompt=_JUDGE_SYSTEM_PROMPT,
+                model_name=model_name,
+                response_schema=AnswerabilityVerdict,
+            ),
+            timeout=timeout,
         )
-    except (ValidationError, RuntimeError, TimeoutError) as exc:
+    except TimeoutError:
+        # `asyncio.TimeoutError` 는 메시지가 비어 있어, 위 줄과 같이 찍으면 로그에
+        # 사유가 안 남는다. 매달림을 진단하려고 둔 상한이므로 별도로 적는다.
+        logger.warning("재질문 판정 %.0f초 초과 — 답변 진행", timeout)
+        return None
+    except (ValidationError, RuntimeError) as exc:
         logger.warning("재질문 판정 실패 — 답변 진행: %s", exc)
         return None
     except Exception as exc:  # 공급자 예외 전반. 판정 실패가 답변을 막으면 안 된다.

@@ -4,6 +4,8 @@
 File Search 없는 `generate_structured` 를 쓰므로 그쪽 이름으로 받는다.
 """
 
+import asyncio
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -123,6 +125,39 @@ async def test_judge_failure_never_silences_the_product(boom):
     )
 
     assert decision.status == "answer"
+
+
+async def test_hanging_judge_is_cut_off_at_the_timeout():
+    """**매달림**이 상한에서 끊기는가. 위 테스트는 `TimeoutError` 를 던지는 경우만 본다.
+
+    2026-08-10 측정에서 한 문항이 12분 매달려 진행이 멈췄다 — Gemini SDK 에 클라이언트
+    타임아웃이 없다. 이 판정은 답변을 막고 서 있으므로(`chat_service._clarification_for`)
+    상한이 없으면 그 시간을 사용자가 그대로 기다린다.
+    """
+
+    class _HangingJudge:
+        async def generate_structured(self, **kwargs):
+            await asyncio.sleep(30)  # 상한이 없으면 여기서 테스트가 멈춘다
+
+    started = time.monotonic()
+    verdict = await clarification_trigger.judge_answerability(
+        question="축복식 참가 자격이 뭔가요?",
+        units=UNITS,
+        bot=BOT,
+        rag_service=_HangingJudge(),
+        timeout=0.05,
+    )
+
+    assert verdict is None  # fail-open — 답변 경로가 그대로 간다
+    assert time.monotonic() - started < 5
+
+
+def test_judge_timeout_has_headroom_over_measured_latency():
+    """상한이 실측보다 넉넉한가. 너무 좁게 잡으면 멀쩡한 판정을 죽인다.
+
+    같은 워크로드 실측(45문항 · n=152): 중앙값 1,474ms · p95 1,929ms · 최대 4,189ms.
+    """
+    assert clarification_trigger.JUDGE_TIMEOUT_SEC >= 4.189 * 3
 
 
 async def test_empty_retrieval_answers_without_calling_the_model():
