@@ -19,8 +19,21 @@ from app.schemas.clarification import (
     ClarificationPreviewRequest,
     ClarificationPreviewResponse,
 )
+from app.services.chat_service import _effective_retrieval_mode
+from app.services.clarification_service import (
+    fixture_decision,
+    live_decision,
+    retrieval_query_from_summary,
+)
+from app.services.ops_facts_service import (
+    apply_term_rules,
+    apply_term_rules_to_citations,
+    load_runtime_facts,
+    term_rules,
+)
 from app.services.rag.factory import get_rag_service
-from app.services.clarification_service import fixture_decision, live_decision
+from app.services.strict_mode import STRICT_EVIDENCE_MESSAGE, has_direct_citation
+from app.services.wiki.service import answer_with_wiki
 
 router = APIRouter(prefix="/clarification-preview", tags=["맥락 보완 프로토타입"])
 _optional_bearer = HTTPBearer(auto_error=False)
@@ -137,12 +150,40 @@ async def preview_rag_answer(
     if not bot.use_rag:
         raise ValidationError("이 봇의 문서 답변이 비활성화되어 있습니다.")
 
-    rag_response = await get_rag_service(provider=bot.llm_model).generate_with_rag(
-        bot_id=bot.id,
-        prompt=request.message,
-        system_prompt=bot.system_prompt,
-        model_name=bot.llm_model,
-    )
+    # 되물은 뒤 답변이 진짜 병목이다(§8). 셋을 지킨다.
+    #  ① 검색 질의와 생성 컨텍스트를 가른다 — 「[요청 요약]」 불릿 덩어리를 그대로
+    #     검색어로 넣으면 형식어가 질의에 섞인다.
+    #  ② 라운드0과 같은 retrieval_mode 를 탄다 — file_search 로 하드코딩하지 않는다.
+    #  ③ strict 게이트와 표기 치환을 우회하지 않는다.
+    query = retrieval_query_from_summary(request.message)
+    if _effective_retrieval_mode(bot) == "lexical":
+        rag_response, _retrieved = await answer_with_wiki(
+            bot_id=bot.id,
+            question=query,
+            system_prompt=bot.system_prompt,
+            model_name=bot.llm_model,
+            context_mode="raw_budget",
+        )
+    else:
+        rag_response = await get_rag_service(provider=bot.llm_model).generate_with_rag(
+            bot_id=bot.id,
+            prompt=query,
+            system_prompt=bot.system_prompt,
+            model_name=bot.llm_model,
+        )
+
+    if getattr(bot, "evidence_policy_mode", "legacy") == "strict" and not has_direct_citation(
+        rag_response.citations
+    ):
+        rag_response.answer = STRICT_EVIDENCE_MESSAGE
+        rag_response.citations = []
+        rag_response.followups = []
+
+    ops_term_rules = term_rules(await load_runtime_facts(session, bot, query))
+    if ops_term_rules:
+        rag_response.answer = apply_term_rules(rag_response.answer, ops_term_rules)
+        apply_term_rules_to_citations(rag_response.citations, ops_term_rules)
+
     return ClarificationAnswerResponse(
         content=rag_response.answer,
         citations=rag_response.citations,

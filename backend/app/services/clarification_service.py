@@ -488,6 +488,26 @@ def _ready_response(
     )
 
 
+def retrieval_query_from_summary(summary: str) -> str:
+    """요약 덩어리에서 **검색에 쓸 질의**만 뽑는다 — 원질문 + 고른 값.
+
+    `_ready_response` 가 만든 한글 불릿 덩어리를 그대로 검색어로 넣으면
+    「최초 요청」·「추가로 확인한 내용」 같은 형식어가 질의에 섞인다. 검색 질의와
+    생성 컨텍스트는 다른 문자열이어야 한다. 형식과 파서를 갈라 놓지 않으려고
+    `_ready_response` 바로 옆에 둔다.
+    """
+    parts: list[str] = []
+    for line in (summary or "").splitlines():
+        line = line.strip()
+        if not line.startswith("- "):
+            continue
+        _, _, value = line[2:].partition(":")
+        value = value.strip() if value else line[2:].strip()
+        if value and value != "없음":
+            parts.append(value)
+    return " ".join(parts) or (summary or "").strip()
+
+
 def _handoff_response(
     rule: ClarificationPolicyRule,
     diagnostics: ClarificationDiagnostics,
