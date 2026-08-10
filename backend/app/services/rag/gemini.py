@@ -92,6 +92,31 @@ _CITATION_INSTRUCTION = (
 
 StructuredResult = TypeVar("StructuredResult", bound=BaseModel)
 
+_PLAN_FORMAT_INSTRUCTION = """
+
+[출력 형식]
+먼저 [EVIDENCE] 태그 안에 검색 문서에 근거한 한두 문장만 작성한다.
+그 다음 [PLAN] 태그 안에 기존 계약의 JSON 객체만 작성한다. JSON 외 설명은 EVIDENCE에만 둔다.
+"""
+
+
+def _plan_json(output_text: str) -> str:
+    """``[PLAN]`` 봉투에서 JSON 본문만 꺼낸다.
+
+    File Search 를 쓰는 경로와 안 쓰는 경로가 같은 봉투 규약을 공유한다.
+    한쪽만 고치면 파서가 갈라지므로 여기 한 곳에 둔다.
+    """
+    envelope_match = _PLAN_ENVELOPE_RE.search(output_text or "")
+    if not envelope_match:
+        raise RuntimeError("구조화 응답에 [PLAN] JSON이 없습니다.")
+    raw_json = _CITATION_MARKER_RE.sub("", envelope_match.group(1))
+    fence_match = _JSON_FENCE_RE.match(raw_json)
+    if fence_match:
+        raw_json = fence_match.group(1)
+    if not raw_json.strip():
+        raise RuntimeError("구조화 응답이 비어 있습니다.")
+    return raw_json
+
 
 def _split_answer_and_followups(raw: str) -> tuple[str, list[str]]:
     """모델 응답에서 <followups> 블록을 떼어 본문/추천 질문으로 분리한다."""
@@ -578,12 +603,7 @@ class GeminiRAGService(BaseRAGService):
             input=prompt,
             system_instruction=(system_prompt or "")
             + _CITATION_INSTRUCTION
-            + """
-
-[출력 형식]
-먼저 [EVIDENCE] 태그 안에 검색 문서에 근거한 한두 문장만 작성한다.
-그 다음 [PLAN] 태그 안에 기존 계약의 JSON 객체만 작성한다. JSON 외 설명은 EVIDENCE에만 둔다.
-""",
+            + _PLAN_FORMAT_INSTRUCTION,
             tools=[tool],
             generation_config={
                 "temperature": temperature,
@@ -595,16 +615,7 @@ class GeminiRAGService(BaseRAGService):
         gen_ms = (time.perf_counter() - t_gen) * 1000
 
         output_text = getattr(interaction, "output_text", "") or ""
-        envelope_match = _PLAN_ENVELOPE_RE.search(output_text)
-        if not envelope_match:
-            raise RuntimeError("RAG 기반 맥락 보완 응답에 [PLAN] JSON이 없습니다.")
-        raw_json = _CITATION_MARKER_RE.sub("", envelope_match.group(1))
-        fence_match = _JSON_FENCE_RE.match(raw_json)
-        if fence_match:
-            raw_json = fence_match.group(1)
-        if not raw_json.strip():
-            raise RuntimeError("RAG 기반 맥락 보완 응답이 비어 있습니다.")
-        result = response_schema.model_validate_json(raw_json)
+        result = response_schema.model_validate_json(_plan_json(output_text))
 
         try:
             citations = _citations_from_interaction(interaction, approximate=False)
@@ -620,6 +631,42 @@ class GeminiRAGService(BaseRAGService):
             len(citations),
         )
         return result, citations
+
+    async def generate_structured(
+        self,
+        *,
+        prompt: str,
+        system_prompt: str,
+        model_name: str,
+        response_schema: type[StructuredResult],
+        temperature: float = 0.0,
+        max_tokens: int = 1_200,
+    ) -> StructuredResult:
+        """File Search 없이 구조화 JSON만 받는다.
+
+        호출자가 이미 근거 원문을 들고 있을 때 쓴다(어휘 검색 경로). 검색을 한 번 더
+        돌리면 판정이 본 원문과 답변이 본 원문이 갈라져 판정 자체가 무의미해진다.
+        봉투 규약은 ``generate_structured_with_rag`` 와 같다.
+        """
+        t_gen = time.perf_counter()
+        interaction = await self._client.aio.interactions.create(
+            model=model_name,
+            input=prompt,
+            system_instruction=(system_prompt or "") + _PLAN_FORMAT_INSTRUCTION,
+            generation_config={
+                "temperature": temperature,
+                "max_output_tokens": max_tokens,
+            },
+            store=False,
+        )
+        gen_ms = (time.perf_counter() - t_gen) * 1000
+
+        output_text = getattr(interaction, "output_text", "") or ""
+        result = response_schema.model_validate_json(_plan_json(output_text))
+        logger.info(
+            "gemini structured(no-tool) elapsed=%.1fms model=%s", gen_ms, model_name
+        )
+        return result
 
     async def generate_stream_with_rag(
         self,
