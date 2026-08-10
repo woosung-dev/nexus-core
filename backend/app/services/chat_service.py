@@ -33,6 +33,7 @@ from app.services.rag.factory import get_rag_service
 from app.services.strict_mode import (
     STRICT_EVIDENCE_MESSAGE,
     has_direct_citation,
+    has_grounded_citation,
     is_refusal_faq,
 )
 from app.services.unanswered import (
@@ -48,6 +49,33 @@ logger = logging.getLogger(__name__)
 # 어휘 검색(BM25 원문 주입)은 Gemini 클라이언트를 직접 만든다. 다른 프로바이더 봇에서 켜면
 # 조용히 깨지므로 file_search 로 되돌린다.
 _LEXICAL_PROVIDER_PREFIX = "gemini"
+
+
+def _strict_blocks(
+    retrieval_mode: str, trace: RetrievalTrace, response: RAGResponse
+) -> bool:
+    """strict 봇의 답변을 고정 문구로 바꿀 것인가.
+
+    경로마다 「인용」의 뜻이 달라서 자를 나눈다.
+
+        file_search·both   Gemini 가 준 grounding 을 본다 — 기존 `has_direct_citation`
+        lexical            **답변에 남은 근거 표기를 주입 목록과 대조한다**
+
+    어휘 경로에 기존 자를 대면 아무것도 안 걸린다. `wiki.service._citations()` 가 주입
+    유닛마다 `approximate=False` 인용을 만들어 언제나 참이기 때문이다. 그래서 화면이
+    「직접 인용을 남기지 못하면 차단합니다」라고 쓰는데 실제 보호는 0이었다.
+
+    **봇이 스스로 못 답한다고 말한 답변은 그대로 둔다.** 그건 근거 없이 지어낸 답이
+    아니라 프롬프트가 시킨 올바른 거절이고, 고정 문구로 바꾸면 「가정행복국 02-3271-0502」
+    같은 안내가 사라져 오히려 나빠진다. 봇 29 측정에서 차단 대상 31셀 중 30셀이 이것이었다.
+
+    폴백했을 때는 어휘 경로가 아니다 — 답변을 만든 것은 file_search 라 기존 자로 돌아간다.
+    """
+    fell_back = bool({Reason.LEXICAL_EMPTY, Reason.CORPUS_UNAVAILABLE} & set(trace.reasons))
+    if retrieval_mode != "lexical" or fell_back:
+        return not has_direct_citation(response.citations)
+    answer = response.answer or ""
+    return not has_grounded_citation(answer, trace.units) and not is_self_refusal(answer)
 
 
 def _effective_retrieval_mode(bot: Bot) -> str:
@@ -582,9 +610,8 @@ class ChatService:
                     effective_system_prompt,
                     history,
                 )
-                if (
-                    bot.evidence_policy_mode == "strict"
-                    and not has_direct_citation(rag_response.citations)
+                if bot.evidence_policy_mode == "strict" and _strict_blocks(
+                    retrieval_mode, trace, rag_response
                 ):
                     logger.info("strict response blocked: no direct citation bot_id=%s", bot.id)
                     rag_response.answer = STRICT_EVIDENCE_MESSAGE

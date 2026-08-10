@@ -13,9 +13,13 @@ from app.services import chat_service
 from app.services.chat_service import ChatService
 from app.services.strict_mode import (
     STRICT_EVIDENCE_MESSAGE,
+    cited_ids,
     has_direct_citation,
+    has_grounded_citation,
     is_refusal_faq,
 )
+from app.services.unanswered import Reason, RetrievalTrace, is_self_refusal
+from app.services.wiki.store import SourceUnit
 
 
 def test_strict_mode_accepts_only_supported_values():
@@ -30,6 +34,90 @@ def test_direct_citation_and_refusal_faq_rules():
     assert is_refusal_faq("이 항목은 답변할 수 없습니다.")
     assert is_refusal_faq("이 항목은 안내해 드릴 수 없습니다.")
     assert not is_refusal_faq("절차는 세 단계입니다.")
+
+
+# ── 어휘 경로 게이트 ────────────────────────────────────────────────────────
+# 문자열은 전부 봇 29(라이브 D-1 ver2 복제본) 실측 답변에서 그대로 가져왔다.
+# 지어낸 예시로 재면 실제로 나오지 않는 형식만 통과시키게 된다.
+
+_UNITS = [
+    SourceUnit(src_id="reg-55", doc="규정집v20", locator="제55조(축복 관련 공과금)", text="…"),
+    SourceUnit(src_id="reg-56", doc="규정집v20", locator="제56조(가정회비)", text="…"),
+    SourceUnit(src_id="glo-2", doc="대사전v4", locator="행정 2 가정출발", text="…"),
+]
+
+
+def test_cited_ids_reads_both_marker_shapes():
+    assert cited_ids("금식은 3일입니다 [[src: reg-17]].") == {"reg-17"}
+    assert cited_ids("[[src: reg-3, glo-132]]") == {"reg-3", "glo-132"}
+    # 마커 밖에 맨몸으로 쓴 것도 인용으로 친다 — 게이트를 관대하게 잡아야 과잉 거절이 준다
+    assert cited_ids("reg-25 ⑤ 에 따르면") == {"reg-25"}
+    assert cited_ids("근거 없이 단언하는 문장.") == set()
+
+
+def test_grounded_citation_accepts_src_id_and_article_number():
+    # ① src_id 마커
+    assert has_grounded_citation("가정회비는 월 15,000원입니다 [[src: reg-56]].", _UNITS)
+    # ② 사람이 읽는 조문 형식 — 이것을 받는 것이 과잉 거절 22.5% → 5.0% 의 차이다
+    assert has_grounded_citation(
+        "가정기금 30,000원, 가정회비 월 15,000원입니다. [근거: 규정집v20 제55조, 제56조]",
+        _UNITS,
+    )
+    # ③ 0 채움. 모델은 「행정 002」로 쓰는데 locator 는 「행정 2」다
+    assert has_grounded_citation("[근거: 대사전 행정 002]", _UNITS)
+
+
+def test_grounded_citation_rejects_unsupported_answers():
+    assert not has_grounded_citation("절차는 세 단계입니다.", _UNITS)
+    # 주입하지 않은 조문을 댔다 — 대조가 하는 일이 이것이다
+    assert not has_grounded_citation("[근거: 규정집v20 제99조]", _UNITS)
+    assert not has_grounded_citation("[[src: reg-99]]", _UNITS)
+    # 주입 목록이 비면 대조할 것이 없다
+    assert not has_grounded_citation("[[src: reg-55]]", [])
+
+
+def _lexical_trace(*reasons: str) -> RetrievalTrace:
+    trace = RetrievalTrace(units=list(_UNITS))
+    for reason in reasons:
+        trace.mark(reason)
+    return trace
+
+
+def test_strict_blocks_only_ungrounded_assertions_on_lexical_path():
+    grounded = RAGResponse(answer="가정회비는 월 15,000원입니다 [[src: reg-56]].", citations=[])
+    assert not chat_service._strict_blocks("lexical", _lexical_trace(), grounded)
+
+    # 근거 표기 없이 절차를 단언한다 — 실측 96셀 중 유일하게 문구가 바뀐 경우(#39)
+    bare = RAGResponse(
+        answer="가정출발 이전에는 축복정리 후 지상에서 재축복에 임할 수 있습니다.", citations=[]
+    )
+    assert chat_service._strict_blocks("lexical", _lexical_trace(), bare)
+
+
+def test_strict_keeps_the_bots_own_refusal_text():
+    """봇이 스스로 거절한 문구는 고정 문구로 덮지 않는다 — 연결처 안내가 사라진다."""
+    refusal = RAGResponse(
+        answer=(
+            "규정집 이외의 내용에는 답할 수 없습니다. "
+            "담당 교회장 또는 가정행복국(02-3271-0502)으로 문의해 주시기 바랍니다."
+        ),
+        citations=[],
+    )
+    assert is_self_refusal(refusal.answer)
+    assert not chat_service._strict_blocks("lexical", _lexical_trace(), refusal)
+
+
+def test_strict_uses_the_old_rule_off_the_lexical_path():
+    """file_search·both 와 폴백은 Gemini grounding 을 본다 — 기존 동작 그대로."""
+    bare = RAGResponse(answer="근거 표기가 없는 답", citations=[])
+    cited = RAGResponse(answer="근거 표기가 없는 답", citations=[RAGCitation(title="공식 자료")])
+
+    assert chat_service._strict_blocks("file_search", RetrievalTrace(), bare)
+    assert not chat_service._strict_blocks("file_search", RetrievalTrace(), cited)
+    # 어휘가 빈손이라 폴백했다면 답을 만든 것은 file_search 다
+    assert not chat_service._strict_blocks(
+        "lexical", _lexical_trace(Reason.LEXICAL_EMPTY), cited
+    )
 
 
 def _strict_bot() -> Bot:
