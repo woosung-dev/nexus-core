@@ -63,6 +63,25 @@ class ClarificationPreviewResponse(BaseModel):
     policy_context: str | None = None
 
 
+class ChatClarification(BaseModel):
+    """실제 대화가 되물을 때 응답에 싣는 것. 프로토타입 계약과 별개다.
+
+    `ClarificationPreviewResponse` 를 재사용하지 않는다 — 그쪽은
+    `source: "fixture"|"live"|"fallback"` 과 `fallback`·`diagnostics` 를 요구하는데
+    실제 대화에는 픽스처도 진단도 없다. 화면이 실제로 쓰는 `ClarificationQuestion`
+    모양만 공유하면 프로토타입의 `OptionFields` 를 그대로 재사용할 수 있다.
+
+    `round` 는 되묻기를 한 번으로 묶기 위한 것이다. 0 = 처음 되물었다.
+    이 값이 실린 응답에 사용자가 답하면 클라이언트가 그대로 돌려보내고,
+    서버는 1 이상이면 판정을 건너뛴다.
+    """
+
+    status: Literal["ask", "handoff"]
+    questions: list[ClarificationQuestion] = Field(default_factory=list)
+    rule_id: str | None = None
+    round: int = 0
+
+
 class ClarificationAnswerRequest(BaseModel):
     """확정 또는 건너뛴 요약으로 RAG 답변을 시험하는 비영속 요청."""
 

@@ -1,0 +1,179 @@
+{
+  "_note": [
+    "되묻기 규칙 v2. 시드(clarification-policy-seed-2026-08-11.json)를 대체한다 — 시드가 겨냥한",
+    "문항(11·16·17·22·31·32)에는 판정기가 아예 안 켜져서 매칭 충돌만 만들었다.",
+    "",
+    "표적은 45문항 실측의 판정 양성 6건이다 (exports/clarify_eval/results.json, status != answer):",
+    "  33 → family-start-12day            축복 유형에 따라 12일 의식이냐가 갈린다",
+    "  34 → family-start-pre-rite         상대방 유형에 따라 3일행사냐 12일 의식이냐가 갈린다",
+    "  18 → child-first-gen-eligibility   연령과 상대확정 경로가 자격의 1차 관문이다",
+    "  45 → b4u-tier                      회원등급과 대상 구분으로 기준이 갈린다",
+    "  36 · 39 → 규칙 없음(handoff). 축복정리는 슬롯형이 아니라 상담 사안이다.",
+    "",
+    "슬롯은 사용자(규정 지식 보유자)가 확정했다. 판정기 추정 중 #36 의 「본인 세대」는",
+    "주입 원문이 뒷받침하지 않아 버렸다 — reg-63·64 는 세대가 아니라 정리/무효화·1년 경과·",
+    "합의 여부로 갈린다.",
+    "",
+    "request_examples 가 매칭의 전부다. BM25 가 「질문 대 이 예시」만 비교한다.",
+    "판정 양성 6건에 직접 돌려서 골랐다 (min_dominance=1.5):",
+    "  min_score=0  → 5/6. #39 가 child-first-gen-eligibility 에 10.94 로 오매칭",
+    "  min_score=15 → 6/6. #39 10.94 < 15 < #45 25.78 ← 채택",
+    "child-first-gen-eligibility 예시에서 「축복을 받을 수 있나요」라는 범용 어구를 빼자",
+    "#39 점수가 16.10 → 10.94 로 떨어져 하한 여유가 벌어졌다.",
+    "min_score=15 는 n=6 스윕이라 근거가 얇다 — 판정을 다시 돌린 뒤 재스윕할 것.",
+    "",
+    "document_refs 는 비워 뒀다. validate_active_policy 가 봇의 File Search 스토어에 있는",
+    "document_id 를 요구하는데 대상 봇(29)은 lexical 이라 스토어가 없다. 어휘 경로의",
+    "decide() 는 document_refs 를 읽지 않는다."
+  ],
+  "enabled": true,
+  "rules": [
+    {
+      "id": "family-start-12day",
+      "name": "12일 가정출발의식 — 축복 유형 확인",
+      "enabled": true,
+      "priority": 30,
+      "request_examples": [
+        "2세 가정 12일 가정출발의식 절차가 뭐야",
+        "12일 의식은 어떻게 진행되나요",
+        "12일 가정출발의식 순서를 알려주세요",
+        "축복자녀가정 12일 특별의식 절차"
+      ],
+      "why_ask": "12일 가정출발의식은 축복자녀-미혼 1세 축복 후 축복자녀가정 편성 대상에게 적용된다(제43조). 대사전 행정125는 '2세 축복'이라는 표현만으로 절차를 단정하지 말라고 명시한다. 축복 유형을 모르면 12일 의식 대상인지 3일행사 대상인지 특정할 수 없다.",
+      "document_refs": [],
+      "required_slots": [
+        {
+          "id": "blessing_type",
+          "label": "축복 유형",
+          "question": "어떤 축복에 대한 질문인가요?",
+          "selection_mode": "single",
+          "options": [
+            { "id": "child_to_child", "label": "축복자녀 간 축복" },
+            { "id": "child_to_first_gen", "label": "축복자녀-미혼 1세 축복" },
+            { "id": "first_gen", "label": "미혼 1세 간 축복" },
+            { "id": "matured", "label": "기성·독신 축복" },
+            { "id": "unknown", "label": "잘 모르겠어요" }
+          ],
+          "allow_custom": true
+        }
+      ],
+      "when_unknown": "ask"
+    },
+    {
+      "id": "family-start-pre-rite",
+      "name": "가정출발 전 의식 — 상대방 유형 확인",
+      "enabled": true,
+      "priority": 30,
+      "request_examples": [
+        "2세도 가정출발 하기전에 해야되는 의식이 있어",
+        "가정출발 전에 어떤 의식을 하나요",
+        "축복식 뒤 가정출발까지 무슨 절차가 있나요",
+        "성별기간이 끝나면 무엇을 하나요"
+      ],
+      "why_ask": "가정출발은 편성 유형에 따라 3일행사와 12일 가정출발의식으로 갈린다(대사전 행정016). 3일행사는 미혼 1세 편성 가정과 기성축복가정 대상이고(행정004), 성주식 참여 대상도 1세가정·축복자녀-미혼 1세 가정·기성/독신 가정으로 한정된다(제31조). 상대방 유형을 모르면 어느 의식을 안내할지 정할 수 없다.",
+      "document_refs": [],
+      "required_slots": [
+        {
+          "id": "partner_type",
+          "label": "축복 상대방 유형",
+          "question": "두 분은 어떤 구성으로 축복을 받으시나요?",
+          "selection_mode": "single",
+          "options": [
+            { "id": "child_to_child", "label": "축복자녀 간 축복" },
+            { "id": "child_to_first_gen", "label": "축복자녀-미혼 1세 축복" },
+            { "id": "first_gen", "label": "미혼 1세 간 축복" },
+            { "id": "matured", "label": "기성·독신 축복" },
+            { "id": "unknown", "label": "잘 모르겠어요" }
+          ],
+          "allow_custom": true
+        }
+      ],
+      "when_unknown": "ask"
+    },
+    {
+      "id": "child-first-gen-eligibility",
+      "name": "축복자녀-미혼 1세 축복 자격",
+      "enabled": true,
+      "priority": 25,
+      "request_examples": [
+        "저는 축복자녀이고 1세 식구와 교제 중입니다 2세-1세 축복으로 준비할 수 있나요",
+        "축복자녀와 미혼 1세 사이의 축복 자격 조건",
+        "2세-1세 축복 자격이 어떻게 되나요",
+        "1세 식구와 교제 중인데 축복자녀-미혼 1세 축복 준비 절차"
+      ],
+      "why_ask": "제39조는 축복자녀-미혼 1세 축복을 공적 소개·부모 간 상대확정·교류상대 전도 등 공식 절차로 상대를 확정한 경우로 정의하고(①), 축복자녀는 남녀 모두 축복식 일자 기준 만 25세 이상을 요구한다(②). 연령과 상대확정 경로가 자격 판단의 1차 관문이라 둘을 모르면 준비 가능 여부를 답할 수 없다.",
+      "document_refs": [],
+      "required_slots": [
+        {
+          "id": "applicant_age",
+          "label": "축복자녀 본인 연령",
+          "question": "축복식 일자 기준으로 만 25세 이상이신가요?",
+          "selection_mode": "single",
+          "options": [
+            { "id": "over_25", "label": "만 25세 이상" },
+            { "id": "under_25", "label": "만 25세 미만" },
+            { "id": "undecided", "label": "축복식 일자가 아직 정해지지 않았어요" }
+          ],
+          "allow_custom": true
+        },
+        {
+          "id": "match_route",
+          "label": "상대 확정 경로",
+          "question": "상대분은 어떤 경로로 만나셨나요?",
+          "selection_mode": "single",
+          "options": [
+            { "id": "official_intro", "label": "공적 소개" },
+            { "id": "parents_confirmed", "label": "부모 간 상대확정" },
+            { "id": "outreach", "label": "교류상대 전도" },
+            { "id": "personal", "label": "개인적으로 만났어요" },
+            { "id": "unknown", "label": "잘 모르겠어요" }
+          ],
+          "allow_custom": true
+        }
+      ],
+      "when_unknown": "ask"
+    },
+    {
+      "id": "b4u-tier",
+      "name": "BLESSING4U 등업 기준",
+      "enabled": true,
+      "priority": 20,
+      "request_examples": [
+        "B4U 등업 기준이 뭐야",
+        "블레싱포유 회원등급은 어떻게 올리나요",
+        "상대검색을 하려면 무엇이 필요한가요",
+        "B4U 프로필 승인 조건이 궁금합니다"
+      ],
+      "why_ask": "제26조가 대기자·신청자·후보자 등급마다 승인 기준과 상대검색·프로필 열람 조건을 다르게 정하고, 제25조 ④⑤ 는 축복자녀와 미혼 1세의 이용 주체를 나눈다(축복자녀는 부모, 미혼 1세는 담당 공직자). 현재 등급과 대상 구분을 모르면 다음 단계 기준을 특정할 수 없다.",
+      "document_refs": [],
+      "required_slots": [
+        {
+          "id": "member_tier",
+          "label": "현재 회원등급",
+          "question": "지금 B4U 회원등급이 어떻게 되시나요?",
+          "selection_mode": "single",
+          "options": [
+            { "id": "waiting", "label": "대기자" },
+            { "id": "applicant", "label": "신청자" },
+            { "id": "candidate", "label": "후보자" },
+            { "id": "unknown", "label": "잘 모르겠어요" }
+          ],
+          "allow_custom": true
+        },
+        {
+          "id": "applicant_type",
+          "label": "대상 구분",
+          "question": "어느 쪽에 해당하시나요?",
+          "selection_mode": "single",
+          "options": [
+            { "id": "blessed_child", "label": "축복자녀" },
+            { "id": "single_first_gen", "label": "미혼 1세" },
+            { "id": "international", "label": "국제매칭 희망자" }
+          ],
+          "allow_custom": true
+        }
+      ],
+      "when_unknown": "ask"
+    }
+  ]
+}
