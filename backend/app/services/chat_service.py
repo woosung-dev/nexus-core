@@ -36,6 +36,8 @@ from app.services.strict_mode import (
     has_direct_citation,
     has_grounded_citation,
     is_refusal_faq,
+    strip_source_markers,
+    strip_source_markers_from_citations,
 )
 from app.services.unanswered import (
     UNANSWERED_MESSAGE,
@@ -692,6 +694,13 @@ class ChatService:
                     # 되물으면서 근거를 같이 보이면 「답은 했는데 또 묻는다」로 읽힌다.
                     rag_response.citations = []
                     rag_response.followups = []
+
+                # 기계 id 표기를 벗긴다. **strict 게이트보다 뒤여야 한다** — 게이트가 그
+                # 표기를 주입 목록과 대조하므로(`has_grounded_citation`) 먼저 지우면
+                # strict 봇이 전부 차단된다. `create_message` 보다는 앞이어야 한다 —
+                # DB 에 남으면 새로고침 때 다시 보인다.
+                rag_response.answer = strip_source_markers(rag_response.answer)
+                strip_source_markers_from_citations(rag_response.citations)
 
                 # ── 1층. 결정론 게이트 ──
                 # 사용자에게 문구가 나가는 조건은 **이것 하나뿐**이다. 지금은 빈 말풍선이

@@ -341,7 +341,11 @@ export function ChatArea({ sessionId }: { sessionId?: string }) {
                             <div className="flex flex-col">
                               <div className="prose prose-zinc max-w-none prose-p:leading-relaxed prose-pre:bg-zinc-50 prose-pre:border prose-pre:zinc-100 prose-code:text-amber-600 prose-headings:text-zinc-900 prose-a:text-amber-500">
                                 <ReactMarkdown
-                                  remarkPlugins={[remarkGfm]}
+                                  // `singleTilde` 기본값이 true 라 `1~3일` 이 취소선으로
+                                  // 렌더된다. 규정 본문에 물결표 범위 표기가 흔하다
+                                  // (「1~3일」·「5~11일」·「만 17~19세」). 이중 물결표
+                                  // `~~취소선~~` 은 그대로 산다.
+                                  remarkPlugins={[[remarkGfm, { singleTilde: false }]]}
                                   rehypePlugins={[rehypeCitationMarkers]}
                                   components={{
                                     // 각주 번호 — 누르면 아래 자료 목록에서 해당 카드를 펼쳐 보여준다.

@@ -32,7 +32,12 @@ from app.services.ops_facts_service import (
     term_rules,
 )
 from app.services.rag.factory import get_rag_service
-from app.services.strict_mode import STRICT_EVIDENCE_MESSAGE, has_direct_citation
+from app.services.strict_mode import (
+    STRICT_EVIDENCE_MESSAGE,
+    has_direct_citation,
+    strip_source_markers,
+    strip_source_markers_from_citations,
+)
 from app.services.wiki.service import answer_with_wiki
 
 router = APIRouter(prefix="/clarification-preview", tags=["맥락 보완 프로토타입"])
@@ -178,6 +183,10 @@ async def preview_rag_answer(
         rag_response.answer = STRICT_EVIDENCE_MESSAGE
         rag_response.citations = []
         rag_response.followups = []
+
+    # 미리보기가 프로덕션과 같은 화면을 보여야 한다. strict 게이트 뒤에 벗긴다.
+    rag_response.answer = strip_source_markers(rag_response.answer)
+    strip_source_markers_from_citations(rag_response.citations)
 
     ops_term_rules = term_rules(await load_runtime_facts(session, bot, query))
     if ops_term_rules:
