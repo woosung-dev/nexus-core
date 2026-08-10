@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>관리자 셸 대조판 · 2안</title>
+<style>
+:root{--ink:#18181b;--muted:#71717a;--line:#e4e4e7;--act:#b45309}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+  background:#f1f1f0;color:var(--ink);min-height:100dvh;display:flex;flex-direction:column}
+header{display:flex;align-items:center;gap:8px;padding:9px 16px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header b{font-size:13.5px;margin-right:6px}
+button{font:inherit;border:1px solid var(--line);background:#fff;border-radius:6px;padding:6px 12px;
+  font-size:12.5px;cursor:pointer;color:var(--ink)}
+button:hover{border-color:var(--act);color:var(--act)}
+button.on{background:var(--act);border-color:var(--act);color:#fff}
+.sp{flex:1}
+.lbl{font-size:11.5px;color:var(--muted)}
+main{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:12px;min-height:0}
+main.one{grid-template-columns:1fr}
+.pane{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:8px;overflow:hidden;min-height:0}
+.cap{font-size:12px;color:var(--muted);padding:7px 14px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:baseline}
+.cap b{color:var(--ink);font-size:12.5px}
+.cap span{font-size:11.5px}
+iframe{flex:1;border:0;width:100%;min-height:0}
+.pane.hide{display:none}
+</style>
+</head>
+<body>
+<header>
+  <b>관리자 셸 · 2안 대조</b>
+  <span class="lbl">화면</span>
+  <button id="v-un" class="on" onclick="setView('unanswered')">못 답한 질문</button>
+  <button id="v-bt" onclick="setView('bots')">봇 상세</button>
+  <span class="sp"></span>
+  <span class="lbl">보기</span>
+  <button id="m-both" class="on" onclick="setMode('both')">나란히</button>
+  <button id="m-a" onclick="setMode('a')">안 A 만</button>
+  <button id="m-b" onclick="setMode('b')">안 B 만</button>
+</header>
+
+<main id="stage">
+  <div class="pane" id="pane-a">
+    <p class="cap"><b>안 A · 콘솔</b> <span>행 34px · 본문 13px · 카드 없음 · 모서리 6px</span></p>
+    <iframe id="fa" src="console-unanswered.html" title="안 A"></iframe>
+  </div>
+  <div class="pane" id="pane-b">
+    <p class="cap"><b>안 B · 정돈</b> <span>행 48px · 본문 14px · 카드 유지 · 모서리 8px</span></p>
+    <iframe id="fb" src="refine-unanswered.html" title="안 B"></iframe>
+  </div>
+</main>
+
+<script>
+let view = 'unanswered';
+function setView(v){
+  view = v;
+  document.getElementById('fa').src = (v === 'bots' ? 'console-bots.html' : 'console-unanswered.html');
+  document.getElementById('fb').src = (v === 'bots' ? 'refine-bots.html'  : 'refine-unanswered.html');
+  document.getElementById('v-un').classList.toggle('on', v === 'unanswered');
+  document.getElementById('v-bt').classList.toggle('on', v === 'bots');
+}
+function setMode(m){
+  const stage = document.getElementById('stage');
+  stage.classList.toggle('one', m !== 'both');
+  document.getElementById('pane-a').classList.toggle('hide', m === 'b');
+  document.getElementById('pane-b').classList.toggle('hide', m === 'a');
+  ['both','a','b'].forEach(k => document.getElementById('m-' + k).classList.toggle('on', k === m));
+}
+</script>
+</body>
+</html>
