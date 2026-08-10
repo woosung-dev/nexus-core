@@ -1,10 +1,10 @@
 """재질문 트리거 측정 — 45문항.
 
     --stage judge      45문항에 B 판정을 돌린다 (Gemini 45회)
-    --stage reanswer   ask 로 걸린 문항을 슬롯 선택지별로 되물어 다시 답한다
+    --stage reanswer   ask 로 걸린 문항을 분기별로 되물어 다시 답한다 (전수 조합 아님 — _branches 참조)
     --retry-failed     빈 셀만 다시 채운다. **재실행할 때는 반드시 붙인다.**
 
-`_run.py`(wiki_eval) 규약을 그대로 따른다 — BM25 전용, 봇 11, 4.2초 페이싱,
+`_run.py`(wiki_eval) 규약을 그대로 따른다 — BM25 전용, 봇 29, 4.2초 페이싱,
 `answers_prev.json` 스냅샷. 감사는 기존 자를 그대로 쓴다:
 
     AUDIT_DIR=$PWD/exports/clarify_eval AUDIT_ARMS=baseline,clarify \\
@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import itertools
 import json
 import logging
 import os
@@ -47,16 +46,21 @@ from app.services.clarification_trigger import decide  # noqa: E402
 from app.services.wiki.service import _select_units, answer_with_wiki  # noqa: E402
 from app.services.wiki.store import get_index  # noqa: E402
 
-BOT_ID = 11
+BOT_ID = 29  # D-1 ver2 복제(1,341자 · lexical). 로컬 11 은 opus2_v4(5,608자)라 라이브 프롬프트가 아니다
 MODEL = "gemini-3.5-flash-lite"
 MAX_TOKENS = 2048
 CONTEXT_MODE = "raw_budget"  # = retrieval_mode "lexical"
+JUDGE_TIMEOUT_SEC = 90  # 한 문항 판정 상한
 GEN_INTERVAL = 4.2  # 초. 쿼터 페이싱 — wiki_eval/_run.py 와 같은 값
-MAX_BRANCHES = 4  # 문항당 슬롯 조합 상한. 넘으면 로그에 버린 수를 남긴다
+MAX_BRANCHES = 8  # 문항당 분기 상한. 전수 조합을 버려서 폭발하지 않는다 — 슬롯 선택지 합만큼이다.
+                  # 넘으면 로그에 버린 수를 남긴다(조용히 자르지 않는다)
 
 QUESTIONS = REPO / "exports" / "wiki_eval" / "questions.json"
 FROZEN = REPO / "exports" / "wiki_eval" / "answers.json"
-POLICY = REPO / "docs" / "architecture" / "clarification-policy-seed-2026-08-11.json"
+POLICY = REPO / "docs" / "architecture" / "clarification-policy-v2-2026-08-10.json"
+# 규칙 매칭 BM25 하한. chat_service.CLARIFICATION_MIN_SCORE 와 같은 값이어야 한다 —
+# 다르면 측정과 실물이 다른 규칙을 고른다. 스윕 근거는 정책 JSON 의 _note.
+MIN_SCORE = 15.0
 RESULTS = DIR / "results.json"
 ANSWERS = DIR / "answers.json"
 
@@ -147,8 +151,18 @@ async def stage_judge(retry_failed: bool) -> None:
         units = _select_units(retrieved, CONTEXT_MODE)
         await _paced()
         try:
-            decision = await decide(
-                question=q["question"], units=units, bot=bot, policy_override=policy
+            # 타임아웃이 필요하다 — Gemini SDK 호출에 클라이언트 타임아웃이 없어서
+            # 한 문항이 매달리면 측정 전체가 12분씩 서 있는다(2026-08-10 실측).
+            # 걸린 문항은 error 로 남고 --retry-failed 가 다시 채운다.
+            decision = await asyncio.wait_for(
+                decide(
+                    question=q["question"],
+                    units=units,
+                    bot=bot,
+                    policy_override=policy,
+                    min_score=MIN_SCORE,
+                ),
+                timeout=JUDGE_TIMEOUT_SEC,
             )
             record = {
                 "n": q["n"],
@@ -186,15 +200,62 @@ async def stage_judge(retry_failed: bool) -> None:
 # ────────────────────────────────────────────────── ② 되물은 뒤 재답변
 
 
+# 질문이 이미 정해 둔 슬롯. **근거 없이 채우지 마라** — 여기 적은 것은 전부
+# 질문 문장이나 그 문항의 앵커가 지목한 것이다.
+#   33  질문이 「12일 가정출발의식」을 콕 집었고 제43조가 그 의식을 축복자녀-미혼 1세
+#       축복 후 축복자녀가정 편성에만 건다. 다른 유형을 고르면 질문 자체가 성립하지 않는다.
+# 나머지 문항은 질문에 단서가 없다 — 그게 되물어야 하는 이유다. 지어내지 않는다.
+PINNED: dict[int, dict[str, str]] = {
+    33: {"blessing_type": "축복자녀-미혼 1세 축복"},
+}
+
+
 def _branches(record: dict) -> list[list[tuple[str, str]]]:
-    """슬롯 조합. 사용자를 지어내지 않으려고 선택지를 전수한다(상한까지)."""
+    """재답변할 분기. **전수 조합을 만들지 않는다.**
+
+    전수를 돌리면 「만 25세 미만 + 공적 소개」처럼 실재하지 않는 사람이 섞여 측정이
+    흐려진다(선행 인계 §6-③ 이 여기서 실패했다). 대신:
+
+        ① 질문이 정해 둔 슬롯은 고정한다(`PINNED`)
+        ② 나머지는 **한 번에 하나씩만** 바꾸고, 다른 미정 슬롯은 「잘 모르겠어요」로 둔다
+           — 그건 지어낸 값이 아니라 관리자가 넣어 둔 실제 선택지다
+
+    그래서 분기 하나하나가 있을 법한 사람 한 명이다.
+    """
     cards = record.get("questions") or []
     if not cards:
         return []
-    combos = list(itertools.product(*[[(c["question"], o) for o in c["options"]] for c in cards]))
-    if len(combos) > MAX_BRANCHES:
-        log.info("n=%s 조합 %d개 중 %d개만 — 나머지는 버린다", record["n"], len(combos), MAX_BRANCHES)
-    return [list(c) for c in combos[:MAX_BRANCHES]]
+    pinned = PINNED.get(record["n"], {})
+
+    def _default(card: dict) -> str:
+        """미정 슬롯의 기본값. 「모르겠어요」가 있으면 그것, 없으면 첫 선택지."""
+        unknown = [o for o in card["options"] if "모르" in o]
+        return unknown[0] if unknown else card["options"][0]
+
+    base = {
+        c["id"]: pinned.get(c["id"], _default(c)) for c in cards
+    }
+    free = [c for c in cards if c["id"] not in pinned]
+
+    branches: list[list[tuple[str, str]]] = []
+    seen: set[tuple[str, ...]] = set()
+    for card in free:
+        for option in card["options"]:
+            values = {**base, card["id"]: option}
+            key = tuple(values[c["id"]] for c in cards)
+            if key in seen:
+                continue
+            seen.add(key)
+            branches.append([(c["question"], values[c["id"]]) for c in cards])
+
+    if not branches:  # 전부 고정됐다 — 그 한 갈래만 돌린다
+        branches = [[(c["question"], base[c["id"]]) for c in cards]]
+    if len(branches) > MAX_BRANCHES:
+        log.info("n=%s 분기 %d개 중 %d개만 — 나머지는 버린다", record["n"], len(branches), MAX_BRANCHES)
+    log.info(
+        "n=%s 고정 %s · 분기 %d개", record["n"], pinned or "없음", min(len(branches), MAX_BRANCHES)
+    )
+    return branches[:MAX_BRANCHES]
 
 
 def _summary(question: str, picks: list[tuple[str, str]]) -> str:
@@ -230,7 +291,16 @@ async def stage_reanswer(retry_failed: bool) -> None:
             },
         }
 
-        for i, picks in enumerate(_branches(record)):
+        # 이번 실행이 만들 분기보다 옛 실행 분기가 많으면 잔재가 남는다 — 먼저 지운다.
+        # (2026-08-10: 시드 정책의 33b1~33b3 이 남아 감사 결과를 오염시켰다)
+        branches = _branches(record)
+        stale = [k for k in rows if k.startswith(f"{n}b") and int(k[len(str(n)) + 1:]) >= len(branches)]
+        for k in stale:
+            rows.pop(k)
+        if stale:
+            log.info("n=%s 옛 분기 %d개 제거: %s", n, len(stale), ", ".join(stale))
+
+        for i, picks in enumerate(branches):
             key = f"{n}b{i}"
             if retry_failed and (rows.get(key, {}).get("clarify", {}).get("answer") or "").strip():
                 continue
