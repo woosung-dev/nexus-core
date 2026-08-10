@@ -1,7 +1,7 @@
 """맥락 부족 시 되물을지 판정한다 — 근거를 읽은 **뒤**에.
 
-**아직 배선되어 있지 않다. 호출자 0개다.** 붙이는 자리는
-`docs/architecture/handoff-clarification-trigger-2026-08-11.md` §삽입점 참조.
+배선은 끝났다(PR #61) — `chat_service._clarification_for` 가 strict 게이트 **뒤**에서
+부른다. 순서를 바꾸면 안 되는 이유는 `tests/test_chat_clarification_wiring.py` 에 있다.
 
 두 갈래로 나뉜다.
 
@@ -34,6 +34,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from types import SimpleNamespace
@@ -59,6 +60,21 @@ logger = logging.getLogger(__name__)
 # 근거 충분성의 대리 지표가 아니므로 임계값을 두는 것이 정당하다. 절대 크기 대신
 # 1위 규칙이 2위를 몇 배로 이겼는지만 본다 — BM25 원점수는 질문 길이에 딸려 움직인다.
 MIN_RULE_DOMINANCE = 1.5
+
+# 판정은 **사용자 응답 경로**에 있다. Gemini SDK 에 클라이언트 타임아웃이 없어
+# 2026-08-10 측정에서 한 호출이 12분 46초간 매달렸다(네트워크는 정상이었다).
+# 그대로 라이브에 켜면 그 호출이 사용자 한 명의 답변을 그만큼 붙잡는다.
+#
+# 같은 측정 로그(`exports/clarify_eval/_run.log`, 판정 181회)의 분포:
+#
+#     중앙 4.24s · p90 4.51s · p95 4.61s · 건강한 최대 5.6s
+#     그 다음이 절벽이다 — 61.8s · 149.8s · 766.2s (3건)
+#
+# 181회 중 178회가 5.6초 안에 끝난다. 절벽 위의 3건은 「느린 호출」이 아니라 멈춘 것이다.
+# 12초는 건강한 최대의 2.1배 여유를 두면서 그 3건을 전부 끊는다.
+# 초과하면 `judge_answerability` 가 None 을 돌려 **답변은 그대로 진행된다**(fail-open) —
+# 너무 짧게 잡아 잃는 것은 되묻기 한 번이고, 너무 길게 잡아 잃는 것은 사용자의 시간이다.
+JUDGE_TIMEOUT_SEC = 12.0
 
 _JUDGE_SYSTEM_PROMPT = """너는 「이 질문은 되물어야 하는가」만 판정한다.
 
@@ -167,11 +183,16 @@ async def judge_answerability(
     service = rag_service or get_rag_service(provider=model_name)
     prompt = f"[질문]\n{question}\n\n[원문]\n{_units_block(units, max_unit_chars)}"
     try:
-        verdict = await service.generate_structured(
-            prompt=prompt,
-            system_prompt=_JUDGE_SYSTEM_PROMPT,
-            model_name=model_name,
-            response_schema=AnswerabilityVerdict,
+        # `TimeoutError` 는 아래 except 가 이미 받는다 — 그런데 그걸 **던지는 것이 없었다.**
+        # 공급자 SDK 에 클라이언트 타임아웃이 없어서다. 여기서 상한을 건다.
+        verdict = await asyncio.wait_for(
+            service.generate_structured(
+                prompt=prompt,
+                system_prompt=_JUDGE_SYSTEM_PROMPT,
+                model_name=model_name,
+                response_schema=AnswerabilityVerdict,
+            ),
+            timeout=JUDGE_TIMEOUT_SEC,
         )
     except (ValidationError, RuntimeError, TimeoutError) as exc:
         logger.warning("재질문 판정 실패 — 답변 진행: %s", exc)
