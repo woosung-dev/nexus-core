@@ -11,6 +11,12 @@
 
 ## 0. 라이브는 아직 안 바뀌었다
 
+> **⚠ 이 절은 낡았다 (2026-08-11).** 라이브는 바뀌었다 — 봇 11에 규칙 4개 +
+> `clarify_enabled=true`. 아래 기대값 「clarify_enabled=true 0 · 규칙 보유 봇 0」은 이제
+> 「1 · 1」이다. **선행 조건 2가지도 이미 충족됐다** — 마이그레이션은 배포가 자동으로
+> 올렸고(손으로 올릴 일이 아니다), 규칙은 `--live --expect-bot-name` 으로 넣었다.
+> 현재 상태와 절차는 `handoff-clarify-live-2026-08-11.md` 를 봐라.
+
 ```bash
 cd backend && uv run python - <<'PY'
 import asyncio, asyncpg, re, pathlib, json
@@ -364,7 +370,7 @@ itertools import  제거        전수 조합을 안 써서
 ## 6. 확인
 
 ```bash
-cd backend && uv run pytest -q                                        # 188 통과
+cd backend && uv run pytest -q                                        # 이 문서 시점 188 → 2026-08-11 현재 221
 cd backend && uv run pytest tests/test_clarification_policy_v2.py -q  # 7 통과 (규칙 6/6 적중)
 cd backend && uv run pytest tests/test_chat_clarification_wiring.py -q # 6 통과
 cd frontend-client && npx tsc --noEmit && npm run build               # 통과
