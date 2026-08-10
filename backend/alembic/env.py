@@ -28,6 +28,7 @@ from app.models.redteam import (  # noqa: F401
     RedteamReview,
 )
 from app.models.wiki_source import WikiBotSource, WikiSourceUnit  # noqa: F401
+from app.models.unanswered import UnansweredQuestion  # noqa: F401
 from sqlmodel import SQLModel
 
 from app.core.config import get_settings

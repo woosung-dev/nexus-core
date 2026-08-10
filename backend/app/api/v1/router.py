@@ -6,7 +6,7 @@ API v1 라우터 통합.
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import auth, bots, chat, clarification_preview, kakao, users, dashboard
-from app.api.v1.endpoints.admin import bots as admin_bots, users as admin_users, faqs, chats, redteam, instructions as admin_instructions, ops_facts as admin_ops_facts
+from app.api.v1.endpoints.admin import bots as admin_bots, users as admin_users, faqs, chats, redteam, instructions as admin_instructions, ops_facts as admin_ops_facts, unanswered as admin_unanswered
 
 router = APIRouter(prefix="/api/v1")
 
@@ -26,4 +26,5 @@ router.include_router(chats.router)
 router.include_router(redteam.router)
 router.include_router(admin_instructions.router)
 router.include_router(admin_ops_facts.router)
+router.include_router(admin_unanswered.router)
 router.include_router(dashboard.router)
