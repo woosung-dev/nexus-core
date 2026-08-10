@@ -58,6 +58,10 @@ def _patch_common(monkeypatch, rag_service):
     monkeypatch.setattr(chat_service, "term_rules", lambda facts: [])
     monkeypatch.setattr(chat_service, "_schedule_evidence_fill", lambda **kw: None)
     monkeypatch.setattr(chat_service, "_schedule_citation_backfill", lambda **kw: None)
+    # 「답변 못 함」 기록·shadow 판정. 여기 안 걸면 DB MagicMock 과 Gemini 호출이
+    # 실제로 돌아 조용히 예외로 삼켜진다 — 이 파일은 조달 분기만 재는 자리다.
+    monkeypatch.setattr(chat_service, "_record_unanswered", AsyncMock(return_value=None))
+    monkeypatch.setattr(chat_service, "_schedule_answerability_judge", lambda **kw: None)
 
 
 async def _run(bot, monkeypatch, stream=False):

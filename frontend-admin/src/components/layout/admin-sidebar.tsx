@@ -1,13 +1,15 @@
 "use client"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Bot, FileText, HelpCircle, LayoutDashboard, Settings, Users, Box, MessageSquare, Sparkles, ShieldAlert, Network } from "lucide-react"
+import { Bot, FileText, HelpCircle, Inbox, LayoutDashboard, Settings, Users, Box, MessageSquare, Sparkles, ShieldAlert, Network } from "lucide-react"
 
 const items = [
   { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
   { title: "Bots", url: "/bots", icon: Bot },
   { title: "FAQs", url: "/faqs", icon: HelpCircle },
   { title: "LLM 위키", url: "/wiki", icon: Network },
+  // 못 답한 질문 → 운영 사실 순서. 앞 화면이 뒤 화면에 무엇을 채울지 알려 준다.
+  { title: "못 답한 질문", url: "/unanswered", icon: Inbox },
   { title: "운영 사실", url: "/ops-facts", icon: ShieldAlert },
   { title: "Documents", url: "/documents", icon: FileText },
   { title: "Gems", url: "/instructions", icon: Sparkles },
