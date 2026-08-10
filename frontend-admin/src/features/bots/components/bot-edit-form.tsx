@@ -10,7 +10,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useWatch } from "react-hook-form"
-import { ImagePlus, X } from "lucide-react"
+import { AlertTriangle, ImagePlus, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useUpdateBot } from "@/features/bots/hooks"
@@ -610,12 +610,26 @@ export function BotEditForm({ bot }: BotEditFormProps) {
                 control={form.control}
                 name="clarify_enabled"
                 render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                  <FormItem className="flex flex-row items-center justify-between gap-4 rounded-lg border p-4">
                     <div className="space-y-0.5">
-                      <FormLabel className="text-base">맥락 보완 파일럿</FormLabel>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <FormLabel className="text-base">맥락 보완 파일럿</FormLabel>
+                        <Badge variant="outline" className="text-[10px] font-normal">
+                          미리보기 전용
+                        </Badge>
+                      </div>
                       <FormDescription>
                         모호한 요청에 선택형 추가 질문을 생성하는 실제 LLM 테스트를 이 봇에서만 허용합니다.
                       </FormDescription>
+                      {/* 켜도 사용자 대화는 안 바뀐다 — clarify_enabled 를 읽는 곳은
+                          미리보기 엔드포인트 하나뿐이다(clarification_preview.py). */}
+                      <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/40 dark:bg-amber-950/30">
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                        <p className="text-[11px] leading-relaxed text-foreground/90">
+                          아래 「추가 확인 질문 정책」의 <b>「테스트하기」에서만 동작합니다.</b>{" "}
+                          실제 사용자 대화에는 아직 연결돼 있지 않습니다.
+                        </p>
+                      </div>
                       <FormMessage />
                     </div>
                     <FormControl>
