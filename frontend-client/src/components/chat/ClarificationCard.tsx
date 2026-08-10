@@ -198,9 +198,9 @@ export function ClarificationCard({
         <div className="mt-4 flex items-start gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3">
           <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-zinc-500" />
           <p className="text-sm leading-6 text-zinc-700">
-            <span className="font-semibold">{unresolvedPicks.join(", ")}</span> 에 대한 기준은
-            아직 규정집에 정리되지 않았습니다. 정리되는 대로 업데이트할 예정이며, 급하시면
-            담당 교회장님이나 가정행복국(02-3271-0502)으로 문의해 주세요.
+            <span className="font-semibold">{unresolvedPicks.join(", ")}</span>에 대한 기준은 아직
+            규정집에 정리되지 않았습니다. 정리되는 대로 업데이트할 예정이며, 급하시면 담당
+            교회장님이나 가정행복국(02-3271-0502)으로 문의해 주세요.
           </p>
         </div>
       )}

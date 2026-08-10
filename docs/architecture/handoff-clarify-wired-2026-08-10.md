@@ -297,20 +297,48 @@ cd backend && uv run pytest tests/test_clarification_policy_v2.py -q   # 9 통�
 없는 것은 라벨이 아니라 **독신 가정의 가정출발 절차**다. 실제로 가른 것은 재답변 셀을
 codex 로 감사한 결과뿐이다 — 새 규칙·선택지를 추가하면 같은 감사를 다시 돌려라.
 
-### 4-6. 브라우저 E2E 는 못 돌렸다
+### 4-6. 브라우저 E2E — 통과
 
-실제 채팅 경로(`/chat/*`)는 로그인 세션 쿠키를 요구하고, 인증 우회는 프로토타입 경로
-(`/chat/new/{id}?clarify-prototype=1`)에만 걸려 있다(`frontend-client/src/middleware.ts:20-26`).
-자격증명이 없어 못 돌렸다.
+실제 채팅 경로(`/chat/*`)는 로그인 세션 쿠키를 요구하고 인증 우회는 프로토타입 경로에만
+걸려 있다(`frontend-client/src/middleware.ts:20-26`). 하나로 계정 없이 도는 방법:
 
-대신 확인한 것:
-- **백엔드 계약 실증** — 로컬 봇 29 에 `process_chat_request` 를 직접 태워
-  `source=clarification_ask` · `rule_id=family-start-12day` · 슬롯 문구가 관리자가 쓴 그대로 ·
-  `messages.clarification` 영속화 True. 재질의(`clarification_round=1`)는 판정을 건너뛰고
-  `source=rag` · 인용 4건. 비표적(#20 계열)은 무영향
-- **프론트** — `npx tsc --noEmit` 통과, `npm run build` 통과
+```bash
+# 1. 세션 JWT 를 직접 만든다 (HS256 · AUTH_JWT_SECRET 은 .env 에 있다 · JIT 프로비저닝이라 계정 불필요)
+cd backend && uv run python -c "
+from app.core.security import create_access_token
+print(create_access_token(subject='e2e-tester', provider='hanaro', is_official=False)[0])"
+# 2. 스택을 띄운다 (로컬 DB 는 docker: docker compose up -d db)
+cd backend && uv run uvicorn app.main:app --host 127.0.0.1 --port 8080
+cd frontend-client && npm run dev
+# 3. Playwright 로 쿠키를 심는다. Chrome 확장의 javascript_tool 은 document.cookie 가 막혀 안 된다
+#    page.context().addCookies([{name:"nexus_session", value:<토큰>, domain:"localhost", path:"/"}])
+```
 
-**남은 것: 브라우저에서 카드가 뜨고, 눌러서 재답변이 오고, 새로고침 후에도 남는지.**
+| 확인 | 결과 |
+|---|---|
+| 카드가 뜨는가 (#33) | ✅ 「몇 가지만 확인할게요」 + 선택지 5개 |
+| 「독신 축복」 → 「정리 중」 문구 | ✅ 문구 표시 · 「답변 보기」 비활성 유지 · **전송 안 됨** |
+| 정의된 선택지 → 재답변 | ✅ 원질문+슬롯답이 사용자 메시지로, 답변에 인용 4건 |
+| 되묻기 한 번까지 | ✅ 재답변 턴에는 카드가 안 뜬다 |
+| **새로고침 후 카드 잔존** | ✅ 카드·선택지·재답변 모두 남고, 지난 턴 카드는 비활성 |
+| 2슬롯 규칙 (#45 `b4u-tier`) | ✅ 회원등급·대상 구분 두 묶음 렌더 |
+| #34 `family-start-pre-rite` | ✅ 실제 대화에서 발동 |
+
+DB 확인 (`session_id=83`): 되물은 어시스턴트 메시지에만
+`clarification={status:ask, rule_id:family-start-12day, round:0, unresolved_options:[독신 축복]}`.
+
+### 4-7. E2E 에서 새로 본 것 — **되묻기와 무관한 기존 문제 2건**
+
+고치지 않았다. 별건이다.
+
+1. **어휘팔 답변에 `[[src: reg-41]]` 마커가 본문에 그대로 노출된다.** 이번 재답변에서 11건.
+   내 변경 이전 냉동 기준선(`exports/wiki_eval/answers.json`)에도 40개 중 3개에 있다 —
+   **기존 동작이고 라이브 봇 11이 `lexical` 이라 사용자에게 보이고 있을 수 있다**
+2. **`1~3일` 이 취소선으로 렌더된다.** `remark-gfm` 이 `~...~` 를 strikethrough 로 읽는다.
+   규정 본문에 물결표가 흔해서 자주 걸릴 수 있다
+
+`messages.clarification` 은 되묻지 않은 행에 SQL NULL 이 아니라 JSON `null` 이 들어간다.
+`citations`·`followups` 도 같은 방식이라 그대로 뒀다(SQLAlchemy `JSON` 기본 동작).
 
 ---
 
@@ -352,13 +380,14 @@ git add -A && TREE=$(git write-tree) && rm -rf /tmp/bootcheck && mkdir -p /tmp/b
 
 ## 7. 다음 — 순서대로
 
-1. **브라우저 E2E 1회**(§4-6). 카드가 뜨는지·눌리는지·「정리 중」 문구가 나오는지·
-   새로고침 후 남는지. 이 세션에서 유일하게 못 확인한 것이다
+1. **`judge_answerability` 에 타임아웃**(§3-5). **라이브 선행 조건이다** —
+   Gemini SDK 에 클라이언트 타임아웃이 없어 측정에서 12분 매달렸다
 2. **#45 슬롯을 사용자에게 확인받아라.** 질문 4개 상한에 걸려 규정 근거로만 정했다
 3. **`min_score` 재스윕.** n=6 이고 그 6건조차 실행마다 바뀐다(§4-2)
-4. **`judge_answerability` 에 타임아웃**(§3-5). 라이브 선행 조건이다
-5. **다른 슬롯에도 `unresolved` 가 필요한지 보라.** 지금 표시된 건 「독신 축복」 하나뿐이고,
+4. **다른 슬롯에도 `unresolved` 가 필요한지 보라.** 지금 표시된 건 「독신 축복」 하나뿐이고,
    그건 감사가 실제로 잡은 것만 고친 결과다(사용자 결정). 새 규칙을 넣을 때마다 재감사
+5. §4-7 의 기존 문제 2건(`[[src:` 노출 · 물결표 취소선)은 되묻기와 무관한 별건이다.
+   1번은 라이브 봇 11이 `lexical` 이라 지금도 사용자에게 보이고 있을 수 있다
 
 라이브 반영은 §0 의 선행 조건 2가지를 먼저 채우고, strict 게이트(PR #59)와
 **같은 배포에 넣지 마라.** CI 가 테스트를 안 돌리고 main push 가 곧 배포라,
