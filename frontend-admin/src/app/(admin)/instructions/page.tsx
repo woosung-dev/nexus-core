@@ -26,7 +26,7 @@ export default function InstructionsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold">Gems</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">프롬프트 작성</h1>
             <Badge variant="outline" className="text-[10px] font-normal">작성 도구</Badge>
           </div>
           <p className="mt-1 text-muted-foreground">Gem을 만들고, 그 Gem으로 시스템 프롬프트를 생성하고, 비교로 검증하세요.</p>
