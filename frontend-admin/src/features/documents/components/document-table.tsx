@@ -4,7 +4,9 @@
  * 문서 목록 Data Table 컴포넌트.
  * 파일명, 크기, 업로드 날짜, 상태(Badge), 삭제 버튼을 표시한다.
  */
+import * as React from "react"
 import { Loader2, Trash2 } from "lucide-react"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Table,
@@ -44,27 +46,37 @@ function formatDate(dateStr: string | null): string {
 // --- 삭제 버튼 셀 (훅 사용을 위해 별도 컴포넌트로 분리) ---
 function DeleteDocumentButton({ botId, fileId, displayName }: { botId: number; fileId: string; displayName: string }) {
   const { mutate: deleteDoc, isPending } = useDeleteDocument(botId)
-
-  function handleDelete() {
-    if (confirm(`'${displayName}' 문서를 삭제하시겠습니까?`)) {
-      deleteDoc(fileId)
-    }
-  }
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
 
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={handleDelete}
-      disabled={isPending}
-      className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-    >
-      {isPending
-        ? <Loader2 className="h-4 w-4 animate-spin" />
-        : <Trash2 className="h-4 w-4" />
-      }
-      <span className="sr-only">삭제</span>
-    </Button>
+    <>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => setConfirmOpen(true)}
+        disabled={isPending}
+        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+      >
+        {isPending
+          ? <Loader2 className="h-4 w-4 animate-spin" />
+          : <Trash2 className="h-4 w-4" />
+        }
+        <span className="sr-only">삭제</span>
+      </Button>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="문서를 삭제할까요?"
+        description={`「${displayName}」이 이 봇의 근거 자료에서 빠집니다. 이후 답변에 쓰이지 않습니다.`}
+        confirmLabel="삭제"
+        isPending={isPending}
+        onConfirm={() => {
+          deleteDoc(fileId)
+          setConfirmOpen(false)
+        }}
+      />
+    </>
   )
 }
 

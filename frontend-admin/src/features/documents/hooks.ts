@@ -11,6 +11,7 @@ import {
   fetchDocuments,
   uploadDocument,
 } from "./api"
+import { toastError, toastSuccess } from "@/lib/toast"
 
 // ─── Query 훅 ─────────────────────────────────────────────────
 
@@ -31,9 +32,11 @@ export function useUploadDocument(botId: number) {
 
   return useMutation({
     mutationFn: (file: File) => uploadDocument(botId, file),
-    onSuccess: () => {
+    onSuccess: (_data, file) => {
       queryClient.invalidateQueries({ queryKey: documentKeys.byBot(botId) })
+      toastSuccess(`「${file.name}」을 올렸습니다.`)
     },
+    onError: (error) => toastError(error, "문서를 올리지 못했습니다."),
   })
 }
 
@@ -45,6 +48,8 @@ export function useDeleteDocument(botId: number) {
     mutationFn: (fileId: string) => deleteDocument(botId, fileId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: documentKeys.byBot(botId) })
+      toastSuccess("문서를 삭제했습니다.")
     },
+    onError: (error) => toastError(error, "문서를 삭제하지 못했습니다."),
   })
 }

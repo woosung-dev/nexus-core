@@ -13,6 +13,7 @@ import {
   updateFaq,
 } from "./api"
 import type { FaqCreateRequest, FaqUpdateRequest } from "./types"
+import { toastError, toastSuccess } from "@/lib/toast"
 
 // ─── Query 훅 ─────────────────────────────────────────────────
 
@@ -38,7 +39,9 @@ export function useCreateFaq() {
       queryClient.invalidateQueries({
         queryKey: faqKeys.lists(variables.bot_id),
       })
+      toastSuccess("지정 답변을 등록했습니다.")
     },
+    onError: (error) => toastError(error, "지정 답변을 등록하지 못했습니다."),
   })
 }
 
@@ -53,7 +56,9 @@ export function useUpdateFaq(botId: number) {
       queryClient.invalidateQueries({
         queryKey: faqKeys.lists(botId),
       })
+      toastSuccess("지정 답변을 수정했습니다.")
     },
+    onError: (error) => toastError(error, "지정 답변을 수정하지 못했습니다."),
   })
 }
 
@@ -67,6 +72,8 @@ export function useDeleteFaq(botId: number) {
       queryClient.invalidateQueries({
         queryKey: faqKeys.lists(botId),
       })
+      toastSuccess("지정 답변을 삭제했습니다.")
     },
+    onError: (error) => toastError(error, "지정 답변을 삭제하지 못했습니다."),
   })
 }

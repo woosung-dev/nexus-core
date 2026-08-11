@@ -1,9 +1,11 @@
 "use client"
 
+import * as React from "react"
 import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown, MoreHorizontal, Pencil } from "lucide-react"
 import { useRouter } from "next/navigation"
 
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,14 +23,10 @@ import type { BotResponse } from "@/features/bots/types"
 function BotActionCell({ bot }: { bot: BotResponse }) {
   const router = useRouter()
   const { mutate: deleteBot, isPending } = useDeleteBot()
-
-  function handleDelete() {
-    if (confirm(`'${bot.name}' 봇을 삭제하시겠습니까?`)) {
-      deleteBot(bot.id)
-    }
-  }
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-8 w-8 p-0">
@@ -53,7 +51,7 @@ function BotActionCell({ bot }: { bot: BotResponse }) {
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={handleDelete}
+          onClick={() => setConfirmOpen(true)}
           disabled={isPending || !bot.is_active}
           className="text-destructive"
         >
@@ -61,6 +59,22 @@ function BotActionCell({ bot }: { bot: BotResponse }) {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+
+    {/* DropdownMenu 의 **형제**로 둔다. 자식으로 넣으면 메뉴가 닫히며 같이
+        언마운트돼 다이얼로그가 아예 뜨지 않는다. */}
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title="봇을 비활성화할까요?"
+      description={`「${bot.name}」이 목록에서 비활성 상태로 바뀝니다. 대화 기록은 지워지지 않습니다.`}
+      confirmLabel="비활성화"
+      isPending={isPending}
+      onConfirm={() => {
+        deleteBot(bot.id)
+        setConfirmOpen(false)
+      }}
+    />
+    </>
   )
 }
 

@@ -1,8 +1,10 @@
 "use client"
 
+import * as React from "react"
 import { ColumnDef } from "@tanstack/react-table"
 import { ArrowUpDown, MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,13 +27,10 @@ interface FaqActionCellProps {
 
 // --- 액션 셀 컴포넌트 (훅 의존 없이 콜백으로 처리) ---
 function FaqActionCell({ faq, onEdit, onDelete, isDeleting }: FaqActionCellProps) {
-  function handleDelete() {
-    if (confirm(`'${faq.question}' FAQ를 삭제하시겠습니까?`)) {
-      onDelete(faq.id)
-    }
-  }
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="h-8 w-8 p-0">
@@ -51,7 +50,7 @@ function FaqActionCell({ faq, onEdit, onDelete, isDeleting }: FaqActionCellProps
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={handleDelete}
+          onClick={() => setConfirmOpen(true)}
           disabled={isDeleting}
           className="text-destructive gap-2"
         >
@@ -60,6 +59,21 @@ function FaqActionCell({ faq, onEdit, onDelete, isDeleting }: FaqActionCellProps
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+
+    {/* DropdownMenu 의 형제로 둔다 — 자식이면 메뉴와 같이 언마운트된다. */}
+    <ConfirmDialog
+      open={confirmOpen}
+      onOpenChange={setConfirmOpen}
+      title="지정 답변을 삭제할까요?"
+      description={`「${faq.question}」에 대한 지정 답변이 사라지고, 이 질문은 다시 AI 추론으로 답하게 됩니다.`}
+      confirmLabel="삭제"
+      isPending={isDeleting}
+      onConfirm={() => {
+        onDelete(faq.id)
+        setConfirmOpen(false)
+      }}
+    />
+    </>
   )
 }
 

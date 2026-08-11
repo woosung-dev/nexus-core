@@ -14,6 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useDeactivateUser } from "@/features/users/hooks"
@@ -42,13 +43,8 @@ function formatDate(dateStr: string): string {
 // --- 액션 셀 (훅 사용을 위해 별도 컴포넌트로 분리) ---
 function UserActionCell({ user }: { user: UserResponse }) {
   const [editOpen, setEditOpen] = React.useState(false)
+  const [confirmOpen, setConfirmOpen] = React.useState(false)
   const { mutate: deactivate, isPending } = useDeactivateUser()
-
-  function handleDeactivate() {
-    if (confirm(`'${user.email}' 사용자를 비활성화하시겠습니까?`)) {
-      deactivate(user.id)
-    }
-  }
 
   return (
     <>
@@ -69,7 +65,7 @@ function UserActionCell({ user }: { user: UserResponse }) {
           variant="ghost"
           size="sm"
           className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-          onClick={handleDeactivate}
+          onClick={() => setConfirmOpen(true)}
           disabled={isPending || !user.is_active}
         >
           {isPending
@@ -82,6 +78,19 @@ function UserActionCell({ user }: { user: UserResponse }) {
 
       {/* 수정 Dialog */}
       <UserEditDialog user={user} open={editOpen} onOpenChange={setEditOpen} />
+
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="사용자를 비활성화할까요?"
+        description={`${user.email} 계정이 비활성 상태로 바뀝니다. 다시 활성화할 수 있습니다.`}
+        confirmLabel="비활성화"
+        isPending={isPending}
+        onConfirm={() => {
+          deactivate(user.id)
+          setConfirmOpen(false)
+        }}
+      />
     </>
   )
 }

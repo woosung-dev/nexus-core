@@ -12,6 +12,7 @@ import {
   userKeys,
 } from "./api"
 import type { UserAdminUpdateRequest } from "./types"
+import { toastError, toastSuccess } from "@/lib/toast"
 
 // ─── Query 훅 ─────────────────────────────────────────────────
 
@@ -34,7 +35,9 @@ export function useUpdateUser(userId: number) {
     onSuccess: () => {
       // 목록 캐시 전체 무효화 (필터 조합과 무관하게 최신 데이터 유지)
       queryClient.invalidateQueries({ queryKey: userKeys.lists() })
+      toastSuccess("사용자 정보를 수정했습니다.")
     },
+    onError: (error) => toastError(error, "사용자 정보를 수정하지 못했습니다."),
   })
 }
 
@@ -46,6 +49,8 @@ export function useDeactivateUser() {
     mutationFn: (userId: number) => deactivateUser(userId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: userKeys.lists() })
+      toastSuccess("사용자를 비활성화했습니다.")
     },
+    onError: (error) => toastError(error, "사용자를 비활성화하지 못했습니다."),
   })
 }
