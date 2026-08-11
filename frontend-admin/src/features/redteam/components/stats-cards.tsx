@@ -4,6 +4,7 @@
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { LoadFailed } from "./load-failed"
 import { RISK_LEVELS } from "../constants"
 import type { StatsResponse } from "../types"
 
@@ -37,12 +38,19 @@ function DistBar({
 export function StatsCards({
   stats,
   isLoading,
+  isError,
   reviewerNames,
 }: {
   stats?: StatsResponse
   isLoading: boolean
+  /** 실패했는데 이 값을 안 받으면 스켈레톤이 영원히 남는다 */
+  isError?: boolean
   reviewerNames: string[]
 }) {
+  if (isError) {
+    return <LoadFailed title="통계를 불러오지 못했습니다" />
+  }
+
   if (isLoading || !stats) {
     return (
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

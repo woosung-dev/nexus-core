@@ -8,6 +8,7 @@ import {
   LEVEL_COLOR,
   STATUS_COLOR,
 } from "../constants"
+import { LoadFailed } from "@/features/redteam/components/load-failed"
 import { useManageStats } from "../hooks"
 
 function Bars({
@@ -70,7 +71,16 @@ function Kpi({ label, value, sub }: { label: string; value: string; sub?: string
 }
 
 export function SummaryClient() {
-  const { data: stats, isLoading } = useManageStats()
+  const { data: stats, isLoading, isError, refetch } = useManageStats()
+
+  // isError 를 안 보면 실패해도 스켈레톤만 남아 무한 로딩으로 보인다.
+  if (isError) {
+    return (
+      <div className="mx-auto max-w-5xl px-6 py-6">
+        <LoadFailed title="요약을 불러오지 못했습니다" onRetry={() => refetch()} />
+      </div>
+    )
+  }
 
   if (isLoading || !stats) {
     return (

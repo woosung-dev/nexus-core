@@ -7,6 +7,7 @@ import Link from "next/link"
 import { ArrowRight, Minus, TrendingDown, TrendingUp } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { LoadFailed } from "../components/load-failed"
 import { useRedteamReport, useRedteamStats } from "../hooks"
 import type { ReportResponse, StatsResponse } from "../types"
 
@@ -74,8 +75,25 @@ function ProgressBar({ label, value, total }: { label: string; value: number; to
 }
 
 export function OverviewClient() {
-  const { data: report, isLoading: reportLoading } = useRedteamReport()
-  const { data: stats, isLoading: statsLoading } = useRedteamStats()
+  const { data: report, isLoading: reportLoading, isError: reportError, refetch: refetchReport } =
+    useRedteamReport()
+  const { data: stats, isLoading: statsLoading, isError: statsError, refetch: refetchStats } =
+    useRedteamStats()
+
+  // isError 를 안 보면 서버가 죽었을 때 스켈레톤이 영원히 남는다 — 무한 로딩으로 보인다.
+  if (reportError || statsError) {
+    return (
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <LoadFailed
+          title="현황을 불러오지 못했습니다"
+          onRetry={() => {
+            refetchReport()
+            refetchStats()
+          }}
+        />
+      </div>
+    )
+  }
 
   if (reportLoading || statsLoading || !report || !stats) {
     return (

@@ -74,6 +74,7 @@ function FlowMeter({ stats }: { stats: ManageStatsResponse }) {
 }
 import { ManageDetail } from "./manage-detail"
 import { ManageGroupList } from "./manage-group-list"
+import { LoadFailed } from "@/features/redteam/components/load-failed"
 
 const ALL = "__all__"
 const PAGE_SIZE = 50
@@ -166,7 +167,7 @@ export function ManageBoard() {
     page_size: PAGE_SIZE,
   }
 
-  const { data, isLoading } = useManageGroups(params)
+  const { data, isLoading, isError, refetch } = useManageGroups(params)
   const { data: stats } = useManageStats()
   const groups = data?.groups ?? []
   const total = data?.total ?? 0
@@ -309,13 +310,20 @@ export function ManageBoard() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[380px_1fr]">
         <div className="flex flex-col overflow-hidden rounded-lg border">
           <div className="max-h-[72vh] overflow-y-auto">
-            <ManageGroupList
-              groups={groups}
-              total={total}
-              isLoading={isLoading}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-            />
+            {/* 조회 실패를 「없습니다」로 보여 주면 데이터가 없는 줄 안다. */}
+            {isError ? (
+              <div className="p-4">
+                <LoadFailed title="목록을 불러오지 못했습니다" onRetry={() => refetch()} />
+              </div>
+            ) : (
+              <ManageGroupList
+                groups={groups}
+                total={total}
+                isLoading={isLoading}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+              />
+            )}
           </div>
           <div className="flex items-center justify-between border-t bg-background px-3 py-2 text-xs">
             <Button
