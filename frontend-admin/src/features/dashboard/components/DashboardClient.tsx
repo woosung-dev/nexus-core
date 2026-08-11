@@ -17,13 +17,14 @@ export function DashboardClient() {
   }
 
   if (isError || !data) {
-    return <div className="p-8 text-center text-red-500">데이터를 불러오는데 실패했습니다.</div>
+    return <div className="p-8 text-center text-destructive">데이터를 불러오는데 실패했습니다.</div>
   }
 
-  // 도넛 슬라이스 색상 — 상위 봇 구분용 팔레트 + '기타'용 회색.
-  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#19A7CE', '#F76E11'];
-  const ETC_COLOR = '#CBD5E1';
-  const MAX_SLICES = 6;
+  // 도넛 슬라이스 색상 — globals.css 의 --chart-* 를 그대로 쓴다. 여기서 hex 를 새로
+  // 정하면 화면마다 다른 팔레트가 생긴다. 토큰이 5색이므로 슬라이스도 5개까지만 쪼갠다.
+  const COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)'];
+  const ETC_COLOR = 'var(--muted-foreground)';
+  const MAX_SLICES = 5;
 
   // 봇이 많아져도 도넛/범례가 깨지지 않도록 상위 N개 + '기타(N개)'로 묶는다.
   const sortedShares = [...data.bot_shares].sort((a, b) => b.count - a.count);
@@ -115,8 +116,8 @@ export function DashboardClient() {
           <CardContent className="h-[350px] pb-4">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data.recent_trends}>
-                <XAxis dataKey="date" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => val.slice(5)} />
-                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                <XAxis dataKey="date" stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(val) => val.slice(5)} />
+                <YAxis stroke="var(--muted-foreground)" fontSize={12} tickLine={false} axisLine={false} />
                 <Tooltip />
                 <Bar dataKey="count" fill="currentColor" radius={[4, 4, 0, 0]} className="fill-primary" />
               </BarChart>
@@ -169,7 +170,7 @@ export function DashboardClient() {
                       <span className="truncate text-muted-foreground" title={entry.bot_name}>
                         {entry.bot_name}
                       </span>
-                      <span className="ml-auto shrink-0 tabular-nums text-zinc-400">
+                      <span className="ml-auto shrink-0 tabular-nums text-muted-foreground">
                         {Math.round((entry.count / shareTotal) * 100)}%
                       </span>
                     </li>
@@ -204,7 +205,7 @@ export function DashboardClient() {
                   <div className="space-y-4">
                     {data.recent_negative_feedbacks.map((f) => (
                       <div key={f.id} className="flex items-start gap-4 rounded-md border p-4 bg-card hover:bg-accent/50 transition-colors">
-                        <AlertCircle className="mt-0.5 h-5 w-5 text-red-500 shrink-0" />
+                        <AlertCircle className="mt-0.5 size-5 shrink-0 text-destructive" />
                         <div className="flex-1 space-y-1">
                           <p className="text-sm font-medium leading-none">
                             {f.session_title || "새 대화"} <span className="text-xs font-normal text-muted-foreground ml-2">({f.bot_name || "알 수 없는 봇"})</span>
@@ -231,7 +232,7 @@ export function DashboardClient() {
                   <div className="space-y-4">
                     {data.recent_positive_feedbacks.map((f) => (
                       <div key={f.id} className="flex items-start gap-4 rounded-md border p-4 bg-card hover:bg-accent/50 transition-colors">
-                        <ThumbsUp className="mt-0.5 h-5 w-5 text-blue-500 shrink-0" />
+                        <ThumbsUp className="mt-0.5 size-5 shrink-0 text-primary" />
                         <div className="flex-1 space-y-1">
                           <p className="text-sm font-medium leading-none">
                             {f.session_title || "새 대화"} <span className="text-xs font-normal text-muted-foreground ml-2">({f.bot_name || "알 수 없는 봇"})</span>

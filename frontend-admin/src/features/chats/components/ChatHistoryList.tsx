@@ -1,16 +1,18 @@
 "use client";
 
 import { ChatSession } from "../schemas";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { MessageSquare, Calendar, ChevronLeft, ChevronRight, ThumbsUp, ThumbsDown, Eye } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { DataPagination } from "@/components/common/data-pagination";
+import { EmptyState } from "@/components/common/empty-state";
+import { MessageSquare, Calendar, ThumbsUp, ThumbsDown, Eye } from "lucide-react";
 
 interface ChatHistoryListProps {
   items: ChatSession[];
@@ -24,13 +26,11 @@ interface ChatHistoryListProps {
 }
 
 export function ChatHistoryList({ items, isLoading, total, page, pageSize, onPageChange, onRowClick, onViewFeedback }: ChatHistoryListProps) {
-  const totalPages = Math.ceil(total / pageSize) || 1;
-
   if (isLoading) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-2">
         {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="h-16 w-full animate-pulse bg-zinc-100/80 rounded-xl" />
+          <Skeleton key={i} className="h-12 w-full" />
         ))}
       </div>
     );
@@ -38,56 +38,63 @@ export function ChatHistoryList({ items, isLoading, total, page, pageSize, onPag
 
   if (items.length === 0) {
     return (
-      <div className="bg-white border border-zinc-100 rounded-xl p-12 text-center text-zinc-500 shadow-sm">
-        <MessageSquare className="w-12 h-12 mx-auto mb-4 text-zinc-300 opacity-50" />
-        <p>조건에 맞는 대화 기록이 없습니다.</p>
-      </div>
+      <EmptyState
+        icon={MessageSquare}
+        title="조건에 맞는 대화 기록이 없습니다"
+        description="필터를 지우면 전체 기록을 볼 수 있습니다."
+      />
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="bg-white border border-zinc-100 rounded-xl shadow-sm overflow-hidden">
+      <div className="overflow-hidden rounded-md border">
         <Table>
-          <TableHeader className="bg-zinc-50/50">
+          <TableHeader>
             <TableRow>
-              <TableHead className="w-[80px] font-semibold text-zinc-600 text-center">ID</TableHead>
-              <TableHead className="w-[150px] font-semibold text-zinc-600">봇 (Bot)</TableHead>
-              <TableHead className="w-[200px] font-semibold text-zinc-600">사용자 (User)</TableHead>
-              <TableHead className="font-semibold text-zinc-600">제목</TableHead>
-              <TableHead className="w-[140px] font-semibold text-zinc-600 text-center">반응</TableHead>
-              <TableHead className="w-[140px] font-semibold text-zinc-600 text-right pr-4">일시</TableHead>
+              <TableHead className="w-[80px] text-center">ID</TableHead>
+              <TableHead className="w-[150px]">봇</TableHead>
+              <TableHead className="w-[200px]">사용자</TableHead>
+              <TableHead>제목</TableHead>
+              <TableHead className="w-[140px] text-center">반응</TableHead>
+              <TableHead className="w-[140px] pr-4 text-right">일시</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {items.map((session) => (
-              <TableRow 
-                key={session.id} 
-                className="hover:bg-zinc-50 transition-colors cursor-pointer"
+              <TableRow
+                key={session.id}
+                // 행을 클릭으로만 열 수 있으면 키보드 사용자는 상세로 갈 길이 없다.
+                tabIndex={0}
+                role="button"
+                aria-label={`${session.title} 대화 열기`}
+                className="cursor-pointer"
                 onClick={() => onRowClick?.(session.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onRowClick?.(session.id);
+                  }
+                }}
               >
-                <TableCell className="font-medium text-zinc-900 text-center">#{session.id}</TableCell>
-                <TableCell>
-                  <span className="font-medium text-amber-600">{session.bot_name || "알 수 없음"}</span>
-                </TableCell>
-                <TableCell>
-                  <span className="text-sm text-zinc-600">{session.user_email || "익명"}</span>
-                </TableCell>
-                <TableCell className="text-zinc-700">{session.title}</TableCell>
+                <TableCell className="text-center font-medium tabular-nums">#{session.id}</TableCell>
+                <TableCell className="font-medium">{session.bot_name || "알 수 없음"}</TableCell>
+                <TableCell className="text-muted-foreground">{session.user_email || "익명"}</TableCell>
+                <TableCell>{session.title}</TableCell>
                 <TableCell className="text-center">
                   <div className="flex items-center justify-center gap-1.5">
                     {session.like_count ? (
-                      <span className="flex items-center text-xs font-medium text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-100">
-                        <ThumbsUp className="w-3 h-3 mr-1" /> {session.like_count}
+                      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-medium tabular-nums">
+                        <ThumbsUp className="size-3" aria-hidden /> {session.like_count}
                       </span>
                     ) : null}
                     {session.dislike_count ? (
-                      <span className="flex items-center text-xs font-medium text-red-600 bg-red-50 px-2 py-0.5 rounded-full border border-red-100">
-                        <ThumbsDown className="w-3 h-3 mr-1" /> {session.dislike_count}
+                      <span className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-destructive/5 px-2 py-0.5 text-2xs font-medium tabular-nums text-destructive">
+                        <ThumbsDown className="size-3" aria-hidden /> {session.dislike_count}
                       </span>
                     ) : null}
                     {!session.like_count && !session.dislike_count && (
-                      <span className="text-zinc-300 text-xs">-</span>
+                      <span className="text-2xs text-muted-foreground">-</span>
                     )}
                     {(session.like_count || session.dislike_count) && onViewFeedback ? (
                       <button
@@ -95,18 +102,18 @@ export function ChatHistoryList({ items, isLoading, total, page, pageSize, onPag
                           e.stopPropagation();
                           onViewFeedback(session.id, session.title);
                         }}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] bg-zinc-100 hover:bg-zinc-200 text-zinc-600 hover:text-zinc-900 rounded transition-colors"
-                        title="피드백 포커스 탭에서 이 세션 피드백 보기"
+                        className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-2xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                        aria-label="이 대화의 피드백 보기"
                       >
-                        <Eye className="w-3 h-3" />
+                        <Eye className="size-3" aria-hidden />
                         보기
                       </button>
                     ) : null}
                   </div>
                 </TableCell>
-                <TableCell className="text-right pr-4">
-                  <div className="flex items-center justify-end text-zinc-500 text-sm">
-                    <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                <TableCell className="pr-4 text-right">
+                  <div className="flex items-center justify-end gap-1.5 text-muted-foreground">
+                    <Calendar className="size-3.5" aria-hidden />
                     {new Date(session.created_at).toLocaleDateString()}
                   </div>
                 </TableCell>
@@ -116,34 +123,13 @@ export function ChatHistoryList({ items, isLoading, total, page, pageSize, onPag
         </Table>
       </div>
 
-      <div className="flex items-center justify-between px-2">
-        <p className="text-sm text-zinc-500">
-          총 <span className="font-medium text-zinc-900">{total}</span>개의 기록 중 {(page - 1) * pageSize + (total > 0 ? 1 : 0)}-{Math.min(page * pageSize, total)}
-        </p>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page <= 1}
-          >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            이전
-          </Button>
-          <span className="text-sm text-zinc-600 font-medium px-2">
-            {page} / {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page >= totalPages}
-          >
-            다음
-            <ChevronRight className="w-4 h-4 ml-1" />
-          </Button>
-        </div>
-      </div>
+      <DataPagination
+        page={page}
+        pageSize={pageSize}
+        total={total}
+        onPageChange={onPageChange}
+        unit="개"
+      />
     </div>
   );
 }

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>안 A · 콘솔 — 봇 상세</title>
+<style>
+/* 안 A · 콘솔 — 토큰은 console-unanswered.html 과 동일하다 */
+:root{
+  --bg:#ffffff;--canvas:#fafafa;--fg:#18181b;--muted:#71717a;--faint:#a1a1aa;
+  --line:#e4e4e7;--line-soft:#f1f1f3;--sidebar:#fafafa;
+  --accent:#b45309;--accent-soft:#fef3c7;--primary:#18181b;
+  --danger:#b91c1c;--danger-soft:#fef2f2;--ok:#047857;--ok-soft:#ecfdf5;
+  --radius:6px;--row:34px;--ctl:30px;
+  --font:Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+  --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);font-size:13px;line-height:1.5;color:var(--fg);background:var(--canvas);-webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button,select,input,textarea{font:inherit;color:inherit}
+.tnum{font-variant-numeric:tabular-nums}
+
+.app{display:grid;grid-template-columns:216px 1fr;min-height:100dvh}
+.side{background:var(--sidebar);border-right:1px solid var(--line);display:flex;flex-direction:column}
+.brand{height:52px;display:flex;align-items:center;gap:9px;padding:0 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:14px;letter-spacing:-.01em}
+.mark{width:24px;height:24px;border-radius:var(--radius);background:var(--primary);color:#fff;display:grid;place-items:center;flex:none}
+.nav{flex:1;padding:12px 10px;overflow:auto}
+.nav-solo{margin-bottom:14px}
+.grp{margin-bottom:14px}
+.grp-t{padding:0 8px 5px;font-size:11px;font-weight:600;color:var(--faint);letter-spacing:.04em}
+.nav a{display:flex;align-items:center;gap:9px;height:30px;padding:0 8px;border-radius:var(--radius);color:var(--muted);font-weight:500;transition:background .12s,color .12s}
+.nav a:hover{background:#f0f0f1;color:var(--fg)}
+.nav a.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.nav svg{flex:none}
+.count{margin-left:auto;font-size:11px;font-weight:600;color:var(--accent);background:#fff;border:1px solid #fde68a;border-radius:9px;padding:0 5px;line-height:15px}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:52px;display:flex;align-items:center;gap:10px;padding:0 20px;background:var(--bg);border-bottom:1px solid var(--line)}
+.crumb{font-size:12px;color:var(--muted)}
+.crumb b{color:var(--fg);font-weight:600}
+.crumb a:hover{color:var(--fg);text-decoration:underline}
+.spacer{flex:1}
+.ghost{height:var(--ctl);display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:var(--radius);border:1px solid var(--line);background:var(--bg);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer}
+.ghost:hover{color:var(--fg);border-color:#d4d4d8}
+.body{flex:1;padding:18px 20px 40px;overflow:auto}
+
+.head{display:flex;align-items:flex-start;gap:14px;margin-bottom:14px}
+h1{font-size:20px;font-weight:600;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.id{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--muted);background:#f4f4f5;border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+.sub{margin-top:3px;font-size:12.5px;color:var(--muted)}
+.actions{margin-left:auto;display:flex;gap:7px}
+.btn{height:var(--ctl);padding:0 12px;border-radius:var(--radius);border:1px solid var(--line);background:var(--bg);font-size:12.5px;font-weight:500;cursor:pointer}
+.btn:hover{border-color:#d4d4d8}
+.btn.pri{background:var(--primary);border-color:var(--primary);color:#fff}
+.btn.pri:hover{background:#27272a}
+
+/* 이 봇의 다른 화면 — 크로스링크 */
+.jump{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.jump a{display:inline-flex;align-items:center;gap:6px;height:27px;padding:0 9px;border:1px solid var(--line);background:var(--bg);border-radius:var(--radius);font-size:12px;color:var(--muted)}
+.jump a:hover{color:var(--fg);border-color:#d4d4d8}
+.jump .n{font-family:var(--mono);font-size:11px;color:var(--faint)}
+
+/* 탭 — 밑줄형 */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tab{position:relative;height:34px;padding:0 12px;border:0;background:none;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--fg)}
+.tab[aria-selected="true"]{color:var(--accent);font-weight:600}
+.tab[aria-selected="true"]::after{content:"";position:absolute;left:8px;right:8px;bottom:-1px;height:2px;background:var(--accent);border-radius:1px}
+.tab .c{margin-left:5px;font-family:var(--mono);font-size:11px;color:var(--faint)}
+.tab[aria-selected="true"] .c{color:var(--accent)}
+
+/* 섹션 — 카드 대신 제목 + 실선 */
+section{margin-bottom:22px}
+.sec-h{display:flex;align-items:baseline;gap:8px;padding-bottom:7px;border-bottom:1px solid var(--line);margin-bottom:12px}
+.sec-h h2{font-size:13.5px;font-weight:600}
+.sec-h p{font-size:11.5px;color:var(--muted)}
+.sec-h .right{margin-left:auto;font-size:11.5px;color:var(--muted)}
+
+/* 업로드 영역 */
+.drop{border:1px dashed #d4d4d8;border-radius:var(--radius);background:var(--bg);padding:18px;text-align:center;margin-bottom:12px}
+.drop .ic{color:var(--faint);margin-bottom:6px}
+.drop h3{font-size:12.5px;font-weight:600}
+.drop p{margin-top:2px;font-size:11.5px;color:var(--muted)}
+.drop button{margin-top:9px;height:27px;padding:0 11px;border:1px solid var(--line);background:var(--bg);border-radius:4px;font-size:12px;cursor:pointer}
+
+/* 표 */
+.tblwrap{border:1px solid var(--line);border-radius:var(--radius);background:var(--bg);overflow:hidden}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{background:#fbfbfc;border-bottom:1px solid var(--line);padding:0 12px;height:32px;text-align:left;font-size:11.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+tbody td{border-bottom:1px solid var(--line-soft);padding:0 12px;height:var(--row);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#fafafa}
+.fname{font-weight:500;max-width:0;width:52%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sz{font-family:var(--mono);text-align:right;width:78px;color:var(--muted)}
+.dt{color:var(--muted);width:96px;white-space:nowrap}
+.rowbtn{border:0;background:none;color:var(--muted);cursor:pointer;padding:4px;border-radius:4px}
+.rowbtn:hover{background:#f4f4f5;color:var(--danger)}
+
+.tag{display:inline-flex;align-items:center;height:19px;padding:0 7px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.t-ok{background:var(--ok-soft);color:var(--ok);border-color:#a7f3d0}
+.t-wait{background:#fff7ed;color:#c2410c;border-color:#fed7aa}
+.t-err{background:var(--danger-soft);color:var(--danger);border-color:#fecaca}
+
+/* 경고 배너 — 사실을 말한다 */
+.warn{display:flex;gap:8px;align-items:flex-start;border:1px solid #fed7aa;background:#fffbeb;border-radius:var(--radius);padding:9px 11px;margin-bottom:14px}
+.warn svg{flex:none;color:#c2410c;margin-top:1px}
+.warn p{font-size:11.5px;line-height:1.6;color:#7c2d12}
+.warn b{font-weight:600}
+
+/* 스위치 줄 */
+.row{display:flex;align-items:center;gap:14px;border:1px solid var(--line);background:var(--bg);border-radius:var(--radius);padding:11px 13px;margin-bottom:9px}
+.row .t{font-size:13px;font-weight:500}
+.row .d{margin-top:2px;font-size:11.5px;color:var(--muted)}
+.sw{margin-left:auto;flex:none;width:36px;height:20px;border-radius:10px;background:#d4d4d8;position:relative;border:0;cursor:pointer;transition:background .15s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw[aria-checked="true"]{background:var(--ok)}
+.sw[aria-checked="true"]::after{transform:translateX(16px)}
+@media (prefers-reduced-motion:reduce){.sw,.sw::after{transition:none}}
+.lbl{font-size:11px;color:var(--faint);margin-bottom:7px}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span>
+      Nexus
+    </div>
+    <nav class="nav">
+      <div class="nav-solo">
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>대시보드</a>
+      </div>
+      <div class="grp">
+        <p class="grp-t">운영</p>
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>대화 기록</a>
+        <a href="console-unanswered.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>못 답한 질문<span class="count tnum">31</span></a>
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>운영 사실</a>
+      </div>
+      <div class="grp">
+        <p class="grp-t">봇</p>
+        <a href="#" class="on"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></svg>봇 목록</a>
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 14.06A4 4 0 0 1 14.06 9.94L18 3l-6.94 3.94A4 4 0 0 1 6.94 11L3 18l6.94-3.94Z"/></svg>프롬프트 작성</a>
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 12V8"/></svg>지식 위키</a>
+      </div>
+      <div class="grp">
+        <p class="grp-t">계정</p>
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>사용자</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <p class="crumb">봇 / <a href="#">봇 목록</a> / <b>테스트 봇 D-1 ver2</b></p>
+      <span class="spacer"></span>
+      <button class="ghost">레드팀 심의</button>
+      <button class="ghost">입력관리</button>
+    </header>
+
+    <main class="body">
+      <div class="head">
+        <div>
+          <h1>테스트 봇 D-1 ver2 <span class="id">id 11</span></h1>
+          <p class="sub">2026 규정집 단독 · 어휘 검색 · 프롬프트 1,341자</p>
+        </div>
+        <div class="actions">
+          <button class="btn">취소</button>
+          <button class="btn pri">저장</button>
+        </div>
+      </div>
+
+      <!-- 크로스링크: 지금은 이 화면에서 다른 화면으로 가는 길이 하나도 없다 -->
+      <div class="jump">
+        <a href="console-unanswered.html">이 봇의 못 답한 질문<span class="n">31</span></a>
+        <a href="#">이 봇의 대화 기록<span class="n">1,284</span></a>
+        <a href="#">이 봇의 운영 사실<span class="n">7</span></a>
+      </div>
+
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" aria-selected="false">기본 정보</button>
+        <button class="tab" role="tab" aria-selected="false">답변 설정</button>
+        <button class="tab" role="tab" aria-selected="true">자료<span class="c">23</span></button>
+        <button class="tab" role="tab" aria-selected="false">FAQ 차단<span class="c">35</span></button>
+        <button class="tab" role="tab" aria-selected="false">연동</button>
+      </div>
+
+      <section>
+        <div class="sec-h">
+          <h2>자료 올리기</h2>
+          <p>이 봇이 답할 때 근거로 쓰는 문서입니다</p>
+        </div>
+        <div class="drop">
+          <p class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/></svg></p>
+          <h3>파일을 끌어다 놓으세요</h3>
+          <p>PDF, DOCX, TXT · 한 번에 여러 개 가능</p>
+          <button>파일 고르기</button>
+        </div>
+      </section>
+
+      <section>
+        <div class="sec-h">
+          <h2>등록된 자료</h2>
+          <span class="right tnum">23건</span>
+        </div>
+        <div class="tblwrap">
+          <div class="scroll">
+            <table>
+              <thead><tr><th class="fname">파일</th><th class="sz">크기</th><th>상태</th><th class="dt">올린 날</th><th style="width:44px"></th></tr></thead>
+              <tbody>
+                <tr><td class="fname">2026 축복가정 관리 규정집.pdf</td><td class="sz tnum">4.2 MB</td><td><span class="tag t-ok">반영됨</span></td><td class="dt tnum">7월 28일</td><td><button class="rowbtn" aria-label="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td></tr>
+                <tr><td class="fname">축복 용어 대사전 v4.pdf</td><td class="sz tnum">7.8 MB</td><td><span class="tag t-ok">반영됨</span></td><td class="dt tnum">7월 28일</td><td><button class="rowbtn" aria-label="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td></tr>
+                <tr><td class="fname">공문 282호 - 식구가정 관리 개정.docx</td><td class="sz tnum">148 KB</td><td><span class="tag t-wait">처리 중</span></td><td class="dt tnum">8월 10일</td><td><button class="rowbtn" aria-label="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td></tr>
+                <tr><td class="fname">가정출발 12일 안내.docx</td><td class="sz tnum">92 KB</td><td><span class="tag t-ok">반영됨</span></td><td class="dt tnum">8월 4일</td><td><button class="rowbtn" aria-label="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td></tr>
+                <tr><td class="fname">성물 취급 지침.pdf</td><td class="sz tnum">1.1 MB</td><td><span class="tag t-err">실패</span></td><td class="dt tnum">8월 2일</td><td><button class="rowbtn" aria-label="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td></tr>
+                <tr><td class="fname">국제 축복 거주지 신고 서식.pdf</td><td class="sz tnum">320 KB</td><td><span class="tag t-ok">반영됨</span></td><td class="dt tnum">7월 30일</td><td><button class="rowbtn" aria-label="삭제"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div class="sec-h">
+          <h2>맥락 보완</h2>
+          <p>모호한 요청에 되묻습니다</p>
+        </div>
+        <div class="warn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4M12 17h.01"/></svg>
+          <p>이 스위치를 켜면 <b>실제 사용자 대화에 바로 적용됩니다.</b> 아래 「추가 확인 질문 정책」에 저장한 규칙이 그대로 쓰입니다.</p>
+        </div>
+        <div class="row">
+          <div><p class="t">맥락 보완 사용</p><p class="d">되묻기는 대화당 한 번까지입니다</p></div>
+          <button class="sw" role="switch" aria-checked="true" aria-label="맥락 보완 사용"></button>
+        </div>
+        <div class="row">
+          <div><p class="t">필수 확인 질문</p><p class="d">활성 규칙 4개에서 누락된 항목을 먼저 묻습니다</p></div>
+          <button class="sw" role="switch" aria-checked="true" aria-label="필수 확인 질문"></button>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+</body>
+</html>

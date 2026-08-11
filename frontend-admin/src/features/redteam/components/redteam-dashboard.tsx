@@ -21,6 +21,7 @@ import { useReviewer } from "../use-reviewer"
 import type { GroupListParams } from "../types"
 import { GroupDetailPanel } from "./group-detail"
 import { GroupList } from "./group-list"
+import { LoadFailed } from "./load-failed"
 import { ReviewerPicker } from "./reviewer-picker"
 import { StatsCards } from "./stats-cards"
 
@@ -60,8 +61,8 @@ export function RedteamDashboard() {
     page_size: PAGE_SIZE,
   }
 
-  const { data: stats, isLoading: statsLoading } = useRedteamStats()
-  const { data, isLoading } = useRedteamGroups(params)
+  const { data: stats, isLoading: statsLoading, isError: statsError } = useRedteamStats()
+  const { data, isLoading, isError, refetch } = useRedteamGroups(params)
 
   const groups = data?.groups ?? []
   const total = data?.total ?? 0
@@ -90,7 +91,12 @@ export function RedteamDashboard() {
         )}
       </div>
 
-      <StatsCards stats={stats} isLoading={statsLoading} reviewerNames={reviewer.names} />
+      <StatsCards
+        stats={stats}
+        isLoading={statsLoading}
+        isError={statsError}
+        reviewerNames={reviewer.names}
+      />
 
       {/* 필터 바 */}
       <div className="flex flex-wrap items-center gap-3">
@@ -154,14 +160,21 @@ export function RedteamDashboard() {
         {/* 마스터 리스트 */}
         <div className="flex flex-col overflow-hidden rounded-lg border">
           <div className="max-h-[70vh] overflow-auto">
-            <GroupList
-              groups={groups}
-              total={total}
-              isLoading={isLoading}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              reviewerNames={reviewer.names}
-            />
+            {/* 조회 실패를 「질문이 없습니다」로 보여 주면 데이터가 없는 줄 안다. */}
+            {isError ? (
+              <div className="p-4">
+                <LoadFailed title="질문 목록을 불러오지 못했습니다" onRetry={() => refetch()} />
+              </div>
+            ) : (
+              <GroupList
+                groups={groups}
+                total={total}
+                isLoading={isLoading}
+                selectedId={selectedId}
+                onSelect={setSelectedId}
+                reviewerNames={reviewer.names}
+              />
+            )}
           </div>
           {/* 페이지네이션 */}
           {totalPages > 1 && (

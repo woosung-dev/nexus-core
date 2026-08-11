@@ -61,10 +61,16 @@ import { Separator } from "@/components/ui/separator"
 import { AnswerSettings } from "./answer-settings"
 import { KakaoChannelSection } from "./kakao-channel-section"
 import { ClarificationPolicySection } from "./clarification-policy-section"
+import { BotDocumentsPanel } from "./tabs/bot-documents-panel"
+import { BotFaqsPanel } from "./tabs/bot-faqs-panel"
 
+// 자료·FAQ 는 폼 필드가 아니라 이 봇에 딸린 별도 자원이다. 전에는 최상위 메뉴
+// `/documents` `/faqs` 에 있어서 봇을 다시 골라야 했다. 여기로 들여온다.
 const TABS = [
   { key: "basic", label: "기본 정보" },
   { key: "answer", label: "답변 설정" },
+  { key: "documents", label: "자료" },
+  { key: "faqs", label: "지정 답변" },
   { key: "integration", label: "연동" },
 ] as const
 
@@ -90,6 +96,8 @@ const TAB_FIELDS: Record<TabKey, (keyof BotEditFormValues)[]> = {
     "clarify_enabled",
     "clarification_policy",
   ],
+  documents: [],
+  faqs: [],
   integration: [],
 }
 
@@ -259,7 +267,8 @@ export function BotEditForm({ bot }: BotEditFormProps) {
   }
 
   return (
-    <Card className="max-w-2xl">
+    /* 자료·지정 답변 탭에 표가 들어가므로 폼 전용 폭(max-w-2xl)으로는 좁다. */
+    <Card className="max-w-5xl">
       <CardHeader>
         <CardTitle>봇 수정</CardTitle>
         <CardDescription>
@@ -613,21 +622,21 @@ export function BotEditForm({ bot }: BotEditFormProps) {
                   <FormItem className="flex flex-row items-center justify-between gap-4 rounded-lg border p-4">
                     <div className="space-y-0.5">
                       <div className="flex flex-wrap items-center gap-2">
-                        <FormLabel className="text-base">맥락 보완 파일럿</FormLabel>
+                        <FormLabel className="text-base">맥락 보완</FormLabel>
                         <Badge variant="outline" className="text-[10px] font-normal">
-                          미리보기 전용
+                          실사용 반영
                         </Badge>
                       </div>
                       <FormDescription>
-                        모호한 요청에 선택형 추가 질문을 생성하는 실제 LLM 테스트를 이 봇에서만 허용합니다.
+                        모호한 요청에 선택형 추가 질문을 생성합니다. 되묻기는 대화당 한 번까지입니다.
                       </FormDescription>
-                      {/* 켜도 사용자 대화는 안 바뀐다 — clarify_enabled 를 읽는 곳은
-                          미리보기 엔드포인트 하나뿐이다(clarification_preview.py). */}
-                      <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/40 dark:bg-amber-950/30">
-                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                      {/* 켜면 실제 대화에 적용된다 — chat_service.py 의 `_clarification_for` 가
+                          clarify_enabled 를 보고 아래 정책의 규칙을 그대로 쓴다. */}
+                      <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
                         <p className="text-[11px] leading-relaxed text-foreground/90">
-                          아래 「추가 확인 질문 정책」의 <b>「테스트하기」에서만 동작합니다.</b>{" "}
-                          실제 사용자 대화에는 아직 연결돼 있지 않습니다.
+                          이 스위치를 켜면 <b>실제 사용자 대화에 바로 적용됩니다.</b>{" "}
+                          아래 「추가 확인 질문 정책」에 저장한 규칙이 그대로 쓰입니다.
                         </p>
                       </div>
                       <FormMessage />
@@ -659,8 +668,14 @@ export function BotEditForm({ bot }: BotEditFormProps) {
               <KakaoChannelSection botId={bot.id} />
             </div>
 
-            {/* 버튼 */}
-            <div className="flex items-center gap-3 border-t pt-4">
+            {/* 버튼 — 자료·지정 답변 탭은 폼이 아니라 즉시 반영이라 저장 버튼을 숨긴다.
+                (안 그러면 자료를 올려 놓고 저장을 눌러야 하는 줄 안다.) */}
+            <div
+              className={cn(
+                "flex items-center gap-3 border-t pt-4",
+                (tab === "documents" || tab === "faqs") && "hidden"
+              )}
+            >
               <Button type="submit" disabled={isPending}>
                 {isPending ? "저장 중..." : "저장"}
               </Button>
@@ -675,6 +690,25 @@ export function BotEditForm({ bot }: BotEditFormProps) {
             </div>
           </form>
         </Form>
+
+        {/* 자료·FAQ 는 폼 **밖**이다. 저장 버튼과 무관하게 각자 즉시 반영된다. */}
+        <div
+          id="bot-panel-documents"
+          role="tabpanel"
+          aria-labelledby="bot-tab-documents"
+          className={cn(tab !== "documents" && "hidden")}
+        >
+          <BotDocumentsPanel botId={bot.id} />
+        </div>
+
+        <div
+          id="bot-panel-faqs"
+          role="tabpanel"
+          aria-labelledby="bot-tab-faqs"
+          className={cn(tab !== "faqs" && "hidden")}
+        >
+          <BotFaqsPanel botId={bot.id} />
+        </div>
       </CardContent>
 
       <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>

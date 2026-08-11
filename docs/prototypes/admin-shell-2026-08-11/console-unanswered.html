@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>안 A · 콘솔 — 못 답한 질문</title>
+<style>
+/* ── 안 A · 콘솔 ──────────────────────────────────────────────
+   Data-Dense Dashboard. 카드를 걷어내고 1px 구분선으로 구획한다.
+   토큰은 실제 globals.css 로 그대로 옮길 수 있는 형태로 적었다. */
+:root{
+  --bg:#ffffff;
+  --canvas:#fafafa;
+  --fg:#18181b;
+  --muted:#71717a;
+  --faint:#a1a1aa;
+  --line:#e4e4e7;
+  --line-soft:#f1f1f3;
+  --sidebar:#fafafa;
+  --accent:#b45309;          /* 앰버 1점 — 활성 상태에만 */
+  --accent-soft:#fef3c7;
+  --primary:#18181b;
+  --danger:#b91c1c;
+  --danger-soft:#fef2f2;
+  --ok:#047857;
+  --radius:6px;              /* 단일 반경 */
+  --row:34px;                /* 표 행 높이 */
+  --ctl:30px;                /* 컨트롤 높이 */
+  --font:Pretendard,-apple-system,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
+  --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{font-family:var(--font);font-size:13px;line-height:1.5;color:var(--fg);background:var(--canvas);
+  -webkit-font-smoothing:antialiased}
+a{color:inherit;text-decoration:none}
+button,select,input{font:inherit;color:inherit}
+.tnum{font-variant-numeric:tabular-nums}
+
+/* 레이아웃 */
+.app{display:grid;grid-template-columns:216px 1fr;min-height:100dvh}
+.side{background:var(--sidebar);border-right:1px solid var(--line);display:flex;flex-direction:column}
+.brand{height:52px;display:flex;align-items:center;gap:9px;padding:0 16px;border-bottom:1px solid var(--line);
+  font-weight:600;font-size:14px;letter-spacing:-.01em}
+.mark{width:24px;height:24px;border-radius:var(--radius);background:var(--primary);color:#fff;
+  display:grid;place-items:center;flex:none}
+.nav{flex:1;padding:12px 10px;overflow:auto}
+.nav-solo{margin-bottom:14px}
+.grp{margin-bottom:14px}
+.grp-t{padding:0 8px 5px;font-size:11px;font-weight:600;color:var(--faint);letter-spacing:.04em}
+.nav a{display:flex;align-items:center;gap:9px;height:30px;padding:0 8px;border-radius:var(--radius);
+  color:var(--muted);font-weight:500;transition:background .12s,color .12s}
+.nav a:hover{background:#f0f0f1;color:var(--fg)}
+.nav a.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.nav svg{flex:none}
+.count{margin-left:auto;font-size:11px;font-weight:600;color:var(--accent);
+  background:#fff;border:1px solid #fde68a;border-radius:9px;padding:0 5px;line-height:15px}
+
+.main{display:flex;flex-direction:column;min-width:0}
+.top{height:52px;display:flex;align-items:center;gap:10px;padding:0 20px;background:var(--bg);
+  border-bottom:1px solid var(--line)}
+.crumb{font-size:12px;color:var(--muted)}
+.crumb b{color:var(--fg);font-weight:600}
+.spacer{flex:1}
+.ghost{height:var(--ctl);display:inline-flex;align-items:center;gap:6px;padding:0 10px;border-radius:var(--radius);
+  border:1px solid var(--line);background:var(--bg);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer}
+.ghost:hover{color:var(--fg);border-color:#d4d4d8}
+.body{flex:1;padding:18px 20px 40px;overflow:auto}
+
+/* 페이지 머리 */
+.head{display:flex;align-items:flex-start;gap:16px;margin-bottom:16px}
+h1{font-size:20px;font-weight:600;letter-spacing:-.02em}
+.sub{margin-top:3px;font-size:12.5px;color:var(--muted)}
+
+/* 요약 스트립 — 카드 대신 세로선으로 나눈다 */
+.strip{display:flex;gap:0;margin-bottom:16px;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--bg);overflow:hidden}
+.stat{flex:1;padding:11px 14px;border-right:1px solid var(--line-soft)}
+.stat:last-child{border-right:0}
+.stat .n{font-family:var(--mono);font-size:19px;font-weight:600;letter-spacing:-.02em}
+.stat .l{margin-top:1px;font-size:11.5px;color:var(--muted)}
+.stat.hot .n{color:var(--accent)}
+
+/* 필터 */
+.filters{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:11px}
+select{height:var(--ctl);padding:0 26px 0 9px;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--bg) url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2.5' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 8px center;
+  font-size:12.5px;appearance:none;cursor:pointer}
+select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.clear{height:var(--ctl);padding:0 9px;border:0;background:none;color:var(--muted);font-size:12.5px;
+  border-radius:var(--radius);cursor:pointer}
+.clear:hover{background:#f0f0f1;color:var(--fg)}
+.note{margin-left:auto;font-size:11.5px;color:var(--faint)}
+
+/* 표 — 카드 없이 위아래 선만 */
+.tblwrap{border:1px solid var(--line);border-radius:var(--radius);background:var(--bg);overflow:hidden}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+thead th{position:sticky;top:0;background:#fbfbfc;border-bottom:1px solid var(--line);
+  padding:0 12px;height:32px;text-align:left;font-size:11.5px;font-weight:600;color:var(--muted);white-space:nowrap}
+thead th.sortable{cursor:pointer}
+thead th.sorted{color:var(--fg)}
+tbody td{border-bottom:1px solid var(--line-soft);padding:0 12px;height:var(--row);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover{background:#fafafa}
+tbody tr:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.q{max-width:0;width:46%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.n{font-family:var(--mono);text-align:right;width:56px}
+.when{color:var(--muted);width:96px;white-space:nowrap}
+.bot{color:var(--muted);width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* 배지 — 색만으로 뜻을 전하지 않는다. 글자를 같이 둔다 */
+.tag{display:inline-flex;align-items:center;height:19px;padding:0 7px;border-radius:4px;
+  font-size:11px;font-weight:600;white-space:nowrap;border:1px solid transparent}
+.t-none{background:#f4f4f5;color:#52525b;border-color:#e4e4e7}
+.t-doc{background:#fff7ed;color:#c2410c;border-color:#fed7aa}
+.t-find{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+.t-wrong{background:var(--danger-soft);color:var(--danger);border-color:#fecaca}
+.sig{font-size:11.5px;color:var(--muted);white-space:nowrap}
+
+/* 표 하단 */
+.foot{display:flex;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--line);
+  background:#fbfbfc;font-size:12px;color:var(--muted)}
+.pager{margin-left:auto;display:flex;gap:4px}
+.pg{min-width:26px;height:26px;padding:0 7px;border:1px solid var(--line);background:var(--bg);
+  border-radius:4px;font-size:12px;cursor:pointer;font-variant-numeric:tabular-nums}
+.pg:hover{border-color:#d4d4d8}
+.pg[aria-current]{background:var(--primary);color:#fff;border-color:var(--primary)}
+.pg:disabled{opacity:.4;cursor:not-allowed}
+
+/* 상태 견본 */
+.states{margin-top:22px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.state{border:1px solid var(--line);border-radius:var(--radius);background:var(--bg);padding:18px 14px;text-align:center}
+.state.err{border-color:#fecaca;background:var(--danger-soft)}
+.state .ic{color:var(--faint);margin-bottom:7px}
+.state.err .ic{color:var(--danger)}
+.state h3{font-size:12.5px;font-weight:600}
+.state.err h3{color:var(--danger)}
+.state p{margin-top:3px;font-size:11.5px;color:var(--muted);line-height:1.55}
+.state.err p{color:#991b1b}
+.state button{margin-top:9px;height:26px;padding:0 10px;border:1px solid var(--line);background:var(--bg);
+  border-radius:4px;font-size:11.5px;cursor:pointer}
+.skel{height:11px;border-radius:3px;background:linear-gradient(90deg,#f4f4f5 25%,#ececee 37%,#f4f4f5 63%);
+  background-size:400% 100%;animation:sh 1.4s ease infinite}
+.skel+.skel{margin-top:7px}
+@keyframes sh{0%{background-position:100% 50%}100%{background-position:0 50%}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+.lbl{font-size:11px;color:var(--faint);margin-bottom:7px;text-align:left}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <div class="brand">
+      <span class="mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/></svg></span>
+      Nexus
+    </div>
+    <nav class="nav">
+      <div class="nav-solo">
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>대시보드</a>
+      </div>
+      <div class="grp">
+        <p class="grp-t">운영</p>
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>대화 기록</a>
+        <a href="#" class="on"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>못 답한 질문<span class="count tnum">31</span></a>
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>운영 사실</a>
+      </div>
+      <div class="grp">
+        <p class="grp-t">봇</p>
+        <a href="console-bots.html"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2M20 14h2M15 13v2M9 13v2"/></svg>봇 목록</a>
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 14.06A4 4 0 0 1 14.06 9.94L18 3l-6.94 3.94A4 4 0 0 1 6.94 11L3 18l6.94-3.94Z"/></svg>프롬프트 작성</a>
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="9" y="2" width="6" height="6" rx="1"/><path d="M5 16v-3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v3M12 12V8"/></svg>지식 위키</a>
+      </div>
+      <div class="grp">
+        <p class="grp-t">계정</p>
+        <a href="#"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>사용자</a>
+      </div>
+    </nav>
+  </aside>
+
+  <div class="main">
+    <header class="top">
+      <p class="crumb">운영 / <b>못 답한 질문</b></p>
+      <span class="spacer"></span>
+      <button class="ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>레드팀 심의</button>
+      <button class="ghost"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="8" height="4" x="8" y="2" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>입력관리</button>
+    </header>
+
+    <main class="body">
+      <div class="head">
+        <div>
+          <h1>못 답한 질문</h1>
+          <p class="sub">챗봇이 답하지 못한 질문을 빈도순으로 모읍니다. 무엇부터 채울지 여기서 정합니다.</p>
+        </div>
+      </div>
+
+      <div class="strip">
+        <div class="stat hot"><p class="n tnum">31</p><p class="l">아직 분류 안 함</p></div>
+        <div class="stat"><p class="n tnum">18</p><p class="l">문서 없음</p></div>
+        <div class="stat"><p class="n tnum">9</p><p class="l">문서 틀림</p></div>
+        <div class="stat"><p class="n tnum">7</p><p class="l">운영 사실로 넘김</p></div>
+        <div class="stat"><p class="n tnum">204</p><p class="l">최근 90일 누적</p></div>
+      </div>
+
+      <div class="filters">
+        <select aria-label="봇"><option>전체 봇</option><option selected>11. 테스트 봇 D-1 ver2</option></select>
+        <select aria-label="관측된 신호"><option>전체 신호</option><option>스스로 거절</option><option>빈 답변</option><option>검색 빈손</option></select>
+        <select aria-label="처리 경로"><option selected>아직 분류 안 함</option><option>문서 없음</option><option>문서 틀림</option></select>
+        <button class="clear">필터 지우기</button>
+        <span class="note">기록은 90일 후 삭제됩니다</span>
+      </div>
+
+      <div class="tblwrap">
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th class="q">질문</th>
+                <th class="n sortable sorted">건수 ↓</th>
+                <th class="when">마지막</th>
+                <th>관측된 신호</th>
+                <th>처리 경로</th>
+                <th class="bot">봇</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr tabindex="0"><td class="q">40일 정성기간을 못 채우면 축복식에 참석할 수 없나요</td><td class="n tnum">14</td><td class="when tnum">8월 10일</td><td class="sig">스스로 거절</td><td><span class="tag t-none">분류 안 함</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">재혼 가정의 자녀도 2세로 보나요</td><td class="n tnum">11</td><td class="when tnum">8월 10일</td><td class="sig">검색 빈손</td><td><span class="tag t-doc">문서 없음</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">성주식 없이 입주해도 되는지</td><td class="n tnum">9</td><td class="when tnum">8월 9일</td><td class="sig">빈 답변</td><td><span class="tag t-none">분류 안 함</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">독신 축복을 받은 뒤 결혼하려면 어떤 절차가 필요한가요</td><td class="n tnum">8</td><td class="when tnum">8월 9일</td><td class="sig">스스로 거절</td><td><span class="tag t-wrong">문서 틀림</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">가정공과금은 언제부터 납부하나요</td><td class="n tnum">7</td><td class="when tnum">8월 9일</td><td class="sig">검색 빈손</td><td><span class="tag t-doc">문서 없음</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">B4U 티어가 무엇이고 어떻게 정해지나요</td><td class="n tnum">6</td><td class="when tnum">8월 8일</td><td class="sig">되묻기 판정</td><td><span class="tag t-find">검색 못 함</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">축복 전 성별 교육은 몇 회 들어야 하나요</td><td class="n tnum">6</td><td class="when tnum">8월 8일</td><td class="sig">빈 답변</td><td><span class="tag t-none">분류 안 함</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">282호 공문의 적용 대상이 누구인지</td><td class="n tnum">5</td><td class="when tnum">8월 8일</td><td class="sig">검색 빈손</td><td><span class="tag t-doc">문서 없음</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">식구가정 관리 규정이 개정되었나요</td><td class="n tnum">5</td><td class="when tnum">8월 7일</td><td class="sig">스스로 거절</td><td><span class="tag t-none">분류 안 함</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">국제 축복 가정의 거주지 신고는 어디에</td><td class="n tnum">4</td><td class="when tnum">8월 7일</td><td class="sig">검색 빈손</td><td><span class="tag t-doc">문서 없음</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">성물 취급 시 주의할 점을 알려주세요</td><td class="n tnum">4</td><td class="when tnum">8월 7일</td><td class="sig">빈 답변</td><td><span class="tag t-none">분류 안 함</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">축복 후 이혼 시 자녀의 신분은 어떻게 되나요</td><td class="n tnum">3</td><td class="when tnum">8월 6일</td><td class="sig">스스로 거절</td><td><span class="tag t-wrong">문서 틀림</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">참부모님 말씀 중 축복 관련 원문을 찾고 싶어요</td><td class="n tnum">3</td><td class="when tnum">8월 6일</td><td class="sig">검색 빈손</td><td><span class="tag t-find">검색 못 함</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">가정출발 12일 행사의 순서가 궁금합니다</td><td class="n tnum">2</td><td class="when tnum">8월 5일</td><td class="sig">되묻기 판정</td><td><span class="tag t-none">분류 안 함</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+              <tr tabindex="0"><td class="q">축복 신청 서류에 필요한 증빙이 무엇인가요</td><td class="n tnum">2</td><td class="when tnum">8월 5일</td><td class="sig">빈 답변</td><td><span class="tag t-doc">문서 없음</span></td><td class="bot">11. 테스트 봇 D-1 ver2</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="foot">
+          <span class="tnum">204건 중 1 – 15</span>
+          <span class="pager">
+            <button class="pg" disabled>이전</button>
+            <button class="pg" aria-current="page">1</button>
+            <button class="pg">2</button>
+            <button class="pg">3</button>
+            <button class="pg">다음</button>
+          </span>
+        </div>
+      </div>
+
+      <p class="lbl" style="margin-top:22px">같은 화면의 다른 상태 (실제로 자주 보게 되는 화면이라 같이 그려 둠)</p>
+      <div class="states">
+        <div class="state">
+          <p class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg></p>
+          <h3>이 조건에 맞는 질문이 없습니다</h3>
+          <p>필터를 지우면 전체 목록을 볼 수 있습니다.</p>
+          <button>필터 지우기</button>
+        </div>
+        <div class="state err">
+          <p class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg></p>
+          <h3>목록을 불러오지 못했습니다</h3>
+          <p>서버 응답이 없습니다. 잠시 후 다시 시도해 주세요.</p>
+          <button>다시 시도</button>
+        </div>
+        <div class="state" style="text-align:left;padding:14px">
+          <p class="lbl">불러오는 중</p>
+          <div class="skel" style="width:88%"></div>
+          <div class="skel" style="width:72%"></div>
+          <div class="skel" style="width:80%"></div>
+          <div class="skel" style="width:64%"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</body>
+</html>

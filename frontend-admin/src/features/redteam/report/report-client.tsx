@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
+import { LoadFailed } from "../components/load-failed"
 import { useRedteamReport } from "../hooks"
 import type { ReportResponse, TopRiskQuestion } from "../types"
 import { downloadCsv } from "./export-utils"
@@ -342,7 +343,7 @@ function PriorityTable({
 }
 
 export function ReportClient() {
-  const { data: report, isLoading } = useRedteamReport()
+  const { data: report, isLoading, isError, refetch } = useRedteamReport()
   const [printedAt, setPrintedAt] = React.useState("")
   const [drill, setDrill] = React.useState<DrillFilter | null>(null)
 
@@ -376,7 +377,9 @@ export function ReportClient() {
         </div>
       </header>
 
-      {isLoading || !report ? (
+      {isError ? (
+        <LoadFailed title="보고서를 불러오지 못했습니다" onRetry={() => refetch()} />
+      ) : isLoading || !report ? (
         <div className="flex flex-col gap-4">
           <Skeleton className="h-28 w-full" />
           <Skeleton className="h-72 w-full" />

@@ -3,8 +3,8 @@
 /**
  * 못 답한 질문 도메인 — React Query 훅.
  *
- * 성공 피드백은 토스트가 아니라 **캐시 무효화 + 인라인 상태**다. 이 레포에는 토스트
- * 라이브러리가 없고(sonner·Toaster 0건), 목록이 즉시 다시 그려지는 것이 곧 확인이다.
+ * 성공 확인은 목록이 즉시 다시 그려지는 것이고, 실패는 토스트로 알린다.
+ * (전에는 토스트 라이브러리가 없어 실패가 화면에 전혀 안 나타났다.)
  */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
@@ -15,6 +15,7 @@ import {
   unansweredKeys,
 } from "./api"
 import type { UnansweredListParams, UnansweredTriageRequest } from "./types"
+import { toastError } from "@/lib/toast"
 
 /** 빈도순 질문 그룹 목록 */
 export function useUnanswered(params: UnansweredListParams = {}) {
@@ -39,5 +40,6 @@ export function useSetTriage() {
   return useMutation({
     mutationFn: (request: UnansweredTriageRequest) => setUnansweredTriage(request),
     onSuccess: () => qc.invalidateQueries({ queryKey: unansweredKeys.all }),
+    onError: (error) => toastError(error, "처리 경로를 저장하지 못했습니다."),
   })
 }

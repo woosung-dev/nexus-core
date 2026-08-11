@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { CircleUser, ClipboardList, ExternalLink, Menu, ShieldCheck } from "lucide-react"
+import { ClipboardList, ExternalLink, Menu, ShieldCheck } from "lucide-react"
 
 import {
   Breadcrumb,
@@ -13,30 +13,17 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet"
-import { AdminSidebar } from "./admin-sidebar"
+import { AdminSidebar, NAV_ITEMS, isNavActive } from "./admin-sidebar"
 
-function generateBreadcrumbLabel(pathname: string) {
-  if (pathname.includes("/dashboard")) return "Dashboard"
-  if (pathname.includes("/bots")) return "Bots"
-  if (pathname.includes("/faqs")) return "FAQs"
-  if (pathname.includes("/documents")) return "Documents"
-  if (pathname.includes("/users")) return "Users"
-  if (pathname.includes("/settings")) return "Settings"
-  return "Home"
+// 사이드바 배열이 이름의 출처다 — 메뉴에 항목을 더하면 브레드크럼도 같이 따라온다.
+function currentNavItem(pathname: string) {
+  return NAV_ITEMS.find((entry) => isNavActive(pathname, entry.url))
 }
 
 export function AdminHeader() {
   const pathname = usePathname()
-  const title = generateBreadcrumbLabel(pathname)
+  const item = currentNavItem(pathname)
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b px-4 bg-background">
@@ -53,17 +40,26 @@ export function AdminHeader() {
             <AdminSidebar />
           </SheetContent>
         </Sheet>
-        <Breadcrumb className="hidden md:flex">
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink href="/dashboard">Admin</BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage>{title}</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        {item ? (
+          <Breadcrumb className="hidden md:flex">
+            <BreadcrumbList>
+              {item.group ? (
+                <>
+                  <BreadcrumbItem>{item.group}</BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                </>
+              ) : null}
+              <BreadcrumbItem>
+                {/* 상세로 들어가면 목록으로 돌아갈 길이 생긴다 */}
+                {pathname === item.url ? (
+                  <BreadcrumbPage>{item.title}</BreadcrumbPage>
+                ) : (
+                  <BreadcrumbLink href={item.url}>{item.title}</BreadcrumbLink>
+                )}
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+        ) : null}
       </div>
       <div className="flex items-center gap-2">
         {/* TEMP: 레드팀 심의 진입 (검토 기간 한정 · 종료 후 이 블록 제거) */}
@@ -84,20 +80,6 @@ export function AdminHeader() {
           </Link>
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="rounded-full">
-              <CircleUser className="h-5 w-5" />
-              <span className="sr-only">Toggle user menu</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Admin Account</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem>Settings</DropdownMenuItem>
-            <DropdownMenuItem>Logout</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </header>
   )

@@ -19,6 +19,7 @@ import {
   uploadBotImage,
 } from "./api"
 import type { BotCreateRequest, BotUpdateRequest } from "./types"
+import { toastError, toastSuccess } from "@/lib/toast"
 
 // ─── Query 훅 ─────────────────────────────────────────────────
 
@@ -64,10 +65,12 @@ export function useCreateBot() {
 
       return bot
     },
-    onSuccess: () => {
+    onSuccess: (bot) => {
       queryClient.invalidateQueries({ queryKey: botKeys.lists() })
+      toastSuccess(`봇 「${bot.name}」을 만들었습니다.`)
       router.push("/bots")
     },
+    onError: (error) => toastError(error, "봇을 만들지 못했습니다."),
   })
 }
 
@@ -98,8 +101,10 @@ export function useUpdateBot(id: number) {
       // 목록·상세 캐시 모두 무효화
       queryClient.invalidateQueries({ queryKey: botKeys.lists() })
       queryClient.invalidateQueries({ queryKey: botKeys.detail(id) })
+      toastSuccess("저장했습니다.")
       router.push("/bots")
     },
+    onError: (error) => toastError(error, "저장하지 못했습니다."),
   })
 }
 
@@ -112,7 +117,9 @@ export function useDeleteBot() {
     mutationFn: (id: number) => deleteBot(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: botKeys.lists() })
+      toastSuccess("봇을 삭제했습니다.")
     },
+    onError: (error) => toastError(error, "봇을 삭제하지 못했습니다."),
   })
 }
 

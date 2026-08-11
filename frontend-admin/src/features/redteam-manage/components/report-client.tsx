@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import { RISK_COLOR } from "../constants"
+import { LoadFailed } from "@/features/redteam/components/load-failed"
 import { useManageReport } from "../hooks"
 import type { ManageReportResponse } from "../types"
 
@@ -246,7 +247,7 @@ function ReportBody({ d }: { d: ManageReportResponse }) {
 }
 
 export function ReportClient() {
-  const { data, isLoading } = useManageReport()
+  const { data, isLoading, isError, refetch } = useManageReport()
 
   return (
     <div className="mx-auto max-w-[880px] px-6 py-8">
@@ -268,7 +269,9 @@ export function ReportClient() {
           </Button>
         </div>
 
-        {isLoading || !data ? (
+        {isError ? (
+          <LoadFailed title="보고서를 불러오지 못했습니다" onRetry={() => refetch()} />
+        ) : isLoading || !data ? (
           <div className="flex flex-col gap-4">
             <Skeleton className="h-24 w-full" />
             <Skeleton className="h-40 w-full" />
