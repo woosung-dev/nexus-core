@@ -43,13 +43,20 @@ import { createFaqColumns } from "./columns"
 import { FaqFormDialog } from "./faq-form-dialog"
 
 // ─── FAQ DataTable 컴포넌트 ───────────────────────────────────
-export function FaqDataTable() {
-  // 봇 목록 (봇 선택 Select용)
+/**
+ * @param botId 주면 그 봇에 고정된다(봇 상세 「지정 답변」 탭). 없으면 선택기를 띄운다.
+ */
+export function FaqDataTable({ botId }: { botId?: number } = {}) {
+  const fixedToBot = botId !== undefined
+
+  // 봇 목록 (봇 선택 Select용) — 봇이 고정된 자리에서는 부르지 않는다.
   const { data: botsData, isLoading: isBotsLoading } = useBots()
   const bots = React.useMemo(() => botsData?.bots ?? [], [botsData?.bots])
 
   // 선택된 봇 ID
-  const [selectedBotId, setSelectedBotId] = React.useState<number | null>(null)
+  const [pickedBotId, setPickedBotId] = React.useState<number | null>(null)
+  const selectedBotId = fixedToBot ? botId : pickedBotId
+  const setSelectedBotId = setPickedBotId
 
   // 명시적 선택을 유도하기 위해 첫 번째 봇 자동 선택 기능을 제거합니다.
 
@@ -146,23 +153,25 @@ export function FaqDataTable() {
       {/* 상단: 봇 선택 + 검색 + 추가 버튼 */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          {/* 봇 선택 Select */}
-          <Select
-            value={selectedBotId ? String(selectedBotId) : ""}
-            onValueChange={(val) => setSelectedBotId(Number(val))}
-            disabled={isBotsLoading}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="봇을 선택하세요" />
-            </SelectTrigger>
-            <SelectContent>
-              {bots.map((bot) => (
-                <SelectItem key={bot.id} value={String(bot.id)}>
-                  {bot.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* 봇 선택 Select — 봇 상세 안에서는 이미 정해져 있어 띄우지 않는다 */}
+          {!fixedToBot && (
+            <Select
+              value={selectedBotId ? String(selectedBotId) : ""}
+              onValueChange={(val) => setSelectedBotId(Number(val))}
+              disabled={isBotsLoading}
+            >
+              <SelectTrigger className="w-[200px]">
+                <SelectValue placeholder="봇을 선택하세요" />
+              </SelectTrigger>
+              <SelectContent>
+                {bots.map((bot) => (
+                  <SelectItem key={bot.id} value={String(bot.id)}>
+                    {bot.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
 
           {/* 질문 검색 */}
           <Input
@@ -183,7 +192,7 @@ export function FaqDataTable() {
       </div>
 
       {/* 봇 미선택 안내 */}
-      {!selectedBotId && !isBotsLoading && (
+      {!fixedToBot && !selectedBotId && !isBotsLoading && (
         <div className="flex h-32 items-center justify-center rounded-md border border-dashed text-muted-foreground">
           봇을 먼저 선택해 주세요.
         </div>

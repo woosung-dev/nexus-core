@@ -9,6 +9,7 @@
  * 필터는 선택이 아니다 — 신호가 다섯 종류라 필터가 없으면 목록이 금방 못 읽게 된다.
  */
 import { useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -51,9 +52,12 @@ const REASON_OPTIONS: UnansweredReason[] = [
 ]
 
 export function UnansweredBoard() {
+  // 봇 상세에서 「이 봇의 못 답한 질문」으로 넘어오면 필터가 실려 온다.
+  const initialBotId = useSearchParams().get("bot_id")
+
   const [page, setPage] = useState(1)
   const [sort, setSort] = useState<"count" | "recent">("count")
-  const [botId, setBotId] = useState<string>(ALL)
+  const [botId, setBotId] = useState<string>(initialBotId ?? ALL)
   const [reason, setReason] = useState<string>(ALL)
   const [triage, setTriage] = useState<string>(ALL)
   const [detail, setDetail] = useState<UnansweredGroup | null>(null)

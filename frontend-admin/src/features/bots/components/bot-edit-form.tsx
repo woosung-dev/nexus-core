@@ -61,10 +61,16 @@ import { Separator } from "@/components/ui/separator"
 import { AnswerSettings } from "./answer-settings"
 import { KakaoChannelSection } from "./kakao-channel-section"
 import { ClarificationPolicySection } from "./clarification-policy-section"
+import { BotDocumentsPanel } from "./tabs/bot-documents-panel"
+import { BotFaqsPanel } from "./tabs/bot-faqs-panel"
 
+// 자료·FAQ 는 폼 필드가 아니라 이 봇에 딸린 별도 자원이다. 전에는 최상위 메뉴
+// `/documents` `/faqs` 에 있어서 봇을 다시 골라야 했다. 여기로 들여온다.
 const TABS = [
   { key: "basic", label: "기본 정보" },
   { key: "answer", label: "답변 설정" },
+  { key: "documents", label: "자료" },
+  { key: "faqs", label: "지정 답변" },
   { key: "integration", label: "연동" },
 ] as const
 
@@ -90,6 +96,8 @@ const TAB_FIELDS: Record<TabKey, (keyof BotEditFormValues)[]> = {
     "clarify_enabled",
     "clarification_policy",
   ],
+  documents: [],
+  faqs: [],
   integration: [],
 }
 
@@ -259,7 +267,8 @@ export function BotEditForm({ bot }: BotEditFormProps) {
   }
 
   return (
-    <Card className="max-w-2xl">
+    /* 자료·지정 답변 탭에 표가 들어가므로 폼 전용 폭(max-w-2xl)으로는 좁다. */
+    <Card className="max-w-5xl">
       <CardHeader>
         <CardTitle>봇 수정</CardTitle>
         <CardDescription>
@@ -659,8 +668,14 @@ export function BotEditForm({ bot }: BotEditFormProps) {
               <KakaoChannelSection botId={bot.id} />
             </div>
 
-            {/* 버튼 */}
-            <div className="flex items-center gap-3 border-t pt-4">
+            {/* 버튼 — 자료·지정 답변 탭은 폼이 아니라 즉시 반영이라 저장 버튼을 숨긴다.
+                (안 그러면 자료를 올려 놓고 저장을 눌러야 하는 줄 안다.) */}
+            <div
+              className={cn(
+                "flex items-center gap-3 border-t pt-4",
+                (tab === "documents" || tab === "faqs") && "hidden"
+              )}
+            >
               <Button type="submit" disabled={isPending}>
                 {isPending ? "저장 중..." : "저장"}
               </Button>
@@ -675,6 +690,25 @@ export function BotEditForm({ bot }: BotEditFormProps) {
             </div>
           </form>
         </Form>
+
+        {/* 자료·FAQ 는 폼 **밖**이다. 저장 버튼과 무관하게 각자 즉시 반영된다. */}
+        <div
+          id="bot-panel-documents"
+          role="tabpanel"
+          aria-labelledby="bot-tab-documents"
+          className={cn(tab !== "documents" && "hidden")}
+        >
+          <BotDocumentsPanel botId={bot.id} />
+        </div>
+
+        <div
+          id="bot-panel-faqs"
+          role="tabpanel"
+          aria-labelledby="bot-tab-faqs"
+          className={cn(tab !== "faqs" && "hidden")}
+        >
+          <BotFaqsPanel botId={bot.id} />
+        </div>
       </CardContent>
 
       <Dialog open={confirmLeave} onOpenChange={setConfirmLeave}>
