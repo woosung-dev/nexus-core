@@ -48,8 +48,8 @@ export default function InstructionsPage() {
       </div>
 
       {/* 런타임은 bot_instructions 를 읽지 않는다 — 저장이 곧 적용으로 읽히지 않게 한다. */}
-      <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2 dark:border-amber-900/40 dark:bg-amber-950/30">
-        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+      <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2">
+        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
         <p className="text-[11px] leading-relaxed text-foreground/90">
           여기서 만든 프롬프트는 <b>저장해도 챗봇에 자동으로 적용되지 않습니다.</b>{" "}
           복사해서 <b>봇 → 답변 설정 → 고급 설정 → 시스템 프롬프트</b>에 붙여넣어야 반영됩니다.

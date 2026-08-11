@@ -78,53 +78,53 @@ export function MessageCitations({ citations }: MessageCitationsProps) {
 
   return (
     <Collapsible open={open} onOpenChange={setOpen} className="mt-2 w-full">
-      <CollapsibleTrigger className="flex items-center gap-1.5 text-[12px] font-medium text-zinc-600 hover:text-zinc-900 transition-colors">
-        <Paperclip className="w-3.5 h-3.5 text-zinc-400" />
+      <CollapsibleTrigger className="flex items-center gap-1.5 text-[12px] font-medium text-muted-foreground hover:text-foreground transition-colors">
+        <Paperclip className="w-3.5 h-3.5 text-muted-foreground" />
         <span>
           {isApproximate
             ? `참고 가능한 자료 ${groups.length}건`
             : `참고한 자료 ${groups.length}건`}
         </span>
         <ChevronDown
-          className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`w-3.5 h-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
         />
       </CollapsibleTrigger>
       <CollapsibleContent className="mt-2">
         {isApproximate && (
-          <p className="mb-2 text-[11.5px] leading-relaxed text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+          <p className="mb-2 text-[11.5px] leading-relaxed text-muted-foreground bg-muted border border-border rounded-lg px-2.5 py-2">
             <strong>근사 출처</strong> — 이 답변이 직접 인용한 자료가 아니라, 같은 질문으로
             백필이 다시 생성한 답변의 출처입니다. 표시된 답변과 근거가 어긋날 수 있으니
             (실측 25문항 중 7건) 평가 시 원문을 대조해 주세요.
           </p>
         )}
-        <ul className="flex flex-col divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white overflow-hidden">
+        <ul className="flex flex-col divide-y divide-zinc-100 rounded-xl border border-border bg-white overflow-hidden">
           {groups.map((g, gi) => {
             const preview = normalize(g.chunks[0]?.content ?? "");
             const isLong = preview.length > EXPAND_THRESHOLD;
             const isOpen = !!expanded[g.title];
             return (
               <li key={g.title} className="p-3 flex gap-2.5">
-                <FileText className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <FileText className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <p className="text-[12.5px] font-semibold text-zinc-800 break-all">
+                    <p className="text-[12.5px] font-semibold text-foreground break-all">
                       {g.title}
                     </p>
                     {gi === 0 && groups.length > 1 && (
-                      <span className="text-[10.5px] font-medium text-amber-600 bg-amber-50 rounded px-1.5 py-0.5 shrink-0">
+                      <span className="text-[10.5px] font-medium text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0">
                         {isApproximate ? "가장 많이 검색됨" : "주요 근거"}
                       </span>
                     )}
                   </div>
                   {g.pages.length > 0 && (
-                    <p className="mt-0.5 text-[11px] text-zinc-400">
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
                       p.{g.pages.join(", ")}
                     </p>
                   )}
                   {preview && (
                     <>
                       <p
-                        className={`mt-0.5 text-[12px] leading-relaxed text-zinc-500 break-words ${
+                        className={`mt-0.5 text-[12px] leading-relaxed text-muted-foreground break-words ${
                           isOpen ? "whitespace-pre-line" : "line-clamp-3"
                         }`}
                       >
@@ -139,7 +139,7 @@ export function MessageCitations({ citations }: MessageCitationsProps) {
                         <button
                           type="button"
                           onClick={() => toggle(g.title)}
-                          className="mt-1 text-[11px] font-medium text-amber-600 hover:text-amber-700 transition-colors"
+                          className="mt-1 text-[11px] font-medium text-muted-foreground hover:text-muted-foreground transition-colors"
                         >
                           {isOpen
                             ? "접기"

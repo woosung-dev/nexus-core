@@ -10,15 +10,15 @@ export function MessageFollowups({ items }: MessageFollowupsProps) {
 
   return (
     <div className="mt-3 flex flex-col gap-2">
-      <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-500 uppercase tracking-wider">
-        <Lightbulb className="w-3 h-3 text-amber-500" />
+      <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+        <Lightbulb className="w-3 h-3 text-muted-foreground" />
         <span>이어서 물어보면 좋을 질문</span>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {items.slice(0, 3).map((q, i) => (
           <span
             key={`${i}-${q}`}
-            className="text-[13px] px-3.5 py-1.5 rounded-full bg-white border border-amber-200 text-zinc-700 shadow-sm"
+            className="text-[13px] px-3.5 py-1.5 rounded-full bg-white border border-border text-foreground shadow-sm"
           >
             {q}
           </span>
