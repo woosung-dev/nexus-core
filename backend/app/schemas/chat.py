@@ -12,7 +12,6 @@ from app.models.enums import (
     MessageRole,
 )
 from app.schemas.bot import BotResponse
-from app.schemas.clarification import ChatClarification
 from app.schemas.rag import RAGCitation
 
 
@@ -24,9 +23,6 @@ class ChatCompletionRequest(BaseModel):
     session_id: int | None = None
     stream: bool = True
     use_rag: bool = False  # RAG 활성화 여부
-    # 되묻기 카드에 답해서 보낸 요청이면 그 라운드를 실어 보낸다. 1 이상이면 서버가
-    # 판정을 건너뛴다 — 되묻기는 한 번까지다.
-    clarification_round: int = Field(default=0, ge=0, le=2)
 
 
 class ChatCompletionResponse(BaseModel):
@@ -37,11 +33,8 @@ class ChatCompletionResponse(BaseModel):
     bot_id: int
     citations: list[RAGCitation] | None = None  # RAG 인용구 출처
     # 응답 소스: "faq_override" | "rag" | "llm" | "policy_block"
-    #          | "clarification_ask" | "clarification_handoff"
     source: str | None = None
     followups: list[str] = Field(default_factory=list)  # 후속 질문 (빈 리스트 = 없음 또는 생성 실패)
-    # 봇이 되물었을 때만 채워진다. 화면이 선택지 카드를 그린다.
-    clarification: ChatClarification | None = None
 
 
 class ChatSessionResponse(BaseModel):
@@ -68,7 +61,6 @@ class MessageResponse(BaseModel):
     feedback_comment: str | None = None
     citations: list[RAGCitation] = Field(default_factory=list)  # RAG 인용 출처 (없거나 도입 전 대화면 빈 배열)
     followups: list[str] = Field(default_factory=list)  # 후속 추천 질문
-    clarification: ChatClarification | None = None  # 되물은 턴에만 채워짐
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)

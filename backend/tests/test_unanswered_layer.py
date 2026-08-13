@@ -65,7 +65,6 @@ def _patch_common(monkeypatch, rag_service, recorded: list):
     monkeypatch.setattr(chat_service, "term_rules", lambda facts: [])
     monkeypatch.setattr(chat_service, "_schedule_evidence_fill", lambda **kw: None)
     monkeypatch.setattr(chat_service, "_schedule_citation_backfill", lambda **kw: None)
-    monkeypatch.setattr(chat_service, "_schedule_answerability_judge", lambda **kw: None)
 
     async def capture(_session, **kw):
         recorded.append(kw)
@@ -241,36 +240,6 @@ async def test_어휘가_답하면_폴백도_기록도_없다(monkeypatch):
 
 
 # ---- 2층은 사용자 답변을 건드리지 않는다 ------------------------------------------
-
-@pytest.mark.asyncio
-async def test_shadow_판정은_주입_원문이_없으면_모델을_안_부른다(monkeypatch):
-    """`units` 가 비면 판정할 원문이 없다. Gemini 호출을 아끼고 조용히 통과한다."""
-    called = []
-    monkeypatch.setattr(
-        chat_service, "_judge_answerability_async",
-        lambda *a, **kw: called.append(a),
-    )
-    chat_service._schedule_answerability_judge(
-        bot_id=11, model_name="gemini-3.5-flash-lite", message_id=5,
-        session_id=9, question="질문", units=[],
-    )
-    assert called == []
-
-
-@pytest.mark.asyncio
-async def test_shadow_판정_실패는_답변을_막지_않는다(monkeypatch):
-    """판정기가 고장 나서 제품이 벙어리가 되는 쪽이 더 나쁘다 — fail-open."""
-    async def boom(**kw):
-        raise RuntimeError("판정기 고장")
-
-    monkeypatch.setattr(
-        "app.services.clarification_trigger.judge_answerability", boom, raising=True
-    )
-    # 예외가 밖으로 새지 않는다
-    await chat_service._judge_answerability_async(
-        11, "gemini-3.5-flash-lite", 5, 9, "질문", [SimpleNamespace(src_id="reg-33")]
-    )
-
 
 # ---- 기록이 실패해도 답변은 살아야 한다 -------------------------------------------
 

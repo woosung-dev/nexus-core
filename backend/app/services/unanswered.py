@@ -63,7 +63,6 @@ class Reason:
     # 봇이 스스로 「답할 수 없다」고 말했다. 근거 충분성을 추정하는 게 아니라 출력을 읽는다
     SELF_REFUSAL = "self_refusal"
     # 2층 shadow 판정기가 「질문자만 아는 것이 빠졌다」고 봤다. 사용자에겐 안 보인다
-    JUDGE_CLARIFY = "judge_clarify"
 
 
 ALL_REASONS = (
@@ -71,7 +70,6 @@ ALL_REASONS = (
     Reason.LEXICAL_EMPTY,
     Reason.CORPUS_UNAVAILABLE,
     Reason.SELF_REFUSAL,
-    Reason.JUDGE_CLARIFY,
 )
 
 

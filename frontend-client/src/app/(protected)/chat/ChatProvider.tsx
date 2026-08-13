@@ -61,9 +61,7 @@ interface ChatContextValue {
   awaiting: boolean;
   // 사이드바 클릭/직접 URL 진입 시 해당 세션 메시지 fetch 중. 스켈레톤/스피너 표시용.
   isLoadingMessages: boolean;
-  // clarificationRound: 되묻기 카드에 답해서 보내는 요청이면 그 라운드. 1 이상이면 서버가
-  // 판정을 건너뛴다 — 되묻기는 한 번까지다.
-  sendMessage: (content: string, clarificationRound?: number) => Promise<void>;
+  sendMessage: (content: string) => Promise<void>;
 }
 
 // 인용 백필(persona-free 재검색)은 응답 저장 후에야 시작해서 실서버 실측 ~15초 걸린다.
@@ -184,7 +182,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   }, [sessionId, getToken]);
 
   const sendMessage = useCallback(
-    async (content: string, clarificationRound = 0) => {
+    async (content: string) => {
       if (!content.trim() || awaiting) return;
 
       const trimmed = content.trim();
@@ -279,7 +277,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
               session_id: parseInt(activeSessionId!, 10),
               stream: false,
               use_rag: true,
-              clarification_round: clarificationRound,
             }),
           },
           getToken,
@@ -302,9 +299,6 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             session_id: parseInt(activeSessionId!, 10),
             role: "assistant",
             content: data.content || "",
-            // 되물은 턴이면 선택지 카드를 바로 그린다. 아래 refetchMessages 가 곧 전체를
-            // 갈아 끼우지만, 서버도 messages.clarification 에 남기므로 카드는 유지된다.
-            clarification: data.clarification ?? null,
             created_at: new Date().toISOString(),
           };
           setMessages((prev) => [...prev, assistantMsg]);
@@ -351,9 +345,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
           // 백필이 아직이면 확보될 때까지 폴링한다. 응답 반환을 막지 않도록 await 하지 않는다.
           // 이 시점엔 awaiting=false 라 사용자가 새 메시지를 보냈을 수 있으므로, 전체 교체 대신
           // id 로 citations 만 병합해 낙관적 메시지를 덮어쓰지 않는다.
-          // 되물은 턴은 폴링하지 않는다. 본문이 질문이라 서버가 인용 백필을 아예 안 돌린다 —
-          // 폴링해 봐야 30초 동안 빈손이다.
-          if (!data.clarification && (!first || !citationsOf(first, targetId))) {
+          if (!first || !citationsOf(first, targetId)) {
             void (async () => {
               for (let i = 0; i < CITATION_POLL_MAX_TRIES; i++) {
                 await new Promise((r) => setTimeout(r, CITATION_POLL_INTERVAL_MS));

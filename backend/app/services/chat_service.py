@@ -18,7 +18,6 @@ from app.models.bot import Bot
 from app.models.chat import ChatSession
 from app.models.enums import MessageRole
 from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse
-from app.schemas.clarification import ChatClarification
 from app.schemas.rag import RAGResponse
 from app.services.faq_service import search_faq_override
 from app.services.followup_service import generate_followups
@@ -97,65 +96,6 @@ def _effective_retrieval_mode(bot: Bot) -> str:
         )
         return "file_search"
     return mode
-
-
-# ── 되묻기 ────────────────────────────────────────────────────
-# 되물을 때 나가는 본문. **LLM 이 짓지 않는다** — 문구는 이 상수와 관리자가 쓴 슬롯 질문뿐이다.
-CLARIFICATION_ASK_MESSAGE = "정확히 안내해 드리려고 합니다. 아래만 확인해 주세요."
-# 되물을 항목을 관리자가 정해 두지 않았다. 문구를 지어내느니 사람에게 넘긴다.
-CLARIFICATION_HANDOFF_MESSAGE = UNANSWERED_MESSAGE
-
-# 규칙 매칭 BM25 하한. **45문항 전수**로 스윕했다 (exports/clarify_eval/_sweep.py).
-# 판정 양성만 표본으로 쓰던 앞 스윕(n=6)은 그 집합이 실행마다 흔들려서 버렸다 — 하한은
-# 판정 뒤 `match_policy_rule` 에서만 쓰이고 그건 LLM 없는 어휘 비교라 전수로 돌릴 수 있다.
-#     거짓양성 최고  #8  14.46 → family-start-pre-rite (「교류 신청 예절」이다)
-#     참양성 최저    #45 25.78 → b4u-tier
-#     안전 구간 (14.46, 25.78] 은 비어 있다 — 이 안 어떤 값이든 45/45 로 결과가 같다
-# 20.0 은 그 구간의 기하 중점(19.31) 근처다. 양쪽 여유가 ×1.38 / ×1.29 로 균형이 맞는다.
-# 앞 값 15.0 은 오매칭 경계에서 0.54 밖에 안 떨어져 있었다.
-# **request_examples 를 고치면 경계가 움직인다 — _sweep.py 를 다시 돌려라.**
-CLARIFICATION_MIN_SCORE = 20.0
-
-
-async def _clarification_for(
-    bot: Bot, question: str, trace: RetrievalTrace, round_number: int
-) -> ChatClarification | None:
-    """되물을지 판정한다. 되물 것이 없으면 None — 답변 경로를 그대로 둔다.
-
-    `bot.clarify_enabled` 가 거짓이면 **호출조차 하지 않는다.** 판정은 turn 당 Gemini 를
-    한 번 더 쓰고, 일일 쿼터를 태운 이력이 있다(리셋 KST 16:00).
-
-    되묻기는 한 번까지다 — 프롬프트 3번 항목이 이미 그렇게 정해 뒀다. 카드에 답해서 온
-    요청은 `round_number >= 1` 이라 여기서 걸러진다.
-    """
-    if not getattr(bot, "clarify_enabled", False) or round_number >= 1:
-        return None
-
-    from app.services.clarification_trigger import decide
-
-    try:
-        decision = await decide(
-            question=question,
-            units=trace.units,
-            bot=bot,
-            min_score=CLARIFICATION_MIN_SCORE,
-        )
-    except Exception as exc:  # 판정 실패가 답변을 막으면 안 된다 — decide 내부도 fail-open 이다.
-        logger.warning("되묻기 판정 오류 — 답변 진행 bot_id=%s: %s", bot.id, exc)
-        return None
-
-    if decision.status == "answer":
-        return None
-    logger.info(
-        "되묻기 %s bot_id=%s rule=%s missing=%s",
-        decision.status, bot.id, decision.rule_id, decision.missing,
-    )
-    return ChatClarification(
-        status=decision.status,
-        questions=decision.questions,
-        rule_id=decision.rule_id,
-        round=round_number,
-    )
 
 
 # 비동기 백필 태스크 참조 보관소 — GC 로 태스크가 취소되는 것을 방지.
@@ -333,78 +273,6 @@ async def _record_unanswered(
         )
 
 
-async def _judge_answerability_async(
-    bot_id: int,
-    model_name: str,
-    message_id: int,
-    session_id: int,
-    question: str,
-    units: list,
-) -> None:
-    """2층 — 구조화 판정을 **응답을 보낸 뒤** 돌린다. 사용자 지연 0.
-
-    **기록 전용이다. 사용자 답변은 건드리지 않는다.** 인계 §2 는 `needs_user_input` 축을
-    `answerable` 축으로 바꿔 쓰라고 하지만, 같은 인계 §6-① 표에서 그 `answerable` 축이
-    v1 이고 45문항 중 35건(78%)에서 발동했다. 78%가 표시되는 로그는 기록으로도 정렬이
-    안 된다. 그래서 `judge_answerability` 를 **한 글자도 안 고치고** 그대로 쓴다
-    (v3 기준 45문항 중 6건 = 13% 발동).
-
-    부수 효과가 있다 — 재질문 트랙이 필요로 하는 「되물으면 답이 갈리는가」 라벨의
-    재료가 실사용 로그에서 나온다.
-    """
-    try:
-        from types import SimpleNamespace
-
-        from app.core.database import async_session
-        from app.crud import crud_unanswered
-        from app.services.clarification_trigger import judge_answerability
-
-        verdict = await judge_answerability(
-            question=question,
-            units=units,
-            bot=SimpleNamespace(llm_model=model_name),
-        )
-        # None = fail-open(판정 실패), False = 되물 것 없음. 둘 다 남길 것이 없다.
-        if verdict is None or not verdict.needs_user_input:
-            return
-
-        async with async_session() as session:
-            await crud_unanswered.record(
-                session,
-                bot_id=bot_id,
-                session_id=session_id,
-                message_id=message_id,
-                question_text=question,
-                question_norm=normalize_question(question),
-                reason=Reason.JUDGE_CLARIFY,
-                detail={"missing": verdict.missing, "src_ids": verdict.evidence},
-            )
-            await session.commit()
-        logger.info("shadow 판정 — 되물을 것 있음 message_id=%s missing=%s", message_id, verdict.missing)
-    except Exception as e:
-        logger.warning("shadow 판정 실패 message_id=%s: %s", message_id, e)
-
-
-def _schedule_answerability_judge(
-    bot_id: int,
-    model_name: str,
-    message_id: int,
-    session_id: int,
-    question: str,
-    units: list,
-) -> None:
-    """2층 shadow 판정을 백그라운드 태스크로 예약한다(응답 반환을 막지 않음)."""
-    if not units:
-        return
-    task = asyncio.create_task(
-        _judge_answerability_async(
-            bot_id, model_name, message_id, session_id, question, units
-        )
-    )
-    _citation_backfill_tasks.add(task)
-    task.add_done_callback(_citation_backfill_tasks.discard)
-
-
 class ChatService:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -454,7 +322,7 @@ class ChatService:
             else:
                 # 답변 생성이 실제로 본 목록과 **같은 목록이어야** 2층 판정이 성립한다.
                 # `_select_units` 는 순수 함수라 다시 불러도 같은 결과다
-                # (`exports/clarify_eval/_run.py` 도 같은 방식으로 바깥에서 부른다).
+                # (측정 하네스도 같은 방식으로 바깥에서 부른다).
                 if retrieved is not None:
                     trace.units = _select_units(retrieved, "raw_budget")
                 # 어휘 검색은 동의어·구어체 질문에서 빈손이 될 수 있다(핸드오프 §5 #13).
@@ -681,24 +549,6 @@ class ChatService:
                     rag_response.citations = []
                     rag_response.followups = []
 
-                # ── 되묻기 ──
-                # **strict 게이트보다 뒤여야 한다.** 되묻기 응답은 인용이 0건이고 거절문도
-                # 아니라, 앞에 놓으면 `_strict_blocks` 가 참이 되어 봇이 되물은 질문이
-                # `STRICT_EVIDENCE_MESSAGE` 로 통째로 치환된다. 지금은 라이브 11봇이 전부
-                # `evidence_policy_mode='legacy'` 라 안 터지지만 strict 를 켜는 순간 터진다.
-                clarification = await _clarification_for(
-                    bot, request.message, trace, request.clarification_round
-                )
-                if clarification is not None:
-                    rag_response.answer = (
-                        CLARIFICATION_ASK_MESSAGE
-                        if clarification.status == "ask"
-                        else CLARIFICATION_HANDOFF_MESSAGE
-                    )
-                    # 되물으면서 근거를 같이 보이면 「답은 했는데 또 묻는다」로 읽힌다.
-                    rag_response.citations = []
-                    rag_response.followups = []
-
                 # 기계 id 표기를 벗긴다. **strict 게이트보다 뒤여야 한다** — 게이트가 그
                 # 표기를 주입 목록과 대조하므로(`has_grounded_citation`) 먼저 지우면
                 # strict 봇이 전부 차단된다. `create_message` 보다는 앞이어야 한다 —
@@ -736,7 +586,6 @@ class ChatService:
                     content=rag_response.answer,
                     citations=[c.model_dump() for c in rag_response.citations],
                     followups=rag_response.followups,
-                    clarification=clarification.model_dump() if clarification else None,
                 )
                 chat_session.updated_at = datetime.now(timezone.utc)
 
@@ -755,25 +604,9 @@ class ChatService:
                 )
                 await self.session.commit()
 
-                # ── 2층. shadow 판정 — 응답을 보낸 뒤 돌린다. 기록 전용, 사용자 지연 0 ──
-                # 되물은 턴은 건너뛴다. `_clarification_for` 가 방금 같은 판정을 돌렸으므로
-                # 여기서 또 부르면 Gemini 호출이 turn 당 2회가 된다.
-                if clarification is None:
-                    _schedule_answerability_judge(
-                        bot_id=bot.id,
-                        model_name=bot.llm_model,
-                        message_id=assistant_msg.id,
-                        session_id=chat_session.id,
-                        question=request.message,
-                        units=trace.units,
-                    )
-
                 # 메인 답변 경로(persona)가 인용을 못 남기면 interactions 로 근사 인용을 비동기 백필.
                 # 인용이 이미 붙었으면 근거 구절만 따로 채운다 — 어느 쪽이든 응답은 막지 않는다.
-                # 되물은 턴은 둘 다 건너뛴다 — 본문이 질문이라 채울 근거가 없다.
-                if clarification is not None:
-                    pass
-                elif not rag_response.citations and bot.evidence_policy_mode != "strict":
+                if not rag_response.citations and bot.evidence_policy_mode != "strict":
                     _schedule_citation_backfill(
                         bot_id=bot.id,
                         model_name=bot.llm_model,
@@ -797,11 +630,8 @@ class ChatService:
                     content=rag_response.answer,
                     bot_id=bot.id,
                     citations=rag_response.citations,
-                    source=(
-                        f"clarification_{clarification.status}" if clarification else "rag"
-                    ),
+                    source="rag",
                     followups=rag_response.followups,
-                    clarification=clarification,
                 )
 
         if bot.evidence_policy_mode == "strict":

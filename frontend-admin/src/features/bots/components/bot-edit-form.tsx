@@ -10,12 +10,11 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm, useWatch } from "react-hook-form"
-import { AlertTriangle, ImagePlus, X } from "lucide-react"
+import { ImagePlus, X } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useUpdateBot } from "@/features/bots/hooks"
-import { updateBot as updateBotRequest } from "@/features/bots/api"
-import { DEFAULT_CLARIFICATION_POLICY, type BotResponse, type ClarificationPolicy } from "@/features/bots/types"
+import { type BotResponse } from "@/features/bots/types"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -57,10 +56,8 @@ import {
   type BotEditFormValues,
   PLAN_TYPE_OPTIONS,
 } from "../schemas"
-import { Separator } from "@/components/ui/separator"
 import { AnswerSettings } from "./answer-settings"
 import { KakaoChannelSection } from "./kakao-channel-section"
-import { ClarificationPolicySection } from "./clarification-policy-section"
 import { BotDocumentsPanel } from "./tabs/bot-documents-panel"
 import { BotFaqsPanel } from "./tabs/bot-faqs-panel"
 
@@ -93,8 +90,6 @@ const TAB_FIELDS: Record<TabKey, (keyof BotEditFormValues)[]> = {
     "llm_model",
     "history_window",
     "system_prompt",
-    "clarify_enabled",
-    "clarification_policy",
   ],
   documents: [],
   faqs: [],
@@ -143,8 +138,6 @@ export function BotEditForm({ bot }: BotEditFormProps) {
       history_window: bot.history_window ?? 0,
       evidence_policy_mode: bot.evidence_policy_mode ?? "legacy",
       retrieval_mode: bot.retrieval_mode ?? "file_search",
-      clarify_enabled: bot.clarify_enabled ?? false,
-      clarification_policy: bot.clarification_policy ?? DEFAULT_CLARIFICATION_POLICY,
     },
   })
 
@@ -258,12 +251,6 @@ export function BotEditForm({ bot }: BotEditFormProps) {
     e.preventDefault()
     setTab(TABS[next].key)
     tabRefs.current[next]?.focus()
-  }
-
-  // 정책은 폼 저장과 별개로 즉시 반영한다 — 카드 편집이 폼 제출과 독립이라서다.
-  async function persistClarificationPolicy(policy: ClarificationPolicy) {
-    const updated = await updateBotRequest(bot.id, { clarification_policy: policy })
-    form.setValue("clarification_policy", updated.clarification_policy)
   }
 
   return (
@@ -612,50 +599,6 @@ export function BotEditForm({ bot }: BotEditFormProps) {
                 evidencePolicyMode={evidencePolicyMode}
               />
 
-              <Separator className="my-6" />
-
-              {/* 맥락 보완 — 근거 조달 방식과 같은 「답변 설정」 축이라 이 탭에 둔다. */}
-              <FormField
-                control={form.control}
-                name="clarify_enabled"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between gap-4 rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <FormLabel className="text-base">맥락 보완</FormLabel>
-                        <Badge variant="outline" className="text-[10px] font-normal">
-                          실사용 반영
-                        </Badge>
-                      </div>
-                      <FormDescription>
-                        모호한 요청에 선택형 추가 질문을 생성합니다. 되묻기는 대화당 한 번까지입니다.
-                      </FormDescription>
-                      {/* 켜면 실제 대화에 적용된다 — chat_service.py 의 `_clarification_for` 가
-                          clarify_enabled 를 보고 아래 정책의 규칙을 그대로 쓴다. */}
-                      <div className="mt-2 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-2">
-                        <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
-                        <p className="text-[11px] leading-relaxed text-foreground/90">
-                          이 스위치를 켜면 <b>실제 사용자 대화에 바로 적용됩니다.</b>{" "}
-                          아래 「추가 확인 질문 정책」에 저장한 규칙이 그대로 쓰입니다.
-                        </p>
-                      </div>
-                      <FormMessage />
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <ClarificationPolicySection
-                botId={bot.id}
-                initialPolicy={bot.clarification_policy ?? DEFAULT_CLARIFICATION_POLICY}
-                onPersist={persistClarificationPolicy}
-              />
             </div>
 
             {/* ══ 연동 ══ */}

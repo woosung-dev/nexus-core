@@ -4,30 +4,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/lib/session";
 
 const PROTECTED_PATHS = [/^\/chat(\/.*)?$/, /^\/mypage(\/.*)?$/];
-const PROTOTYPE_BYPASS_HEADER = "x-nexus-clarification-prototype";
 
 export default function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  const requestHeaders = new Headers(req.headers);
-  // 외부 요청이 이 헤더를 위조해도 서버 레이아웃까지 전달되지 않도록 항상 제거한다.
-  requestHeaders.delete(PROTOTYPE_BYPASS_HEADER);
-  const next = () => NextResponse.next({ request: { headers: requestHeaders } });
 
   if (!PROTECTED_PATHS.some((re) => re.test(pathname))) {
-    return next();
-  }
-
-  const isPrototypeTestRoute =
-    process.env.NEXT_PUBLIC_CLARIFICATION_PROTOTYPE_BYPASS_AUTH === "true" &&
-    /^\/chat\/new\/\d+$/.test(pathname) &&
-    req.nextUrl.searchParams.get("clarify-prototype") === "1";
-  if (isPrototypeTestRoute) {
-    requestHeaders.set(PROTOTYPE_BYPASS_HEADER, "1");
-    return next();
+    return NextResponse.next();
   }
 
   if (req.cookies.get(SESSION_COOKIE)?.value) {
-    return next();
+    return NextResponse.next();
   }
 
   const url = req.nextUrl.clone();

@@ -239,7 +239,6 @@ async def test_어휘_경로가_저장하는_본문에는_기계_id_가_없다(m
     monkeypatch.setattr(chat_service, "_schedule_evidence_fill", lambda **kw: None)
     monkeypatch.setattr(chat_service, "_schedule_citation_backfill", lambda **kw: None)
     monkeypatch.setattr(chat_service, "_record_unanswered", AsyncMock(return_value=None))
-    monkeypatch.setattr(chat_service, "_schedule_answerability_judge", lambda **kw: None)
 
     async def fake_wiki(**kw):
         return (
