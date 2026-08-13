@@ -6,36 +6,17 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { ChatArea } from "@/components/chat/ChatArea";
 import { ChatComposer } from "@/components/chat/ChatComposer";
-import { ClarificationPrototype } from "@/components/chat/ClarificationPrototype";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { useChat } from "./ChatProvider";
 
 export function ChatShell({ children }: { children?: React.ReactNode }) {
   const { phase, sessionId, botId } = useChat();
-  const searchParams = useSearchParams();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const showClarificationPrototype =
-    process.env.NODE_ENV !== "production" &&
-    searchParams.get("clarify-prototype") === "1" &&
-    Boolean(botId);
-
-  // 익명 테스트 경로는 대화 이력/봇 헤더 API를 호출하지 않는다.
-  // 일반 인증 흐름과 실제 채팅 API는 이 분기 밖에서 그대로 보호된다.
-  if (showClarificationPrototype) {
-    return (
-      <div className="flex h-dvh overflow-hidden bg-slate-50">
-        <main className="flex min-w-0 flex-1 flex-col">
-          <ClarificationPrototype botId={botId} />
-        </main>
-      </div>
-    );
-  }
 
   return (
     <div className="flex bg-slate-50 h-dvh overflow-hidden selection:bg-amber-200">

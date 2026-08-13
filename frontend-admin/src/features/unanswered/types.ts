@@ -9,7 +9,6 @@ export type UnansweredReason =
   | "lexical_empty" // 어휘 1단이 빈손이라 file_search 로 폴백했다
   | "corpus_unavailable" // 어휘 코퍼스 자체가 없어 폴백했다
   | "self_refusal" // 봇이 스스로 「답할 수 없다」고 말했다
-  | "judge_clarify" // 2층 shadow 판정 — 질문자만 아는 것이 빠졌다
 
 /** 어느 트랙의 일인가. `문서오류` 에서만 ops_facts 로 넘어간다. */
 export type UnansweredTriage =

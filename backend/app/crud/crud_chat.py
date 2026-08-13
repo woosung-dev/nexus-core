@@ -124,13 +124,11 @@ async def create_message(
     content: str,
     citations: list | None = None,
     followups: list | None = None,
-    clarification: dict | None = None,
 ) -> Message:
     """
     새로운 메시지 생성 기록 (Flush).
     실제 DB 영속화는 상위 서비스/라우터의 commit()에서 일괄 처리.
     citations/followups 는 RAG 응답일 때만 채워지며, 그 외 분기는 None 으로 둔다.
-    clarification 은 봇이 되물은 턴에만 채운다.
     """
     msg = Message(
         session_id=session_id,
@@ -138,7 +136,6 @@ async def create_message(
         content=content,
         citations=citations,
         followups=followups,
-        clarification=clarification,
     )
     session.add(msg)
     await session.flush()

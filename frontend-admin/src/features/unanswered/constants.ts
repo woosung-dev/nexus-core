@@ -12,7 +12,6 @@ export const REASON_LABEL: Record<UnansweredReason, string> = {
   lexical_empty: "어휘 검색 빈손",
   corpus_unavailable: "코퍼스 없음",
   self_refusal: "봇이 거절함",
-  judge_clarify: "되물을 것 있음",
 }
 
 /** 그 신호가 사용자에게 무엇으로 보였는지 — 화면에서 오해가 없어야 한다 */
@@ -21,7 +20,6 @@ export const REASON_EFFECT: Record<UnansweredReason, string> = {
   lexical_empty: "의미 검색으로 되돌려 정상 답변했다",
   corpus_unavailable: "의미 검색으로 되돌려 정상 답변했다",
   self_refusal: "봇이 쓴 거절 문구가 그대로 나갔다",
-  judge_clarify: "사용자에겐 안 보였다 (기록 전용)",
 }
 
 export const REASON_STYLE: Record<UnansweredReason, string> = {
@@ -29,7 +27,6 @@ export const REASON_STYLE: Record<UnansweredReason, string> = {
   lexical_empty: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   corpus_unavailable: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   self_refusal: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
-  judge_clarify: "bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300",
 }
 
 /**

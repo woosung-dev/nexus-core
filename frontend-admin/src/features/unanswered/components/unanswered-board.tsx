@@ -48,7 +48,6 @@ const REASON_OPTIONS: UnansweredReason[] = [
   "empty_answer",
   "lexical_empty",
   "corpus_unavailable",
-  "judge_clarify",
 ]
 
 export function UnansweredBoard() {

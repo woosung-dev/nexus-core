@@ -15,12 +15,6 @@ from app.core.database import get_session
 from app.core.exceptions import BotNotFoundError, NotFoundError, ValidationError
 from app.crud import crud_bot, crud_bot_kakao_channel
 from app.schemas.bot import BotCreateRequest, BotListResponse, BotResponse, BotUpdateRequest, BotImageUploadResponse
-from app.schemas.clarification_policy import (
-    ClarificationPolicy,
-    ClarificationPolicyTestRequest,
-    ClarificationPolicyTestResponse,
-    validate_active_policy,
-)
 from app.schemas.bot_kakao_channel import (
     KakaoChannelCreateRequest,
     KakaoChannelListResponse,
@@ -29,27 +23,12 @@ from app.schemas.bot_kakao_channel import (
 from app.schemas.rag import DocumentListResponse, DocumentUploadResponse
 from app.services import bot_service
 from app.services.rag.factory import get_rag_service
-from app.services.clarification_service import live_decision
 from app.services.storage.base import FileStorageService
 from app.services.storage.factory import get_storage_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-
-
-async def _validate_clarification_policy(
-    bot,
-    policy: ClarificationPolicy,
-) -> None:
-    """활성 정책의 근거 문서가 해당 봇 File Search Store에 있는지 확인한다."""
-    rag = get_rag_service(provider=getattr(bot, "llm_model", "gemini-2.5-flash"))
-    documents = await rag.list_documents(bot_id=bot.id)
-    owned_document_ids = {document.file_id for document in documents}
-    try:
-        validate_active_policy(policy, owned_document_ids)
-    except ValueError as exc:
-        raise ValidationError(str(exc))
 
 
 # ── 봇 CRUD ───────────────────────────────────────────────────
@@ -88,11 +67,6 @@ async def create_bot(
     session: AsyncSession = Depends(get_session),
 ) -> BotResponse:
     """봇 생성"""
-    # 새 봇에는 아직 문서가 없으므로 활성 규칙을 함께 공개하지 못하게 한다.
-    try:
-        validate_active_policy(request.clarification_policy, set())
-    except ValueError as exc:
-        raise ValidationError(str(exc))
     bot = await crud_bot.create_bot(session, request)
 
     logger.info(f"봇 생성: id={bot.id}, name={bot.name}")
@@ -111,68 +85,10 @@ async def update_bot(
     if not bot:
         raise BotNotFoundError()
 
-    if request.clarification_policy is not None:
-        await _validate_clarification_policy(bot, request.clarification_policy)
-
     bot = await crud_bot.update_bot(session, bot, request)
 
     logger.info(f"봇 수정: id={bot.id}")
     return BotResponse.model_validate(bot)
-
-
-@router.post(
-    "/bots/{bot_id}/clarification-policy/test",
-    response_model=ClarificationPolicyTestResponse,
-    tags=["Admin - 봇 관리"],
-)
-async def test_clarification_policy(
-    bot_id: int,
-    request: ClarificationPolicyTestRequest,
-    session: AsyncSession = Depends(get_session),
-) -> ClarificationPolicyTestResponse:
-    """저장하지 않은 현재 정책으로 사용자에게 보일 추가 확인 질문을 미리 본다."""
-    bot = await crud_bot.get_bot(session, bot_id)
-    if not bot:
-        raise BotNotFoundError()
-    await _validate_clarification_policy(bot, request.clarification_policy)
-
-    decision = await live_decision(
-        request.message,
-        [],
-        0,
-        bot,
-        policy_override=request.clarification_policy,
-    )
-    rule = next(
-        (
-            item
-            for item in request.clarification_policy.rules
-            if item.id == decision.diagnostics.applied_rule_id
-        ),
-        None,
-    )
-    missing_slot_ids = set(decision.diagnostics.missing_slot_ids)
-    questions = [
-        slot for slot in (rule.required_slots if rule else []) if slot.id in missing_slot_ids
-    ]
-    if decision.status == "handoff":
-        message = "현재 정보만으로 정확히 판단하기 어려워 담당자 안내로 처리됩니다."
-    elif rule and decision.status == "ask":
-        message = "이 규칙이 적용되어 누락된 필수 확인 항목을 먼저 묻습니다."
-    elif rule:
-        message = "필수 확인 항목이 이미 갖춰진 것으로 판단되어 바로 답변 흐름으로 진행합니다."
-    else:
-        message = "입력한 요청에 적용된 추가 확인 규칙이 없어 기존 답변 흐름으로 진행합니다."
-
-    return ClarificationPolicyTestResponse(
-        status=decision.status,
-        applied_rule_name=rule.name if rule else None,
-        matched=rule is not None,
-        missing_slots=decision.diagnostics.missing_slot_ids,
-        questions=questions,
-        document_refs=rule.document_refs if rule else [],
-        message=message,
-    )
 
 
 @router.delete("/bots/{bot_id}", status_code=204, tags=["Admin - 봇 관리"])
