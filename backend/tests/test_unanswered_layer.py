@@ -167,9 +167,23 @@ async def test_빈_답변은_고정_문구로_치환된다(monkeypatch):
 async def test_고정_문구는_프롬프트가_아니라_상수다():
     """문구가 흔들리지 않는 유일한 방법이다. 연락처는 라이브 봇 11 프롬프트와 같아야 한다."""
     assert "02-3271-0502" in UNANSWERED_MESSAGE
-    assert "정리되지 않은" in UNANSWERED_MESSAGE
     # 「학습」은 AI 모델 학습으로 오해될 수 있어 배제한 표현이다.
     assert "학습" not in UNANSWERED_MESSAGE
+
+
+@pytest.mark.asyncio
+async def test_고정_문구는_지키지_못할_약속을_하지_않는다():
+    """2026-08-14 파일럿 개시 전에 계약을 뒤집었다.
+
+    전에는 「아직 **정리되지 않은** 내용입니다」였다. 그 말은 **나중에 정리해 준다는
+    약속**으로 읽힌다. 그런데 누가 언제 검수하는지가 정해져 있지 않다 — 지킬 사람이
+    없는 약속을 사용자에게 내보내면 안 된다.
+
+    검수 담당·주기가 합의되면 약속형으로 되돌리고 이 테스트를 뒤집어라.
+    그때까지는 **약속하지 않는 것이 계약이다.**
+    """
+    for promise in ("정리되지 않", "정리해", "추가될", "반영될", "곧", "추후"):
+        assert promise not in UNANSWERED_MESSAGE, f"지킬 수 없는 약속: {promise}"
 
 
 @pytest.mark.asyncio
