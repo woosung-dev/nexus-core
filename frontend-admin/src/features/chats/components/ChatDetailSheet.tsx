@@ -11,6 +11,7 @@ import { Bot, User, Clock, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useChatMessages } from "../hooks";
 import { MessageCitations } from "./MessageCitations";
 import { MessageFollowups } from "./MessageFollowups";
+import { MessageTrace, type TurnTrace } from "./MessageTrace";
 
 interface ChatDetailSheetProps {
   sessionId: number | null;
@@ -143,8 +144,12 @@ export function ChatDetailSheet({ sessionId, onClose }: ChatDetailSheetProps) {
                       <>
                         <MessageCitations citations={msg.citations} />
                         <MessageFollowups items={msg.followups} />
+                        {/* 인용은 「무엇을 근거로 댔나」, trace 는 「어떻게 거기까지 갔나」다.
+                            도입 이전 대화는 trace 가 없으므로 컴포넌트가 스스로 접힌다. */}
+                        <MessageTrace trace={msg.trace as TurnTrace | null | undefined} />
                         {(!msg.citations || msg.citations.length === 0) &&
-                          (!msg.followups || msg.followups.length === 0) && (
+                          (!msg.followups || msg.followups.length === 0) &&
+                          !msg.trace && (
                             <p className="mt-1 pl-1 text-2xs text-muted-foreground">인용 기록 없음</p>
                           )}
                       </>

@@ -67,6 +67,7 @@ async def search_faq_override(
     session: AsyncSession,
     bot_id: int,
     query_text: str,
+    observe: dict | None = None,
 ) -> FaqMatchResult | None:
     """
     사용자 질문에 대해 FAQ Override 매칭을 수행한다.
@@ -80,9 +81,15 @@ async def search_faq_override(
         bot_id: 검색 대상 봇 ID
         query_text: 사용자 질문 텍스트
 
+    Args (추가):
+        observe: 주면 **왜 안 걸렸는지**를 여기에 채운다(최고 유사도·임계값·후보 수).
+            지금은 미달이면 점수를 버려서 「FAQ 가 왜 안 걸렸나」를 사후에 못 푼다.
+            읽는 쪽은 `turn_trace` 다. 안 주면 동작이 이전과 완전히 같다.
+
     Returns:
         FaqMatchResult — 매칭된 FAQ 정보 (없으면 None)
     """
+    obs = observe if observe is not None else {}
     try:
         # 0. 사전 확인: 해당 봇에 활성 FAQ(벡터 포함)이 존재하는지 먼저 체크
         #    TTL 캐시 타겟 없으면 DB 쿼리 수행, 있으면 캐시로 증답
@@ -113,7 +120,9 @@ async def search_faq_override(
             cache_state = "miss"
             logger.debug(f"FAQ count 캐시 MISS: bot_id={bot_id}, count={faq_count}")
 
+        obs["faqs"] = faq_count
         if not faq_count:
+            obs["skipped"] = "no_faqs"
             total_ms = (time.perf_counter() - t_total) * 1000
             logger.info(
                 "faq search skipped (no faqs) — bot_id=%s cache=%s count_ms=%.1f total_ms=%.1f",
@@ -165,10 +174,14 @@ async def search_faq_override(
         )
 
         if not row:
+            obs["skipped"] = "no_row"
             logger.debug(f"FAQ 검색 결과 없음: bot_id={bot_id}")
             return None
 
         faq_id, question, answer, threshold, similarity = row
+        obs["top_faq_id"] = faq_id
+        obs["top_similarity"] = round(float(similarity), 4)
+        obs["threshold"] = float(threshold)
 
         logger.info(
             f"FAQ 매칭 후보: id={faq_id}, "
@@ -196,10 +209,12 @@ async def search_faq_override(
 
     except RuntimeError:
         # 임베딩 생성 실패 — FAQ 검색 실패 시 LLM 폴백
+        obs["skipped"] = "embedding_failed"
         logger.warning("FAQ 임베딩 생성 실패, LLM 폴백으로 진행")
         return None
     except Exception as e:
         # 기타 오류 — FAQ 검색 실패해도 채팅은 계속 동작해야 함
+        obs["skipped"] = f"error:{type(e).__name__}"
         logger.error(f"FAQ Override 검색 오류: {e}")
         return None
 

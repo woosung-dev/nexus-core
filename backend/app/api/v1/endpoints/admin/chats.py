@@ -16,6 +16,7 @@ from app.schemas.chat import (
     ChatSessionAdminListResponse,
     FeedbackMessageListResponse,
     FeedbackMessageResponse,
+    AdminMessageResponse,
     MessageResponse,
 )
 
@@ -60,16 +61,19 @@ async def list_admin_chats(
     return ChatSessionAdminListResponse(items=items, total=total)
 
 
-@router.get("/chats/{session_id}/messages", response_model=list[MessageResponse], tags=["Admin - 채팅 관리"])
+@router.get("/chats/{session_id}/messages", response_model=list[AdminMessageResponse], tags=["Admin - 채팅 관리"])
 async def list_admin_chat_messages(
     session_id: int,
     session: AsyncSession = Depends(get_session),
-) -> list[MessageResponse]:
+) -> list[AdminMessageResponse]:
     """
     특정 채팅 세션의 전체 메시지 로그 조회 (상세).
+
+    관리자 전용 스키마라 `trace`(단계별 실행 기록)가 함께 나간다. 같은 crud 를 쓰는
+    사용자 경로(`endpoints/chat.py`)는 `MessageResponse` 라 구조적으로 못 본다.
     """
     messages = await crud_admin_chat.get_messages_by_session_id(session, session_id)
-    return [MessageResponse.model_validate(m) for m in messages]
+    return [AdminMessageResponse.model_validate(m) for m in messages]
 
 
 @router.get("/chats/feedbacks", response_model=FeedbackMessageListResponse, tags=["Admin - 채팅 관리"])

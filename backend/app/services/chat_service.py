@@ -32,11 +32,26 @@ from app.services.ops_facts_service import (
 from app.services.rag.factory import get_rag_service
 from app.services.strict_mode import (
     STRICT_EVIDENCE_MESSAGE,
+    cited_ids,
+    evidence_ok,
+    fabricated_citations,
     has_direct_citation,
-    has_grounded_citation,
     is_refusal_faq,
     strip_source_markers,
     strip_source_markers_from_citations,
+)
+from app.services.turn_trace import (
+    FAQ,
+    OPS_FACTS,
+    RECORD,
+    RETRIEVAL,
+    STRICT,
+    STRIP,
+    TERM,
+    UNANSWERED,
+    TurnTrace,
+    prompt_sha8,
+    unit_refs,
 )
 from app.services.unanswered import (
     UNANSWERED_MESSAGE,
@@ -61,7 +76,8 @@ def _strict_blocks(
     경로마다 「인용」의 뜻이 달라서 자를 나눈다.
 
         file_search·both   Gemini 가 준 grounding 을 본다 — 기존 `has_direct_citation`
-        lexical            **답변에 남은 근거 표기를 주입 목록과 대조한다**
+        lexical            **주입 목록과 두 방향으로 대조한다** — `evidence_ok`
+                           ① 주입한 근거를 짚었나  ② 주입 안 한 근거를 대지 않았나
 
     어휘 경로에 기존 자를 대면 아무것도 안 걸린다. `wiki.service._citations()` 가 주입
     유닛마다 `approximate=False` 인용을 만들어 언제나 참이기 때문이다. 그래서 화면이
@@ -72,12 +88,15 @@ def _strict_blocks(
     같은 안내가 사라져 오히려 나빠진다. 봇 29 측정에서 차단 대상 31셀 중 30셀이 이것이었다.
 
     폴백했을 때는 어휘 경로가 아니다 — 답변을 만든 것은 file_search 라 기존 자로 돌아간다.
+
+    ② 를 2026-08-14 에 더했다. ① 만 보면 「맞는 근거 하나에 가짜 셋을 얹은 답변」이 통과한다 —
+    110셀 실측에서 가짜 근거 26건 중 18건이 그렇게 새어 나갔다. 근거와 수치는 `evidence_ok`.
     """
     fell_back = bool({Reason.LEXICAL_EMPTY, Reason.CORPUS_UNAVAILABLE} & set(trace.reasons))
     if retrieval_mode != "lexical" or fell_back:
         return not has_direct_citation(response.citations)
     answer = response.answer or ""
-    return not has_grounded_citation(answer, trace.units) and not is_self_refusal(answer)
+    return not evidence_ok(answer, trace.units) and not is_self_refusal(answer)
 
 
 def _effective_retrieval_mode(bot: Bot) -> str:
@@ -423,11 +442,18 @@ class ChatService:
             chat_session.id,
         )
 
+        # 한 턴이 여덟 단계를 어떻게 지났는지 남긴다(관리자 전용). 값을 만들지 않고
+        # **이미 결정된 것을 받아 적기만** 한다 — 추가 LLM 호출도 추가 DB 왕복도 없다.
+        turn = TurnTrace()
+        turn.snapshot(bot, bot.system_prompt or "", request)
+
         # 1. FAQ Override 검색 (시맨틱 라우팅)
+        faq_obs: dict = {}
         faq_match = await search_faq_override(
             session=self.session,
             bot_id=bot.id,
             query_text=request.message,
+            observe=faq_obs,
         )
 
         if faq_match:
@@ -439,11 +465,17 @@ class ChatService:
                 faq_content = STRICT_EVIDENCE_MESSAGE
                 faq_source = "policy_block"
 
+            # FAQ 가 가로챈 턴은 여기서 끝난다 — 검색도 생성도 타지 않는다.
+            turn.stage(
+                FAQ, faq_source, faq_id=faq_match.faq_id,
+                similarity=faq_match.similarity, **faq_obs,
+            )
             await crud_chat.create_message(
                 session=self.session,
                 session_id=chat_session.id,
                 role=MessageRole.ASSISTANT,
                 content=faq_content,
+                trace=turn.to_json(),
             )
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
@@ -474,9 +506,22 @@ class ChatService:
         # 승인된 행이 없으면 overlay 는 빈 문자열이라 기존 동작과 완전히 동일하다.
         # term(표기 통일)은 여기 들어가지 않고 응답 후처리로 치환한다 — 프롬프트 지시로는
         # 안 지켜지는 것이 실측됐다(FINDINGS §2-4).
+        turn.stage(FAQ, "pass", **faq_obs)
+
         ops_facts = await load_runtime_facts(self.session, bot, request.message)
         effective_system_prompt = (bot.system_prompt or "") + build_prompt_overlay(ops_facts)
         ops_term_rules = term_rules(ops_facts)
+        # `config.prompt_sha8` 은 봇 **저장값**이고, 여기 `prompt_sha8` 이 실제로 모델에
+        # 간 **실효 프롬프트**다. 둘이 다르면 overlay 가 붙었다는 뜻이다.
+        turn.stage(
+            OPS_FACTS,
+            "overlay" if ops_facts else "none",
+            n=len(ops_facts),
+            kinds=sorted({f.kind for f in ops_facts}) or None,
+            term_rules=len(ops_term_rules) or None,
+            prompt_sha8=prompt_sha8(effective_system_prompt),
+            prompt_len=len(effective_system_prompt),
+        )
 
         # 2. (분기) RAG 처리
         # bot.use_rag 로 봇 단위 토글 제공 — file_search store가 비어있는 봇은 admin에서 False로
@@ -541,20 +586,60 @@ class ChatService:
                     effective_system_prompt,
                     history,
                 )
-                if bot.evidence_policy_mode == "strict" and _strict_blocks(
+                # 무엇을 근거로 들고 생성까지 갔나. **원문은 넣지 않는다** — 참조만(규칙 1).
+                turn.stage(
+                    RETRIEVAL,
+                    "fallback" if trace.reasons else retrieval_mode,
+                    mode=retrieval_mode,
+                    units=len(trace.units) or None,
+                    unit_refs=unit_refs(trace.units) or None,
+                    reasons=list(trace.reasons) or None,
+                    answer_len=len((rag_response.answer or "").strip()),
+                    citations=len(rag_response.citations),
+                    # file_search·both 의 strict 게이트는 `has_direct_citation` 을 본다.
+                    # 그 판정을 **나중에 오프라인으로 재현**하려면 근사 백필이 아닌 인용이
+                    # 있었는지가 남아야 한다. 개수만으로는 못 푼다.
+                    direct_citation=has_direct_citation(rag_response.citations),
+                    history_turns=len(history) or None,
+                )
+
+                strict_on = bot.evidence_policy_mode == "strict"
+                # 차단되면 답변이 고정 문구로 갈리므로 **판정 전에** 표기를 떠 둔다.
+                # `fabricated` 도 여기서 떠야 한다 — 뒤에서 계산하면 고정 문구를 재게 된다.
+                cited = sorted(cited_ids(rag_response.answer))
+                fake_ids, fake_loc = fabricated_citations(rag_response.answer, trace.units)
+                strict_blocked = strict_on and _strict_blocks(
                     retrieval_mode, trace, rag_response
-                ):
+                )
+                if strict_blocked:
                     logger.info("strict response blocked: no direct citation bot_id=%s", bot.id)
                     rag_response.answer = STRICT_EVIDENCE_MESSAGE
                     rag_response.citations = []
                     rag_response.followups = []
+                # 게이트가 무엇을 보고 막았나. `cited` 는 답변이 **표기한** 근거고
+                # `unit_refs`(위 단계)가 **주입한** 근거다 — 이 둘의 대조가 판정 그 자체다.
+                # 무엇을 지어냈는지 남긴다. 「막혔다」만 남기면 관리자가 원인을 못 푼다.
+                # legacy 봇에서도 기록한다 — 게이트를 켜기 전에 얼마나 새는지 보려면 필요하다.
+                turn.stage(
+                    STRICT,
+                    "blocked" if strict_blocked else ("pass" if strict_on else "off"),
+                    cited=cited or None,
+                    fabricated=sorted(fake_ids) or None,
+                    fabricated_loc=[f"{k}{n}" for k, n in sorted(fake_loc)] or None,
+                )
 
                 # 기계 id 표기를 벗긴다. **strict 게이트보다 뒤여야 한다** — 게이트가 그
                 # 표기를 주입 목록과 대조하므로(`has_grounded_citation`) 먼저 지우면
                 # strict 봇이 전부 차단된다. `create_message` 보다는 앞이어야 한다 —
                 # DB 에 남으면 새로고침 때 다시 보인다.
+                before_strip = len(rag_response.answer or "")
                 rag_response.answer = strip_source_markers(rag_response.answer)
                 strip_source_markers_from_citations(rag_response.citations)
+                turn.stage(
+                    STRIP,
+                    "stripped" if len(rag_response.answer or "") != before_strip else "none",
+                    removed_chars=before_strip - len(rag_response.answer or "") or None,
+                )
 
                 # ── 1층. 결정론 게이트 ──
                 # 사용자에게 문구가 나가는 조건은 **이것 하나뿐**이다. 지금은 빈 말풍선이
@@ -571,13 +656,32 @@ class ChatService:
                     # 봇이 스스로 못 답한다고 말했다. **답변은 안 건드린다** — 프롬프트가
                     # 시킨 그 문구가 맞다. 관찰만 남겨 관리자 화면을 채운다.
                     trace.mark(Reason.SELF_REFUSAL)
+                # 사용자에게 나가는 문구가 여기서 갈린다. 「유보율」의 분자가 이 단계다.
+                turn.stage(
+                    UNANSWERED,
+                    "replaced" if Reason.EMPTY_ANSWER in trace.reasons
+                    else ("self_refusal" if Reason.SELF_REFUSAL in trace.reasons else "none"),
+                )
 
                 # 표기 통일 — 프롬프트로는 안 지켜지는 것이 실측돼(FINDINGS §2-4) 코드로 바꾼다.
                 # 인용의 segments 도 같이 바꿔야 한다. 프론트가 본문에서 segment 를 문자열
                 # 검색해 각주를 앵커하므로(citationMarkers.ts), 본문만 바꾸면 각주가 전부 빠진다.
+                before_term = rag_response.answer
                 if ops_term_rules:
                     rag_response.answer = apply_term_rules(rag_response.answer, ops_term_rules)
                     apply_term_rules_to_citations(rag_response.citations, ops_term_rules)
+                turn.stage(
+                    TERM,
+                    "applied" if rag_response.answer != before_term else "none",
+                    rules=len(ops_term_rules) or None,
+                )
+                # 기록은 아래 `_record_unanswered` 가 하지만, 무엇을 남길지는 여기서 이미
+                # 정해져 있다. 메시지 INSERT 한 번에 trace 를 얹으려고 미리 닫는다.
+                turn.stage(
+                    RECORD,
+                    "recorded" if trace.reasons else "none",
+                    reasons=list(trace.reasons) or None,
+                )
 
                 assistant_msg = await crud_chat.create_message(
                     session=self.session,
@@ -586,6 +690,7 @@ class ChatService:
                     content=rag_response.answer,
                     citations=[c.model_dump() for c in rag_response.citations],
                     followups=rag_response.followups,
+                    trace=turn.to_json(),
                 )
                 chat_session.updated_at = datetime.now(timezone.utc)
 
@@ -637,11 +742,13 @@ class ChatService:
         if bot.evidence_policy_mode == "strict":
             # strict 봇은 RAG가 비활성화된 요청으로 사실 답변을 만들지 않는다.
             content = STRICT_EVIDENCE_MESSAGE
+            turn.stage(STRICT, "blocked", reason="rag_disabled")
             await crud_chat.create_message(
                 session=self.session,
                 session_id=chat_session.id,
                 role=MessageRole.ASSISTANT,
                 content=content,
+                trace=turn.to_json(),
             )
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()
@@ -678,7 +785,15 @@ class ChatService:
                 system_prompt=effective_system_prompt,
                 history=history or None,
             )
+            before_term = content
             content = apply_term_rules(content, ops_term_rules)
+            # RAG 를 안 탄 경로다 — 근거 없이 생성만 했다는 사실 자체가 기록돼야 한다.
+            turn.stage(RETRIEVAL, "skipped", reason="use_rag=false")
+            turn.stage(
+                TERM,
+                "applied" if content != before_term else "none",
+                rules=len(ops_term_rules) or None,
+            )
 
             # followups 를 먼저 생성해 메시지에 함께 영속화 (관리자 상세에서 후속질문 표시).
             followups = await generate_followups(request.message, content)
@@ -689,6 +804,7 @@ class ChatService:
                 role=MessageRole.ASSISTANT,
                 content=content,
                 followups=followups,
+                trace=turn.to_json(),
             )
             chat_session.updated_at = datetime.now(timezone.utc)
             await self.session.commit()

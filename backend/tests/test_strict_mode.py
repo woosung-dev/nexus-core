@@ -76,6 +76,62 @@ def test_grounded_citation_rejects_unsupported_answers():
     assert not has_grounded_citation("[[src: reg-55]]", [])
 
 
+def test_fabricated_citations_catches_invented_sources():
+    """`has_grounded_citation` 이 못 보는 실패. 110셀 실측에서 26건 중 18건이 새어 나갔다."""
+    from app.services.strict_mode import fabricated_citations
+
+    # 맞는 근거 하나에 가짜 하나를 얹었다 — 기존 자는 이것을 통과시킨다
+    ids, loc = fabricated_citations("[[src: reg-56, reg-99]]", _UNITS)
+    assert ids == {"reg-99"} and not loc
+    # 조문 형식으로 지어냈다
+    ids, loc = fabricated_citations("[근거: 규정집v20 제55조, 제99조]", _UNITS)
+    assert not ids and loc == {("조", 99)}
+    # 전부 진짜면 빈 값
+    assert fabricated_citations("[근거: 규정집v20 제55조]", _UNITS) == (set(), set())
+    # 주입 목록이 없으면 대조 불가 — 지어냈다고 단정하지 않는다
+    assert fabricated_citations("[근거: 제99조]", []) == (set(), set())
+
+
+def test_evidence_ok_requires_both_conditions():
+    """① 주입 근거를 짚었고 ② 지어낸 것이 없어야 통과. 2026-08-14 실측 결정."""
+    from app.services.strict_mode import evidence_ok
+
+    assert evidence_ok("가정회비는 월 15,000원입니다 [[src: reg-56]].", _UNITS)
+    # ② 위반 — 맞는 근거가 있어도 가짜가 섞이면 막는다
+    assert not evidence_ok("[[src: reg-56]] 그리고 [[src: reg-99]] 에 따르면", _UNITS)
+    # ① 위반
+    assert not evidence_ok("절차는 세 단계입니다.", _UNITS)
+
+
+def test_gate_regression_from_2026_08_14_measurement():
+    """실측 두 사례를 회귀로 박는다. 이 판정이 바뀌면 결정 근거가 무너진다.
+
+    출처: `exports/regression/_e2e_s1_lex_0813.json` · 봇 29 · 55문항 × 2회.
+    """
+    from app.services.strict_mode import evidence_ok
+
+    # 사례 1 (문항#30 · 40일 성별) — 주입은 reg-72·73·41 인데 제32조를 인용문까지 붙여 지어냈다
+    units_30 = [
+        SourceUnit(src_id="reg-72", doc="규정집v20", locator="제72조(가정출발)", text=""),
+        SourceUnit(src_id="reg-41", doc="규정집v20", locator="제41조(성별기간)", text=""),
+    ]
+    ans_30 = ("성별 실패나 위반이 발생한 경우에는 즉시 소속 교회장에게 보고하여 지도를 받아야 합니다. "
+              "[근거: 규정집 v20 제32조]")
+    assert not evidence_ok(ans_30, units_30), "지어낸 조문은 막아야 한다"
+
+    # 사례 2 (문항#31 · 3일행사) — 근거를 아예 안 밝혔다. 내용은 주입 원문에서 나왔다.
+    # 기존 자는 막았고(서식만 보고), 새 자도 막는다 — 과잉 차단을 감수한 결정이다.
+    units_31 = [
+        SourceUnit(src_id="reg-41", doc="규정집v20", locator="제41조(성별기간)", text=""),
+        SourceUnit(src_id="reg-71", doc="규정집v20", locator="제71조(축복결혼식)", text=""),
+    ]
+    bare_31 = "즉시 소속 교회장에게 보고하고, 40일 성별을 다시 완료한 뒤 처음부터 진행합니다."
+    assert not evidence_ok(bare_31, units_31)
+    # 같은 답변에 정확한 조문을 붙이면 통과한다 — 자료 보강으로 회수되는 경로가 이것이다
+    cited_31 = bare_31 + " (근거: 규정집v20 제41조, 제71조)"
+    assert evidence_ok(cited_31, units_31)
+
+
 def _lexical_trace(*reasons: str) -> RetrievalTrace:
     trace = RetrievalTrace(units=list(_UNITS))
     for reason in reasons:
