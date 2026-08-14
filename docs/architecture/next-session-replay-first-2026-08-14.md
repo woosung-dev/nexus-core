@@ -103,33 +103,32 @@ cd backend && .venv/bin/python ../exports/regression/_gate.py --tag cite_0814
 **목적은 A/B 가 아니다.** 「무엇을 못 답하나」를 추측이 아니라 **목록**으로 만드는 것이다.
 그 목록이 있어야 관리자에게 「자료 주세요」를 감이 아니라 숫자로 요구할 수 있다.
 
-### 3-1. 대상 뽑기 (읽기 전용)
+### 3-1. 입력 — **이미 만들어 뒀다**
 
-```sql
--- 2회 이상 반복된 질문 600건. 여기부터 돈다
-with u as (
-  select lower(regexp_replace(content,'[[:space:][:punct:]]','','g')) n,
-         min(content) q, count(*) k
-  from messages where role='user' group by 1)
-select q, k from u
-where k >= 2 and length(q) between 6 and 300
-order by k desc, q;
+```
+exports/replay_2026-08/_input.json       반복 2회 이상 600건  ← 여기부터 돈다
+exports/replay_2026-08/_input_all.json   고유 전체 1,183건
 ```
 
-**라이브에서 읽고, 로컬 봇 29 로 돌린다.** 라이브에 세션·메시지를 쓰지 마라.
+라이브 `messages(role=user)` 를 정규화해 고유화한 것이다. `k` = 같은 질문이 반복된 횟수,
+`cid` = `R0001…`(빈도 내림차순). 상위 몇 건:
 
-### 3-2. 하네스
+```
+R0001 14회  축복은 왜 받아야 해요?
+R0002 12회  축복가기까지의 과정을 자세히 알려줘. 신청서, 준비물, 일정 모두 포함해서…
+R0003  7회  교류중 상대에게 "사랑해"라는 애정표현을 하는건 피해야할 행동일까?
+```
 
-`_run_e2e.py` 는 `questions.json` 을 하드코딩으로 읽는다. **replay 용 입력 파일을 받게 고쳐야 한다** —
-`--questions <path>` 인자 하나 추가가 가장 작다. 형식은 `{"items":[{"q": "...", "cid": "R0001", ...}]}`.
-
-`cid` 를 반드시 채워라 — resume 키가 `(cid or gid, rep)` 라서 비면 뭉개진다(앞 세션에서 고친 함정).
+### 3-2. 하네스 — `--questions` **이미 넣어 뒀다**
 
 ```bash
 cd backend && .venv/bin/python -u ../exports/regression/_run_e2e.py \
   --bot-id 29 --tag replay_0815 --questions ../exports/replay_2026-08/_input.json \
   --reps 1 --throttle 10 --retrieval-mode lexical --policy strict
 ```
+
+식별자가 빈 문항이 있으면 하네스가 **시작 전에 거부한다**(resume 이 뭉개지므로).
+**라이브에서 읽고 로컬 봇 29 로 돌린다.** 라이브에 세션·메시지를 쓰지 마라.
 
 - `--reps 1` 이면 된다. 재현성 측정이 아니라 **결손 수집**이다
 - `--policy strict` — 라이브와 같은 조건이어야 「무엇을 못 답하나」가 맞는다
@@ -190,15 +189,17 @@ replay 를 돌리면 **실사용자가 실제로 물은 것 중 몇 건이 문�
 
 ---
 
-## 5. KPI 재계산 스크립트 (호출 0회)
+## 5. KPI 재계산 — `_kpi.py` (호출 0회) · **이미 만들어 뒀다**
 
-앞 세션에서 쓴 것. `s1_lex_0813` · `cite_0814` 등 어느 태그든 잰다.
+```bash
+cd backend && .venv/bin/python ../exports/regression/_kpi.py --tag s1_lex_0813 --tag cite_0814
+```
 
-- 문서상태는 `exports/golden45_2026-08-11/_golden_vs_docs.json` 의 `rows[].verdict` 에 있고,
-  **키는 `questions.json` 의 `no`(1~45)** 다. `gid`·`cid` 가 아니다 — 여기서 한 번 헤맸다
-- C01~C10 은 `no` 가 없다. `bucket == 'C'` → `함정` 으로 넣는다
-- 게이트 재현은 `evidence_ok` = ①주입 근거를 짚었나 **∧** ②지어낸 게 없나. ① 만 재현하면 13.7pp 낮게 나온다
-- 검산: `s1_lex_0813` 의 전체 유보가 **68.2%(75/110)** 로 나와야 앞 문서 §0-5 와 맞는다
+`--tag` 를 여러 번 주면 나란히 잰다. 과잉 거절의 **원인 분류까지** 찍는다.
+
+검산: `s1_lex_0813` 의 전체 유보가 **68.2%(75/110)** 로 나와야 앞 문서 §0-5 와 맞는다.
+(스크립트 안에 함정 3개를 주석으로 남겨 뒀다 — 문서상태 키가 `no` 라는 것, C 버킷 처리,
+게이트를 ①∪② 로 재현해야 한다는 것.)
 
 **§1 KPI 현재값 (배포된 게이트 · 어휘 110셀)**
 
