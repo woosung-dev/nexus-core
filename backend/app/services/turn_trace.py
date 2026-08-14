@@ -30,6 +30,10 @@
 **스트리밍 경로.** `_generate_*_stream` 세 갈래는 배선하지 않았다. 지금 스트리밍은
 `retrieval_mode == "file_search"` 일 때만 켜지고(`chat_service.py` 의 `stream_ok`),
 주력 봇 11 은 `lexical` 이라 타지 않는다. file_search 봇을 재려면 그때 배선해야 한다.
+
+⚠ 같은 구멍에 **위기 안내 블록도 빠져 있다**(`CRISIS` 단계). 스트리밍을 켜는 순간
+자살 신호에 안전 안내가 안 나간다. file_search 봇을 내보낼 때 trace 배선과 **반드시
+같이** 해야 한다 — 이쪽은 관측 누락이지만 저쪽은 안전 결함이다.
 """
 
 import hashlib
@@ -47,6 +51,9 @@ STRICT = "strict"
 STRIP = "strip"
 UNANSWERED = "unanswered"
 TERM = "term"
+# 위기 안내. **걸린 턴에서만 낸다** — 안 걸린 턴은 단계 자체가 없다.
+# 그래서 위 여덟 단계의 순서 계약(`tests/test_turn_trace.py`)이 그대로 유지된다.
+CRISIS = "crisis"
 RECORD = "record"
 
 # 한 턴의 trace 가 이보다 커지면 잘라 낸다. 관리자 화면 한 행이 감당할 상한이고,

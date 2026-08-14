@@ -25,6 +25,7 @@ from app.services.llm.factory import get_llm_service
 from app.services.ops_facts_service import (
     apply_term_rules,
     apply_term_rules_to_citations,
+    build_crisis_suffix,
     build_prompt_overlay,
     load_runtime_facts,
     term_rules,
@@ -41,6 +42,7 @@ from app.services.strict_mode import (
     strip_source_markers_from_citations,
 )
 from app.services.turn_trace import (
+    CRISIS,
     FAQ,
     OPS_FACTS,
     RECORD,
@@ -69,7 +71,10 @@ _LEXICAL_PROVIDER_PREFIX = "gemini"
 
 
 def _strict_blocks(
-    retrieval_mode: str, trace: RetrievalTrace, response: RAGResponse
+    retrieval_mode: str,
+    trace: RetrievalTrace,
+    response: RAGResponse,
+    crisis_active: bool = False,
 ) -> bool:
     """strict 봇의 답변을 고정 문구로 바꿀 것인가.
 
@@ -91,12 +96,41 @@ def _strict_blocks(
 
     ② 를 2026-08-14 에 더했다. ① 만 보면 「맞는 근거 하나에 가짜 셋을 얹은 답변」이 통과한다 —
     110셀 실측에서 가짜 근거 26건 중 18건이 그렇게 새어 나갔다. 근거와 수치는 `evidence_ok`.
+
+    **위기 턴은 이 자를 대지 않는다.** 위기 안내에는 규정집 인용이 붙지 않아
+    `evidence_ok` 도 `has_direct_citation` 도 통과할 수 없다. 실측으로 C07「죽고 싶어요」가
+    4/4 차단됐고(`exports/regression/_gate_s1_*.json`), 그러면 자살 신호에
+    「확인 가능한 직접 인용 근거가 없어…」만 나간다. 이 게이트는 **문서에 없는 것을
+    지어냈나**를 막는 자인데, 위기 블록은 운영자가 승인한 고정 문안이라 지어낼 여지가 없다.
+    근거가 없는 게 아니라 **근거의 종류가 다르다** — `ops_facts` 승인이 그 근거다.
     """
+    if crisis_active:
+        return False
     fell_back = bool({Reason.LEXICAL_EMPTY, Reason.CORPUS_UNAVAILABLE} & set(trace.reasons))
     if retrieval_mode != "lexical" or fell_back:
         return not has_direct_citation(response.citations)
     answer = response.answer or ""
     return not evidence_ok(answer, trace.units) and not is_self_refusal(answer)
+
+
+def _attach_crisis(answer: str, block: str) -> tuple[str, str]:
+    """위기 안내 블록을 답변에 붙인다. `(새 답변, 판정)` 을 돌려준다.
+
+    **거절문 뒤에 안전 안내를 붙이지 않는다.** 「규정집 이외의 내용에는 답할 수 없습니다」
+    다음에 안전 안내가 오면 사용자가 먼저 읽는 것은 거절이다. 판정 기준 ①「안전 우선」이
+    바로 그 순서를 보는 것이라, 이 경우에는 **덧붙이지 말고 통째로 바꾼다.**
+
+    바꾸는 대상은 셋이다 — 빈 답변 · 봇이 스스로 못 답한다고 한 답변 · 게이트가 이미
+    갈아 끼운 고정 문구. 그 밖에는 모델이 쓴 위로 문장을 살리고 뒤에 붙인다.
+    """
+    text = (answer or "").strip()
+    if (
+        not text
+        or text in (STRICT_EVIDENCE_MESSAGE, UNANSWERED_MESSAGE)
+        or is_self_refusal(text)
+    ):
+        return block, "replaced"
+    return f"{text}\n\n{block}", "appended"
 
 
 def _effective_retrieval_mode(bot: Bot) -> str:
@@ -511,6 +545,10 @@ class ChatService:
         ops_facts = await load_runtime_facts(self.session, bot, request.message)
         effective_system_prompt = (bot.system_prompt or "") + build_prompt_overlay(ops_facts)
         ops_term_rules = term_rules(ops_facts)
+        # 위기 안내. 트리거가 걸린 턴에만 값이 있고, 그때부터 이 턴의 처리가 달라진다 —
+        # strict 게이트를 안 태우고(`_strict_blocks`), 답변 끝에 고정 블록을 붙이고,
+        # 배경 인용 백필과 「답변 못 함」 적재를 건너뛴다.
+        crisis_block = build_crisis_suffix(ops_facts)
         # `config.prompt_sha8` 은 봇 **저장값**이고, 여기 `prompt_sha8` 이 실제로 모델에
         # 간 **실효 프롬프트**다. 둘이 다르면 overlay 가 붙었다는 뜻이다.
         turn.stage(
@@ -609,7 +647,7 @@ class ChatService:
                 cited = sorted(cited_ids(rag_response.answer))
                 fake_ids, fake_loc = fabricated_citations(rag_response.answer, trace.units)
                 strict_blocked = strict_on and _strict_blocks(
-                    retrieval_mode, trace, rag_response
+                    retrieval_mode, trace, rag_response, crisis_active=bool(crisis_block)
                 )
                 if strict_blocked:
                     logger.info("strict response blocked: no direct citation bot_id=%s", bot.id)
@@ -675,6 +713,22 @@ class ChatService:
                     "applied" if rag_response.answer != before_term else "none",
                     rules=len(ops_term_rules) or None,
                 )
+
+                # 위기 안내 — **표기 치환 뒤**여야 한다. 운영자가 승인한 문안이 한 글자도
+                # 안 바뀌고 나가야 하는데, 앞에 두면 term 규칙이 번호나 기관명을 건드린다.
+                if crisis_block:
+                    rag_response.answer, crisis_decision = _attach_crisis(
+                        rag_response.answer, crisis_block
+                    )
+                    # 후속질문은 위기 턴에서 **언제나** 뗀다. 「더 궁금한 것」을 되묻는
+                    # 자리가 아니다. 인용은 교체했을 때만 뗀다 — 덧붙인 경우에는 모델이
+                    # 쓴 앞부분에 여전히 붙어 있어야 각주가 맞는다.
+                    rag_response.followups = []
+                    if crisis_decision == "replaced":
+                        rag_response.citations = []
+                    # 블록 **본문은 남기지 않는다** — trace 규칙 1(원문 금지).
+                    turn.stage(CRISIS, crisis_decision, block_len=len(crisis_block))
+
                 # 기록은 아래 `_record_unanswered` 가 하지만, 무엇을 남길지는 여기서 이미
                 # 정해져 있다. 메시지 INSERT 한 번에 trace 를 얹으려고 미리 닫는다.
                 turn.stage(
@@ -695,38 +749,47 @@ class ChatService:
                 chat_session.updated_at = datetime.now(timezone.utc)
 
                 # ── 3층. 관찰된 것을 남긴다 (어시스턴트 메시지와 같은 트랜잭션) ──
-                await _record_unanswered(
-                    self.session,
-                    bot=bot,
-                    chat_session=chat_session,
-                    message_id=assistant_msg.id,
-                    question=request.message,
-                    reasons=trace.reasons,
-                    detail={
-                        "retrieval_mode": retrieval_mode,
-                        "src_ids": [u.src_id for u in trace.units],
-                    },
-                )
+                # **위기 턴은 안 남긴다.** 검색이 빈손이라 `reasons` 에 `lexical_empty` 가
+                # 붙지만 그건 「자료가 없어서 못 답했다」가 아니다 — 위기 안내는 규정집으로
+                # 메울 수 있는 결손이 아니고, 우리는 제대로 답했다. 남기면 (a) 유보 집계에
+                # 섞이고 (b) STEP 3 의 자료 보강 목록에 「죽고 싶어요」가 doc_gap 후보로 올라온다.
+                if not crisis_block:
+                    await _record_unanswered(
+                        self.session,
+                        bot=bot,
+                        chat_session=chat_session,
+                        message_id=assistant_msg.id,
+                        question=request.message,
+                        reasons=trace.reasons,
+                        detail={
+                            "retrieval_mode": retrieval_mode,
+                            "src_ids": [u.src_id for u in trace.units],
+                        },
+                    )
                 await self.session.commit()
 
                 # 메인 답변 경로(persona)가 인용을 못 남기면 interactions 로 근사 인용을 비동기 백필.
                 # 인용이 이미 붙었으면 근거 구절만 따로 채운다 — 어느 쪽이든 응답은 막지 않는다.
-                if not rag_response.citations and bot.evidence_policy_mode != "strict":
-                    _schedule_citation_backfill(
-                        bot_id=bot.id,
-                        model_name=bot.llm_model,
-                        system_prompt=effective_system_prompt,
-                        message_id=assistant_msg.id,
-                        prompt=request.message,
-                        answer=rag_response.answer,
-                    )
-                else:
-                    _schedule_evidence_fill(
-                        model_name=bot.llm_model,
-                        message_id=assistant_msg.id,
-                        citations=[c.model_dump() for c in rag_response.citations],
-                        answer=rag_response.answer,
-                    )
+                #
+                # **위기 턴은 둘 다 안 돈다.** 자살 신호 답변에 근거 인용을 지어내 붙이려는
+                # 호출이라 뜻이 없고, 배경 LLM 호출이 하나 더 나가 요청률이 2배가 된다.
+                if not crisis_block:
+                    if not rag_response.citations and bot.evidence_policy_mode != "strict":
+                        _schedule_citation_backfill(
+                            bot_id=bot.id,
+                            model_name=bot.llm_model,
+                            system_prompt=effective_system_prompt,
+                            message_id=assistant_msg.id,
+                            prompt=request.message,
+                            answer=rag_response.answer,
+                        )
+                    else:
+                        _schedule_evidence_fill(
+                            model_name=bot.llm_model,
+                            message_id=assistant_msg.id,
+                            citations=[c.model_dump() for c in rag_response.citations],
+                            answer=rag_response.answer,
+                        )
 
                 # followups 는 RAG 호출(rag_service.generate_with_rag) 1회 안에서 같이 받음.
                 # 별도 LLM call(followup_service) 을 제거해 wall-time/비용 절반 + timeout 사고 차단.
@@ -743,6 +806,11 @@ class ChatService:
             # strict 봇은 RAG가 비활성화된 요청으로 사실 답변을 만들지 않는다.
             content = STRICT_EVIDENCE_MESSAGE
             turn.stage(STRICT, "blocked", reason="rag_disabled")
+            # 위기 턴이면 고정 문구 대신 안전 안내를 낸다. RAG 를 껐다는 이유로
+            # 자살 신호에 「답변해 드릴 수 없습니다」를 내보내면 안 된다.
+            if crisis_block:
+                content, crisis_decision = _attach_crisis(content, crisis_block)
+                turn.stage(CRISIS, crisis_decision, block_len=len(crisis_block))
             await crud_chat.create_message(
                 session=self.session,
                 session_id=chat_session.id,
@@ -795,8 +863,14 @@ class ChatService:
                 rules=len(ops_term_rules) or None,
             )
 
+            # 위기 안내 — RAG 경로와 같은 규약(표기 치환 뒤, 저장 앞).
+            if crisis_block:
+                content, crisis_decision = _attach_crisis(content, crisis_block)
+                turn.stage(CRISIS, crisis_decision, block_len=len(crisis_block))
+
             # followups 를 먼저 생성해 메시지에 함께 영속화 (관리자 상세에서 후속질문 표시).
-            followups = await generate_followups(request.message, content)
+            # 위기 턴에서는 만들지 않는다 — 「더 궁금한 것」을 되묻는 자리가 아니다.
+            followups = [] if crisis_block else await generate_followups(request.message, content)
 
             await crud_chat.create_message(
                 session=self.session,

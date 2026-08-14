@@ -53,6 +53,7 @@ const STAGE_LABEL: Record<string, string> = {
   strip: "표기 제거",
   unanswered: "답변 못 함",
   term: "용어 통일",
+  crisis: "위기 안내",
   record: "기록",
 };
 
@@ -72,6 +73,7 @@ const DECISION_LABEL: Record<string, string> = {
   off: "꺼짐",
   stripped: "제거함",
   replaced: "고정 문구로 치환",
+  appended: "안전 안내 덧붙임",
   self_refusal: "봇이 스스로 거절",
   applied: "적용",
   recorded: "기록함",
@@ -81,6 +83,7 @@ const DECISION_LABEL: Record<string, string> = {
 function tone(stage: string, decision: string): "bad" | "warn" | "hot" | "ok" | "idle" {
   if (decision === "blocked" || decision === "policy_block") return "bad";
   if (decision === "fallback" || decision === "replaced" || decision === "self_refusal") return "warn";
+  if (stage === "crisis") return "hot";
   if (stage === "retrieval") return "hot";
   if (stage === "unanswered" && decision === "none") return "ok";
   return "idle";

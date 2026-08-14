@@ -14,7 +14,10 @@ export const KIND_EFFECT: Record<OpsFactKind, string> = {
   forbidden: "프롬프트에 항상 실린다",
   term: "프롬프트에 넣지 않고, 답변 문구를 직접 바꾼다",
   contact: "프롬프트에 항상 실린다",
-  crisis: "질문에 트리거 표현이 있을 때만 실린다",
+  // ⚠ crisis 만 유일하게 **여기 쓴 글이 사용자에게 그대로 나간다.** 프롬프트에는
+  // 「위로만 하고 연락처는 쓰지 마라」는 고정 지시문이 대신 가고, 이 문안은 답변 끝에
+  // 코드가 붙인다. 모델을 안 거치므로 한 글자도 안 바뀐다.
+  crisis: "트리거 표현이 있을 때, 이 문안이 답변 끝에 그대로 나간다",
 }
 
 export const KIND_ORDER: OpsFactKind[] = [
