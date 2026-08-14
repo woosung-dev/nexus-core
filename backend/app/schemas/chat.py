@@ -89,6 +89,20 @@ class MessageResponse(BaseModel):
         return v if isinstance(v, list) else []
 
 
+class AdminMessageResponse(MessageResponse):
+    """관리자 전용 메시지 응답 — `trace` 를 얹는다.
+
+    **`MessageResponse` 에 직접 넣으면 안 된다.** 그 스키마는 사용자 API
+    (`/chat/{session_id}/messages`)와 관리자 API 가 **함께 쓴다.** 거기에 얹으면
+    한 줄 수정으로 실행 추적이 통째로 사용자에게 나간다. 기계 id 가 화면에 새어 나간
+    전례가 있다(#63). 상속으로 분리해 두면 사용자 경로는 구조적으로 못 본다.
+
+    `trace` 규약은 `app/services/turn_trace.py`. 도입 이전 메시지는 `None` 이다.
+    """
+
+    trace: dict | None = None
+
+
 class ChatSessionListResponse(BaseModel):
     """채팅 세션 목록 응답 스키마"""
 

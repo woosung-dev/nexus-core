@@ -66,6 +66,14 @@ class Message(SQLModel, table=True):
         sa_column=Column(JSON, nullable=True),
         description="후속 추천 질문 JSON 배열 [str]",
     )
+    # 한 턴이 어느 단계를 어떻게 지났나. **관리자 전용** — 사용자 응답 스키마에 넣지 않는다.
+    # 규약과 크기 상한은 `app/services/turn_trace.py`. 도입 이전 메시지는 NULL 이므로
+    # 읽는 쪽은 없을 때를 견뎌야 한다.
+    trace: dict | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+        description="단계별 실행 기록 {v, total_ms, config, stages} — 관리자 전용",
+    )
 
     created_at: datetime = Field(
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), nullable=False),

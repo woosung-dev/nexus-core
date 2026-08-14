@@ -81,10 +81,60 @@ def has_grounded_citation(answer: str, units: list[SourceUnit]) -> bool:
     injected_ids = {u.src_id for u in units}
     if cited_ids(answer) & injected_ids:
         return True
-    injected_loc: set[tuple[str, int]] = set()
-    for unit in units:
-        injected_loc |= _locator_keys(unit.locator)
-    return bool(_locator_keys(answer) & injected_loc)
+    return bool(_locator_keys(answer) & _injected_locators(units))
+
+
+def _injected_locators(units: list[SourceUnit]) -> set[tuple[str, int]]:
+    return {k for u in units for k in _locator_keys(u.locator)}
+
+
+def fabricated_citations(answer: str, units: list[SourceUnit]) -> tuple[set[str], set[tuple[str, int]]]:
+    """답변이 **주입하지 않은** 근거를 댔는가. (가짜 id, 가짜 조문키)
+
+    `has_grounded_citation` 이 못 보는 실패다. 그 함수는 「하나라도 맞으면 통과」라서
+    맞는 것 하나에 가짜 셋을 얹어도 통과한다. 110셀 실측에서 **가짜 근거 26건 중 8건만**
+    잡혔다(31%).
+
+    이게 가장 위험한 형태다. 내용은 규정집에 실재하는데 **출처만 가짜**이면 사용자는
+    그 조문을 찾아보고 못 찾는다. 실측 예: 주입은 `reg-72·73·41` 인데 답변이
+    「[근거: 규정집 v20 제32조] > 실패 또는 중대한 위반이…」 라고 인용문까지 붙였다.
+    """
+    if not units:
+        return set(), set()
+    fake_ids = cited_ids(answer) - {u.src_id for u in units}
+    fake_loc = _locator_keys(answer) - _injected_locators(units)
+    return fake_ids, fake_loc
+
+
+def evidence_ok(answer: str, units: list[SourceUnit]) -> bool:
+    """어휘 경로의 근거 게이트. **두 조건을 모두** 통과해야 참이다.
+
+        ① 주입한 근거를 하나라도 짚었다        `has_grounded_citation`
+        ② 주입하지 않은 근거를 대지 않았다      `fabricated_citations` 가 빈 값
+
+    합집합으로 거는 이유는 두 실패가 서로 다른 죄이기 때문이다 —
+    ①만 보면 「가짜 근거를 얹은 답변」이 통과하고(실측 26건 중 18건 통과),
+    ②만 보면 「근거를 아예 안 밝힌 답변」이 통과한다.
+
+    110셀 실측(봇 29 · 55문항 × 2회 · 2026-08-14):
+
+        정책          가짜근거 검출   불일치 문항 유보   전체 유보
+        ① 단독            31%           62.5%        54.5%
+        ② 단독            88%           50.0%        58.2%
+        ①∪② ← 채택        88%           75.0%        68.2%
+
+    **과잉 차단을 감수한 선택이다.** 10문항 중 7문항이 「확인되지 않습니다」로 나간다.
+    근거: 오차단은 자료를 보강하면 자동으로 풀리지만(검색이 조문을 뽑으면 표기가 생긴다),
+    잘못 나간 답은 회수가 안 된다. 그 비대칭이 이 결정의 전부다.
+
+    ⚠ **file_search·both 경로에는 못 쓴다.** 주입 목록이 없어 대조가 성립하지 않는다.
+      그 경로는 `has_direct_citation` 만 보고 있고 실측에서 strict 를 켜도 유보가
+      +0.9p 밖에 안 늘었다(사실상 무보호). 별도 기전이 필요하다 — 미해결.
+    """
+    if not has_grounded_citation(answer, units):
+        return False
+    fake_ids, fake_loc = fabricated_citations(answer, units)
+    return not (fake_ids or fake_loc)
 
 
 # ── 화면 표시 — 기계 id 벗기기 ──────────────────────────────────────────────

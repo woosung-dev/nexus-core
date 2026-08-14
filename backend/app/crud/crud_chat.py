@@ -124,11 +124,13 @@ async def create_message(
     content: str,
     citations: list | None = None,
     followups: list | None = None,
+    trace: dict | None = None,
 ) -> Message:
     """
     새로운 메시지 생성 기록 (Flush).
     실제 DB 영속화는 상위 서비스/라우터의 commit()에서 일괄 처리.
     citations/followups 는 RAG 응답일 때만 채워지며, 그 외 분기는 None 으로 둔다.
+    trace 는 단계별 실행 기록(관리자 전용) — 같은 INSERT 에 얹어 왕복을 늘리지 않는다.
     """
     msg = Message(
         session_id=session_id,
@@ -136,6 +138,7 @@ async def create_message(
         content=content,
         citations=citations,
         followups=followups,
+        trace=trace,
     )
     session.add(msg)
     await session.flush()

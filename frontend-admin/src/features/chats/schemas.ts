@@ -21,6 +21,15 @@ export const chatMessageSchema = z.object({
   // RAG 응답 근거 — 기능 도입 이후 대화부터 채워짐(이전 대화는 빈 배열).
   citations: z.array(citationSchema).optional().default([]),
   followups: z.array(z.string()).optional().default([]),
+  // 단계별 실행 기록 — **관리자 API 에서만** 내려온다(`AdminMessageResponse`).
+  // 사용자 경로는 `MessageResponse` 라 이 필드가 아예 없다. 도입 이전 대화도 null.
+  // 구조를 여기서 좁게 굳히면 백엔드가 단계를 늘릴 때마다 파싱이 깨지므로 passthrough 다.
+  trace: z.object({
+    v: z.number().optional(),
+    total_ms: z.number().optional(),
+    config: z.record(z.string(), z.unknown()).optional(),
+    stages: z.array(z.record(z.string(), z.unknown())).optional(),
+  }).nullable().optional(),
   created_at: z.string(),
 });
 

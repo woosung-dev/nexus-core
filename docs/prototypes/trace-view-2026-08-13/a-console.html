@@ -1,0 +1,229 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A안 · 진단 콘솔 — 턴 실행 추적</title>
+<style>
+:root{
+  --bg:#f8fafc; --surface:#ffffff; --fg:#0f172a; --muted:#64748b;
+  --border:#e2e8f0; --border-strong:#cbd5e1;
+  --primary:#1e40af; --primary-soft:#eff6ff;
+  --ok:#047857; --ok-soft:#ecfdf5;
+  --warn:#b45309; --warn-soft:#fffbeb;
+  --bad:#b91c1c; --bad-soft:#fef2f2;
+  --idle:#94a3b8; --idle-soft:#f1f5f9;
+  --radius:0.375rem;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme=light]){
+    --bg:#0b1120; --surface:#111827; --fg:#e5e7eb; --muted:#94a3b8;
+    --border:#1f2937; --border-strong:#334155;
+    --primary:#60a5fa; --primary-soft:#172554;
+    --ok:#34d399; --ok-soft:#064e3b;
+    --warn:#fbbf24; --warn-soft:#451a03;
+    --bad:#f87171; --bad-soft:#450a0a;
+    --idle:#64748b; --idle-soft:#1e293b;
+  }
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:ui-sans-serif,system-ui,"Noto Sans KR",sans-serif;
+  font-size:14px; line-height:1.55;
+}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px; margin:0 auto; padding:24px 20px 72px}
+
+/* ── 헤더 ── */
+.head{display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; justify-content:space-between; margin-bottom:20px}
+h1{font-size:19px; margin:0 0 6px; letter-spacing:-.01em}
+.sub{color:var(--muted); font-size:12.5px}
+.cfg{display:flex; flex-wrap:wrap; gap:6px}
+.chip{
+  border:1px solid var(--border); background:var(--surface); border-radius:var(--radius);
+  padding:3px 8px; font-size:11.5px; color:var(--muted); white-space:nowrap;
+}
+.chip b{color:var(--fg); font-weight:600}
+
+/* ── 최상단 판정 ── */
+.verdict{
+  border:1px solid var(--border); border-left:3px solid var(--bad);
+  background:var(--bad-soft); border-radius:var(--radius);
+  padding:14px 16px; margin-bottom:20px;
+}
+.verdict h2{margin:0 0 4px; font-size:15px; color:var(--bad)}
+.verdict p{margin:0; font-size:13px; color:var(--fg)}
+
+/* ── KPI ── */
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:22px}
+.kpi{border:1px solid var(--border); background:var(--surface); border-radius:var(--radius); padding:11px 13px}
+.kpi .lab{font-size:11.5px; color:var(--muted); margin-bottom:3px}
+.kpi .val{font-size:21px; font-weight:600; letter-spacing:-.02em}
+.kpi .val.bad{color:var(--bad)} .kpi .val.ok{color:var(--ok)}
+.kpi .note{font-size:11px; color:var(--muted); margin-top:2px}
+
+/* ── 파이프라인 레일 ── */
+section{margin-bottom:26px}
+h3{font-size:13px; margin:0 0 10px; color:var(--muted); font-weight:600}
+.rail{display:flex; gap:4px; border:1px solid var(--border); background:var(--surface);
+      border-radius:var(--radius); padding:10px; overflow-x:auto}
+.node{flex:1 1 0; min-width:104px; border-radius:var(--radius); padding:8px 9px;
+      background:var(--idle-soft); border:1px solid transparent; cursor:pointer;
+      transition:border-color .15s, background .15s}
+.node:hover{border-color:var(--border-strong)}
+.node:focus-visible{outline:2px solid var(--primary); outline-offset:2px}
+.node .n{font-size:11px; color:var(--muted); margin-bottom:2px}
+.node .d{font-size:12.5px; font-weight:600}
+.node .t{font-size:11px; color:var(--muted); margin-top:3px}
+.node.ok{background:var(--ok-soft)} .node.ok .d{color:var(--ok)}
+.node.warn{background:var(--warn-soft)} .node.warn .d{color:var(--warn)}
+.node.hot{background:var(--primary-soft)} .node.hot .d{color:var(--primary)}
+.bar{height:3px; border-radius:2px; background:var(--border-strong); margin-top:6px}
+.bar i{display:block; height:100%; border-radius:2px; background:var(--primary)}
+
+/* ── 근거 대조 ── */
+.eviGrid{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+@media(max-width:760px){.eviGrid{grid-template-columns:1fr}}
+.panel{border:1px solid var(--border); background:var(--surface); border-radius:var(--radius); overflow:hidden}
+.panel > header{padding:9px 13px; border-bottom:1px solid var(--border); font-size:12px; color:var(--muted);
+  display:flex; justify-content:space-between; align-items:center}
+.panel > header b{color:var(--fg); font-size:12.5px}
+.row{display:flex; gap:9px; align-items:flex-start; padding:9px 13px; border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:0}
+.tag{flex:none; font-size:11px; padding:1px 6px; border-radius:3px; margin-top:1px}
+.tag.match{background:var(--ok-soft); color:var(--ok)}
+.tag.unused{background:var(--idle-soft); color:var(--muted)}
+.tag.ghost{background:var(--bad-soft); color:var(--bad)}
+.row .id{font-size:12.5px; font-weight:600}
+.row .loc{font-size:11.5px; color:var(--muted); margin-top:1px}
+.row.ghostRow{background:var(--bad-soft)}
+.legend{display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--muted); margin-top:9px}
+.legend span{display:inline-flex; align-items:center; gap:5px}
+.sw{width:9px; height:9px; border-radius:2px; display:inline-block}
+
+/* ── 단계 표 ── */
+table{width:100%; border-collapse:collapse; background:var(--surface);
+      border:1px solid var(--border); border-radius:var(--radius); overflow:hidden}
+th,td{text-align:left; padding:8px 12px; border-bottom:1px solid var(--border); font-size:12.5px; vertical-align:top}
+th{font-size:11.5px; color:var(--muted); font-weight:600; background:var(--idle-soft)}
+tr:last-child td{border-bottom:0}
+td.num{text-align:right; white-space:nowrap}
+.badge{font-size:11px; padding:1px 6px; border-radius:3px; background:var(--idle-soft); color:var(--muted)}
+.badge.ok{background:var(--ok-soft); color:var(--ok)}
+.badge.warn{background:var(--warn-soft); color:var(--warn)}
+.badge.hot{background:var(--primary-soft); color:var(--primary)}
+details summary{cursor:pointer; color:var(--muted); font-size:11.5px}
+pre{margin:6px 0 0; padding:8px 10px; background:var(--idle-soft); border-radius:var(--radius);
+    font-size:11.5px; overflow-x:auto; color:var(--fg)}
+
+/* ── 답변 ── */
+.answer{border:1px solid var(--border); background:var(--surface); border-radius:var(--radius); padding:14px 16px}
+.answer p{margin:0 0 9px} .answer p:last-child{margin:0}
+.qline{color:var(--muted); font-size:12.5px; margin-bottom:10px; padding-bottom:10px; border-bottom:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1>턴 실행 추적 <span class="mono" style="color:var(--muted);font-weight:400">#180</span></h1>
+      <div class="sub">2026-08-13 21:16:17 · 축복 헌금이 얼마인가요?</div>
+    </div>
+    <div class="cfg">
+      <span class="chip">봇 <b>29 테스트 봇 D-1 ver2</b></span>
+      <span class="chip">모델 <b class="mono">gemini-3.5-flash-lite</b></span>
+      <span class="chip">검색 <b>lexical</b></span>
+      <span class="chip">정책 <b>strict</b></span>
+      <span class="chip">프롬프트 <b class="mono">97e05c3e</b> 1,341자</span>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <h2>근거 표기 2건이 주입 목록 밖입니다</h2>
+    <p>답변이 <b class="mono">reg-50</b> · <b class="mono">reg-51</b> 을 근거로 제시했으나 이번 턴에 주입된 원문에 없습니다.
+       strict 게이트는 「하나라도 일치하면 통과」 규칙이라 <b>차단하지 않았습니다.</b></p>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="lab">총 소요</div><div class="val mono">2,185<span style="font-size:13px">ms</span></div><div class="note">검색이 99.8%</div></div>
+    <div class="kpi"><div class="lab">주입한 근거</div><div class="val mono">4</div><div class="note">2건 미사용</div></div>
+    <div class="kpi"><div class="lab">표기한 근거</div><div class="val mono">4</div><div class="note">2건 일치</div></div>
+    <div class="kpi"><div class="lab">출처 불명</div><div class="val mono bad">2</div><div class="note">reg-50 · reg-51</div></div>
+    <div class="kpi"><div class="lab">게이트</div><div class="val ok">통과</div><div class="note">차단 아님</div></div>
+  </div>
+
+  <section>
+    <h3>파이프라인 8단계</h3>
+    <div class="rail">
+      <div class="node" tabindex="0"><div class="n mono">1 faq</div><div class="d">통과</div><div class="t mono">1.3ms</div><div class="bar"><i style="width:1%"></i></div></div>
+      <div class="node" tabindex="0"><div class="n mono">2 ops_facts</div><div class="d">없음</div><div class="t mono">3.0ms</div><div class="bar"><i style="width:1%"></i></div></div>
+      <div class="node hot" tabindex="0"><div class="n mono">3 retrieval</div><div class="d">lexical</div><div class="t mono">2,180.7ms</div><div class="bar"><i style="width:100%"></i></div></div>
+      <div class="node warn" tabindex="0"><div class="n mono">4 strict</div><div class="d">통과</div><div class="t mono">0.0ms</div><div class="bar"><i style="width:1%"></i></div></div>
+      <div class="node" tabindex="0"><div class="n mono">5 strip</div><div class="d">제거 69자</div><div class="t mono">0.1ms</div><div class="bar"><i style="width:1%"></i></div></div>
+      <div class="node ok" tabindex="0"><div class="n mono">6 unanswered</div><div class="d">해당없음</div><div class="t mono">0.0ms</div><div class="bar"><i style="width:1%"></i></div></div>
+      <div class="node" tabindex="0"><div class="n mono">7 term</div><div class="d">없음</div><div class="t mono">0.0ms</div><div class="bar"><i style="width:1%"></i></div></div>
+      <div class="node" tabindex="0"><div class="n mono">8 record</div><div class="d">기록없음</div><div class="t mono">0.0ms</div><div class="bar"><i style="width:1%"></i></div></div>
+    </div>
+  </section>
+
+  <section>
+    <h3>근거 대조 — 우리가 준 것 vs 답변이 쓴 것</h3>
+    <div class="eviGrid">
+      <div class="panel">
+        <header><b>주입한 원문</b><span class="mono">4건</span></header>
+        <div class="row"><span class="tag match">사용됨</span><div><div class="id mono">glo-131</div><div class="loc">행정 131 축복헌금</div></div></div>
+        <div class="row"><span class="tag match">사용됨</span><div><div class="id mono">reg-53</div><div class="loc">제53조(축복감사헌금 및 환불 기준)</div></div></div>
+        <div class="row"><span class="tag unused">미사용</span><div><div class="id mono">glo-118</div><div class="loc">행정 118 축복감사헌금</div></div></div>
+        <div class="row"><span class="tag unused">미사용</span><div><div class="id mono">reg-59</div><div class="loc">제59조(축복자녀 미혼축복후보자 심사 시 가정회비 기준)</div></div></div>
+      </div>
+      <div class="panel">
+        <header><b>답변이 표기한 근거</b><span class="mono">4건</span></header>
+        <div class="row"><span class="tag match">일치</span><div><div class="id mono">glo-131</div><div class="loc">주입 목록에 있음</div></div></div>
+        <div class="row"><span class="tag match">일치</span><div><div class="id mono">reg-53</div><div class="loc">주입 목록에 있음</div></div></div>
+        <div class="row ghostRow"><span class="tag ghost">출처 불명</span><div><div class="id mono">reg-50</div><div class="loc">주입한 적 없음</div></div></div>
+        <div class="row ghostRow"><span class="tag ghost">출처 불명</span><div><div class="id mono">reg-51</div><div class="loc">주입한 적 없음</div></div></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--ok)"></i> 사용됨 · 주입했고 답변이 인용</span>
+      <span><i class="sw" style="background:var(--idle)"></i> 미사용 · 주입했으나 안 씀</span>
+      <span><i class="sw" style="background:var(--bad)"></i> 출처 불명 · 주입 안 했는데 인용</span>
+    </div>
+  </section>
+
+  <section>
+    <h3>단계별 상세</h3>
+    <table>
+      <thead><tr><th style="width:120px">단계</th><th style="width:100px">결정</th><th>관찰</th><th class="num" style="width:88px">소요</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">faq</td><td><span class="badge">통과</span></td><td>등록된 FAQ 0건이라 검색 생략 <span class="mono" style="color:var(--muted)">skipped=no_faqs</span></td><td class="num mono">1.3ms</td></tr>
+        <tr><td class="mono">ops_facts</td><td><span class="badge">없음</span></td><td>승인된 운영 사실 0건. 프롬프트 변화 없음 <span class="mono" style="color:var(--muted)">97e05c3e · 1,341자</span></td><td class="num mono">3.0ms</td></tr>
+        <tr><td class="mono">retrieval</td><td><span class="badge hot">lexical</span></td><td>BM25 로 4건 주입 · 답변 343자 · 인용 4건
+          <details><summary>주입 목록 펼치기</summary><pre class="mono">glo-118:행정 118 축복감사헌금
+reg-59 :제59조(축복자녀 미혼축복후보자 심사 시 가정회비 기준)
+glo-131:행정 131 축복헌금
+reg-53 :제53조(축복감사헌금 및 환불 기준)</pre></details></td><td class="num mono">2,180.7ms</td></tr>
+        <tr><td class="mono">strict</td><td><span class="badge warn">통과</span></td><td>표기 4건 중 2건이 주입 목록과 일치해 통과. 나머지 2건은 출처 불명</td><td class="num mono">0.0ms</td></tr>
+        <tr><td class="mono">strip</td><td><span class="badge">제거</span></td><td>내부 표기 69자 제거</td><td class="num mono">0.1ms</td></tr>
+        <tr><td class="mono">unanswered</td><td><span class="badge ok">해당없음</span></td><td>빈 답변 아님 · 자기거절 아님 · 고정 문구 미치환</td><td class="num mono">0.0ms</td></tr>
+        <tr><td class="mono">term</td><td><span class="badge">없음</span></td><td>표기 통일 규칙 0건</td><td class="num mono">0.0ms</td></tr>
+        <tr><td class="mono">record</td><td><span class="badge">기록없음</span></td><td>남길 신호 없음</td><td class="num mono">0.0ms</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h3>사용자에게 나간 답변</h3>
+    <div class="answer">
+      <div class="qline">축복 헌금이 얼마인가요?</div>
+      <p>축복헌금의 기준금액은 축복유형, 연도별 공문, 특수지원 기준에 따라 다를 수 있습니다.</p>
+      <p>규정집에 따르면 미혼축복을 받는 장애 축복자녀의 축복헌금은 1백만원으로 조정되었으며, 미혼축복 및 축복자녀 관련 축복감사헌금의 기본 금액은 유형별(축복자녀, 미혼 1세 등)로 90만원에서 600만원까지 다르게 규정되어 있습니다.</p>
+      <p>정확한 금액은 적용받으시는 축복 유형과 당해 연도 공문에 따라 달라지므로, 최종 확인은 담당 교회장 또는 가정행복국(02-3271-0502)을 통해 안내받으시기 바랍니다.</p>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

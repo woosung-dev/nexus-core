@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>B안 · 판독지 — 턴 실행 추적</title>
+<style>
+/* 밀도 9. 상자를 쓰지 않는다. 1px 선과 여백만으로 가른다. 숫자는 전부 mono·tabular. */
+:root{
+  --bg:#fbfbfa; --fg:#16181d; --dim:#6b7280; --faint:#9ca3af;
+  --rule:#e5e5e3; --rule-hard:#c9c9c5;
+  --accent:#1d4ed8;          /* 강조는 하나뿐이다 */
+  --alarm:#a81c1c;
+  --fill:#f2f2ef;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme=light]){
+    --bg:#0d0f12; --fg:#e8e8e6; --dim:#8b8f98; --faint:#5f636b;
+    --rule:#22252b; --rule-hard:#3a3f47;
+    --accent:#7aa2f7;
+    --alarm:#f07171;
+    --fill:#15181d;
+  }
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--bg); color:var(--fg);
+  font-family:ui-sans-serif,system-ui,"Noto Sans KR",sans-serif;
+  font-size:14px; line-height:1.6; -webkit-font-smoothing:antialiased;
+}
+.m{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-variant-numeric:tabular-nums; letter-spacing:-.01em}
+.wrap{max-width:940px; margin:0 auto; padding:44px 24px 96px}
+@media(max-width:640px){.wrap{padding:28px 16px 64px}}
+
+/* ── 표제 ── */
+.title{font-size:17px; font-weight:600; letter-spacing:-.01em; margin:0}
+.q{font-size:22px; font-weight:400; letter-spacing:-.02em; margin:10px 0 0; max-width:34ch}
+.meta{margin-top:14px; color:var(--dim); font-size:12px}
+.meta i{font-style:normal; color:var(--fg)}
+.rule{height:1px; background:var(--rule); margin:26px 0}
+.rule.hard{background:var(--rule-hard)}
+
+/* ── 경보. 상자가 아니라 왼쪽 굵은 선 하나로 ── */
+.alarm{border-left:2px solid var(--alarm); padding:2px 0 2px 16px; margin:26px 0}
+.alarm h2{margin:0; font-size:15px; font-weight:600; color:var(--alarm); letter-spacing:-.01em}
+.alarm p{margin:5px 0 0; font-size:13.5px; max-width:62ch; color:var(--fg)}
+
+/* ── 수치 줄. 카드 없음 ── */
+.figs{display:flex; flex-wrap:wrap; gap:0 40px; margin:26px 0}
+.fig{padding:2px 0}
+.fig dt{font-size:11.5px; color:var(--dim); margin-bottom:1px}
+.fig dd{margin:0; font-size:24px; font-weight:500; letter-spacing:-.03em}
+.fig dd small{font-size:12px; font-weight:400; color:var(--dim); margin-left:1px}
+.fig dd.alarm-n{color:var(--alarm)}
+
+/* ── 판독지 본체 ── */
+h3{font-size:12px; font-weight:600; color:var(--dim); margin:0 0 2px; letter-spacing:.01em}
+.ledger{width:100%; border-collapse:collapse; margin-top:12px}
+.ledger th{
+  text-align:left; font-size:11px; font-weight:500; color:var(--faint);
+  padding:0 12px 7px 0; border-bottom:1px solid var(--rule-hard); white-space:nowrap;
+}
+.ledger th.r,.ledger td.r{text-align:right; padding-right:0}
+.ledger td{padding:10px 12px 10px 0; border-bottom:1px solid var(--rule); vertical-align:top; font-size:13px}
+.ledger tr:last-child td{border-bottom:0}
+.ledger td.step{font-size:12.5px; color:var(--dim); width:104px; white-space:nowrap}
+.ledger td.step b{color:var(--fg); font-weight:500}
+.ledger td.dec{width:92px; font-size:12.5px; white-space:nowrap}
+.ledger td.obs{color:var(--dim); font-size:12.5px}
+.ledger td.obs em{font-style:normal; color:var(--fg)}
+.ledger td.r{width:92px; color:var(--dim); font-size:12.5px}
+.hot{color:var(--accent); font-weight:500}
+.hit{color:var(--alarm); font-weight:500}
+/* 시간 비중은 배경 트랙 없이 밑줄 한 획으로만 */
+.tick{display:block; height:1px; background:var(--accent); margin-top:5px; margin-left:auto}
+
+/* ── 근거 대조. 3단 목록 ── */
+.evi{margin-top:12px}
+.eviHead{display:flex; justify-content:space-between; align-items:baseline;
+  border-bottom:1px solid var(--rule-hard); padding-bottom:7px}
+.eviHead span{font-size:11px; color:var(--faint)}
+.eviHead b{font-size:12.5px; font-weight:500}
+.eviRow{display:flex; gap:14px; align-items:baseline; padding:9px 0; border-bottom:1px solid var(--rule)}
+.eviRow:last-child{border-bottom:0}
+.eviRow .k{flex:none; width:74px; font-size:12.5px}
+.eviRow .l{color:var(--dim); font-size:12.5px}
+.eviRow.ghost .k{color:var(--alarm); font-weight:500}
+.eviRow.ghost .l{color:var(--fg)}
+.eviRow.unused .k,.eviRow.unused .l{color:var(--faint)}
+.state{font-size:11px; color:var(--faint); margin-left:auto; flex:none; white-space:nowrap}
+.eviRow.ghost .state{color:var(--alarm)}
+
+/* ── 답변 ── */
+.answer{max-width:64ch; margin-top:12px}
+.answer p{margin:0 0 11px; font-size:14px} .answer p:last-child{margin:0}
+
+.foot{margin-top:44px; color:var(--faint); font-size:11.5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="title">턴 실행 추적 <span class="m" style="color:var(--dim);font-weight:400">#180</span></p>
+  <h1 class="q">축복 헌금이 얼마인가요?</h1>
+  <p class="meta m">
+    2026-08-13 21:16:17 · 봇 <i>29 테스트 봇 D-1 ver2</i> · <i>gemini-3.5-flash-lite</i> ·
+    lexical · strict · 프롬프트 <i>97e05c3e</i> 1,341자
+  </p>
+
+  <div class="alarm">
+    <h2>근거 표기 2건이 주입 목록 밖입니다</h2>
+    <p>답변이 <span class="m">reg-50</span> 과 <span class="m">reg-51</span> 을 근거로 들었습니다.
+       이번 턴에 준 원문에는 둘 다 없습니다. strict 게이트는 일치 1건만 있으면 통과시키므로 막지 않았습니다.</p>
+  </div>
+
+  <dl class="figs">
+    <div class="fig"><dt>총 소요</dt><dd class="m">2,185<small>ms</small></dd></div>
+    <div class="fig"><dt>검색 비중</dt><dd class="m">99.8<small>%</small></dd></div>
+    <div class="fig"><dt>주입 / 표기</dt><dd class="m">4 / 4</dd></div>
+    <div class="fig"><dt>일치</dt><dd class="m">2</dd></div>
+    <div class="fig"><dt>출처 불명</dt><dd class="m alarm-n">2</dd></div>
+  </dl>
+
+  <div class="rule hard"></div>
+
+  <h3>근거 대조</h3>
+  <div class="evi">
+    <div class="eviHead"><b>우리가 준 원문 4건, 답변이 쓴 근거 4건</b><span class="m">교집합 2</span></div>
+
+    <div class="eviRow">
+      <span class="k m">glo-131</span>
+      <span class="l">행정 131 축복헌금</span>
+      <span class="state">주입 · 인용</span>
+    </div>
+    <div class="eviRow">
+      <span class="k m">reg-53</span>
+      <span class="l">제53조 축복감사헌금 및 환불 기준</span>
+      <span class="state">주입 · 인용</span>
+    </div>
+    <div class="eviRow unused">
+      <span class="k m">glo-118</span>
+      <span class="l">행정 118 축복감사헌금</span>
+      <span class="state">주입 · 미인용</span>
+    </div>
+    <div class="eviRow unused">
+      <span class="k m">reg-59</span>
+      <span class="l">제59조 축복자녀 미혼축복후보자 심사 시 가정회비 기준</span>
+      <span class="state">주입 · 미인용</span>
+    </div>
+    <div class="eviRow ghost">
+      <span class="k m">reg-50</span>
+      <span class="l">주입한 적 없는 조문을 인용했습니다</span>
+      <span class="state">출처 불명</span>
+    </div>
+    <div class="eviRow ghost">
+      <span class="k m">reg-51</span>
+      <span class="l">주입한 적 없는 조문을 인용했습니다</span>
+      <span class="state">출처 불명</span>
+    </div>
+  </div>
+
+  <div class="rule"></div>
+
+  <h3>파이프라인 판독</h3>
+  <table class="ledger">
+    <thead>
+      <tr><th>단계</th><th>결정</th><th>무엇을 보고 정했나</th><th class="r">소요</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="step m">1 <b>faq</b></td>
+        <td class="dec">통과</td>
+        <td class="obs">등록 FAQ <em>0건</em>이라 임베딩 검색을 건너뛰었습니다</td>
+        <td class="r m">1.3ms<i class="tick" style="width:1px"></i></td>
+      </tr>
+      <tr>
+        <td class="step m">2 <b>ops_facts</b></td>
+        <td class="dec">없음</td>
+        <td class="obs">승인된 운영 사실 <em>0건</em>. 프롬프트가 <em>1,341자</em> 그대로입니다</td>
+        <td class="r m">3.0ms<i class="tick" style="width:1px"></i></td>
+      </tr>
+      <tr>
+        <td class="step m">3 <b>retrieval</b></td>
+        <td class="dec hot">lexical</td>
+        <td class="obs">BM25 로 <em>4건</em>을 골라 주입하고 <em>343자</em>를 생성했습니다</td>
+        <td class="r m">2,180.7ms<i class="tick" style="width:100%"></i></td>
+      </tr>
+      <tr>
+        <td class="step m">4 <b>strict</b></td>
+        <td class="dec hit">통과</td>
+        <td class="obs">표기 4건 중 <em>2건</em>이 주입 목록과 맞아 통과시켰습니다. 나머지 2건은 확인하지 않습니다</td>
+        <td class="r m">0.0ms<i class="tick" style="width:1px"></i></td>
+      </tr>
+      <tr>
+        <td class="step m">5 <b>strip</b></td>
+        <td class="dec">제거</td>
+        <td class="obs">화면에 나가면 안 되는 내부 표기 <em>69자</em>를 벗겼습니다</td>
+        <td class="r m">0.1ms<i class="tick" style="width:1px"></i></td>
+      </tr>
+      <tr>
+        <td class="step m">6 <b>unanswered</b></td>
+        <td class="dec">해당없음</td>
+        <td class="obs">빈 답변도 자기거절도 아니라 <em>고정 문구로 바꾸지 않았습니다</em></td>
+        <td class="r m">0.0ms<i class="tick" style="width:1px"></i></td>
+      </tr>
+      <tr>
+        <td class="step m">7 <b>term</b></td>
+        <td class="dec">없음</td>
+        <td class="obs">표기 통일 규칙 <em>0건</em></td>
+        <td class="r m">0.0ms<i class="tick" style="width:1px"></i></td>
+      </tr>
+      <tr>
+        <td class="step m">8 <b>record</b></td>
+        <td class="dec">기록없음</td>
+        <td class="obs">남길 신호가 없어 <em>답변 못 함</em> 목록에 넣지 않았습니다</td>
+        <td class="r m">0.0ms<i class="tick" style="width:1px"></i></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="rule"></div>
+
+  <h3>사용자에게 나간 답변</h3>
+  <div class="answer">
+    <p>축복헌금의 기준금액은 축복유형, 연도별 공문, 특수지원 기준에 따라 다를 수 있습니다.</p>
+    <p>규정집에 따르면 미혼축복을 받는 장애 축복자녀의 축복헌금은 1백만원으로 조정되었으며, 미혼축복 및 축복자녀 관련 축복감사헌금의 기본 금액은 유형별(축복자녀, 미혼 1세 등)로 90만원에서 600만원까지 다르게 규정되어 있습니다.</p>
+    <p>정확한 금액은 적용받으시는 축복 유형과 당해 연도 공문에 따라 달라지므로, 최종 확인은 담당 교회장 또는 가정행복국(02-3271-0502)을 통해 안내받으시기 바랍니다.</p>
+  </div>
+
+  <p class="foot m">trace v1 · 1,034 bytes · 관리자 전용</p>
+
+</div>
+</body>
+</html>

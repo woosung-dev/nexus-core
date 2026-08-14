@@ -1,8 +1,10 @@
 """
 운영 사실(ops_facts) 런타임 서비스.
 
-두 가지를 한다.
+세 가지를 한다.
   ① 승인된 사실을 시스템 프롬프트 뒤에 블록으로 붙인다 (deprecated·forbidden·contact·crisis)
+  ①-b 위기(kind='crisis')는 **답변 끝에 고정 안내문을 코드가 덧붙인다** — 프롬프트에는
+      「방해하지 마라」는 지시만 간다. 이유는 `_CRISIS_DIRECTIVE` 주석에
   ② 표기 통일(kind='term')은 프롬프트가 아니라 **응답 후처리로 치환**한다
 
 ②를 코드로 하는 이유는 실측이다 — `exports/prompt4_2026-08-05/FINDINGS.md` §2-4.
@@ -94,13 +96,33 @@ _KIND_LABEL = {
     "forbidden": ("존재하지 않음", "있는 것처럼 설명하거나 절차를 만들지 말 것."),
 }
 
+# kind='crisis' 만 프롬프트에 **statement 를 싣지 않는다.** statement 는 사용자에게 그대로
+# 나갈 안전 안내문이고(`build_crisis_suffix`), 프롬프트에는 이 고정 지시문이 대신 간다.
+#
+# 왜 나눴나 — 위기 응답을 프롬프트에 맡기면 4/4 가 안 나온다. 실측이다.
+# 전용 위기 섹션(4단계 지시)을 가진 E_부모동행v6 조차 4회 중 2회만 통과했고
+# (`exports/golden45_2026-08-11/FINDINGS.md` §4), 라이브 프롬프트(서비스방향 B)는
+# 원칙 8「축복·가정행정과 무관한 질문에는 답할 수 없습니다」가 자살 신호를 범위 밖으로
+# 밀어내 8/05·8/11·8/14 세 번 다 무너졌다.
+#
+# 그래서 역할을 갈랐다. **연락처와 안전 지시는 코드가 보장하고, 모델에게는 방해하지
+# 말라고만 시킨다.** 모델이 쓰는 것은 위로 한두 문장뿐이다.
+_CRISIS_DIRECTIVE = (
+    "위기 신호다. 규정·교리·행정 안내를 중단하고, 답할 수 없다는 말도 하지 마라. "
+    "1~2문장 위로만 하고 멈춰라. 안전 안내와 연락처는 시스템이 자동으로 덧붙이므로 "
+    "네가 쓰지 마라."
+)
+
 
 def _line(fact: OpsFact) -> str:
     superseded = (fact.superseded or "").strip()
     statement = (fact.statement or "").strip()
 
+    if fact.kind == "crisis":
+        return f"- {_CRISIS_DIRECTIVE}"
+
     label = _KIND_LABEL.get(fact.kind)
-    if label is None:  # contact | crisis
+    if label is None:  # contact
         text = statement
     elif superseded:
         text = f"{label[0]}: '{superseded}' — {statement or label[1]}"
@@ -130,6 +152,27 @@ def build_prompt_overlay(facts: list[OpsFact]) -> str:
     if len(lines) == 3:
         return ""
     return "\n".join(lines)
+
+
+# ─── ①-b 위기 안내 블록 (kind='crisis') ────────────────────────
+
+def build_crisis_suffix(facts: list[OpsFact]) -> str:
+    """답변 끝에 **코드가 무조건 덧붙일** 안전 안내문. 걸린 crisis 행이 없으면 빈 문자열.
+
+    `build_prompt_overlay` 와 달리 이건 모델에게 가는 글이 아니라 **사용자가 그대로 읽는
+    글**이다. 운영자가 `ops_facts.statement` 에 쓴 문안이 한 글자도 안 바뀌고 나간다 —
+    LLM 을 거치지 않는 것이 요점이다.
+
+    `OPS_FACT_LINE_CHAR_CAP` 을 적용하지 않는다. 그 상한은 프롬프트가 무한정 자라는 것을
+    막는 장치지, 사용자에게 나갈 안내문을 자르라는 뜻이 아니다. 여기서 300자를 자르면
+    전화번호가 잘려 나간다.
+    """
+    blocks = [
+        (f.statement or "").strip()
+        for f in facts
+        if f.kind == "crisis" and (f.statement or "").strip()
+    ]
+    return "\n\n".join(blocks)
 
 
 # ─── ② 표기 치환 (kind='term') ────────────────────────────────
