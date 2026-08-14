@@ -251,3 +251,16 @@ async def test_strict_rag_blocks_answer_without_direct_citation(monkeypatch):
 
     assert response.content == STRICT_EVIDENCE_MESSAGE
     assert response.citations == []
+
+
+def test_차단_문구는_사람에게로_넘긴다():
+    """제품 방향 B 는 「근거 없으면 유보하고 **담당자로 넘긴다**」다.
+
+    유보율이 68.2% 라 10문항 중 7개가 이 문구로 끝난다. 연락처가 없으면 그 7개가
+    전부 막다른 길이 된다 — 유보 자체가 목적이 아니라 사람에게 넘기는 것이 목적이다.
+
+    「직접 인용 근거」 같은 내부 용어도 쓰지 않는다. 사용자는 그 말을 모른다.
+    """
+    assert "02-3271-0502" in STRICT_EVIDENCE_MESSAGE
+    for jargon in ("직접 인용", "grounding", "citation", "src_id"):
+        assert jargon not in STRICT_EVIDENCE_MESSAGE, f"내부 용어 누출: {jargon}"
