@@ -21,8 +21,26 @@ logs/
 # 시스템 프롬프트 실험 응답 결과물
 syste-prompt-ver/_responses/
 
-# 등록 통계 관련
-/exports
+# 등록 통계 관련 — 데이터(149MB)는 빼되 **측정 도구는 남긴다**.
+#
+# 여기 있는 스크립트에는 실측으로만 알 수 있는 함정이 주석으로 박혀 있다 —
+# 「어휘로는 자료 결손을 못 가른다」·「거대 유닛이 예산을 독식한다」·「wiki 모드는 trace 가
+# 어긋난다」 같은 것들이다. ignore 해 두면 다음 사람이 같은 벽에 다시 부딪힌다.
+# .py 227개 2.2MB 만 추적하고 결과 JSON·XLSX·HTML(149MB)은 계속 무시한다.
+# ⚠ `/exports` 로 디렉터리를 통째로 무시하면 안쪽 파일을 `!` 로 되살릴 수 없다(git 규칙).
+# 그래서 `/exports/**` 로 **내용**을 무시하고 디렉터리와 스크립트만 되살린다.
+/exports/**
+!/exports/**/
+!/exports/**/*.py
+!/exports/**/*.sh
+
+# ⛔ 키가 평문으로 박힌 옛 스크립트 — 추적하면 안 된다.
+# 2026-08-18 에 GitHub push protection 이 막아서 알았다. Gemini 2건은 스캐너도 못 잡았다.
+# **이 키들은 폐기(rotate) 대상이다.** 파일을 고쳐도 이미 로컬에 평문으로 남아 있었다.
+/exports/_classify.py
+/exports/_reclassify.py
+/exports/_reclassify_openai.py
+/exports/_redteam_summarize.py
 
 # 에이전트/도구 작업 스크래치
 .context/
