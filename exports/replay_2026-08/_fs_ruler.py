@@ -70,6 +70,9 @@ STORE = "nexus-fs-measure-0818"
 os.environ["FILE_SEARCH_STORE_NAME"] = STORE
 os.environ.setdefault("WIKI_ROOT", str(DATA / "exports" / "wiki_2026-08"))
 sys.path.insert(0, str(REPO / "backend"))
+# `.env` 는 `backend/` 기준으로 읽힌다 — 레포 루트에서 실행하면 DATABASE_URL·GEMINI_API_KEY 가
+# 없다고 죽는다. 어디서 부르든 되게 여기서 옮긴다.
+os.chdir(REPO / "backend")
 
 from sqlalchemy import select  # noqa: E402
 
@@ -139,7 +142,11 @@ async def run(n: int) -> None:
             continue
         a = resp.answer or ""
         cited = {f"{k}{m}" for k, m in _locator_keys(a)}
-        pool = " ".join((c.title or "") + " " + (c.content or "") for c in resp.citations)
+        # 판정은 `full_content`(절단 없음)로 한다. `content` 는 800자 표시용이라
+        # 조문 표제가 창 밖으로 나가 거짓 불일치를 낸다.
+        pool = " ".join(
+            (c.title or "") + " " + (c.full_content or c.content or "") for c in resp.citations
+        )
         avail = {f"{k}{m}" for k, m in _locator_keys(pool)}
         out.append({
             "cid": r["cid"], "k": r["k"], "q": r["q"], "answer": a,
