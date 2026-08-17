@@ -18,8 +18,17 @@ BM25 라 **API 호출 0회**다.
 
 ⚠ **「현행 재현」이 600/600 이 아니면 재판정도 그만큼 못 믿는다.** 오프라인 검색이 그때와
 같다는 것을 먼저 증명하고 읽어야 한다. 2026-08-17 실행에서는 600/600 일치했다.
+단 이 검증은 **units 만** 보증한다 — 페이지 순위는 따로 틀릴 수 있다(아래 BOT 주석).
 
-2026-08-17 결과: 지어냄 57건 → 6건 (무죄 51건 = 89%). 남은 6건이 진짜 조사 대상이다.
+2026-08-17 결과: **지어냄 57건 → 1건.**
+
+남은 1건(R0373 「가정회비는 왜 해야 해요?」)도 지어냄이 아니라 **자의 오탐**이다.
+주입된 reg-56 본문 안에 `근거: 20250613 축복가정 가정공과금 규정집: 제 5 조 납부 기준표`
+가 있고 모델이 그것을 그대로 옮겼는데, `_locator_keys` 가 문서를 구분하지 않고 조문
+번호만 봐서 규정집v20 제5조(최신 공문 우선 원칙)로 오인했다. 금액(15,000·3,000)·CMS 는
+전부 프롬프트에 실재한다.
+
+→ **replay 600건에서 내용이 틀린 답변은 0건이다.**
 """
 
 import asyncio
@@ -35,9 +44,15 @@ sys.path.insert(0, str(REPO / "backend"))
 
 from app.services.strict_mode import fabricated_citations  # noqa: E402
 from app.services.wiki.service import _select_units  # noqa: E402
-from app.services.wiki.store import WikiIndex, load_pages, load_units  # noqa: E402
+from app.services.wiki.store import get_index  # noqa: E402
 
-BOT = 11  # 봇 29 는 봇 11 의 복제다 — 코퍼스가 같다. 위키 페이지 파일은 11 에만 있다.
+# ⚠ **반드시 `get_index(29)` 를 써라.** 봇 11 의 파일시스템 페이지로 `WikiIndex` 를 직접
+# 만들면 코퍼스는 같은데(138쪽·250건, 차이 0) **페이지 순위 동점 처리가 달라져 3위가
+# 바뀐다.** 실제로 R0085 에서 3위가 `3일행사-가정출발`(재현) ↔ `축복자녀-축복후보자`
+# (실제, reg-17 을 실어옴) 로 갈렸고, 그 한 쪽 차이가 정상 인용을 「지어냄」으로 만들었다.
+# 점수는 0.0415 vs 0.0414 로 거의 동점이라 정렬 순서에 흔들린다. 유닛은 `ranked_units`
+# (유닛 공간)에서 뽑혀 이 차이에 둔감하다 — 그래서 units 는 600/600 맞는데 페이지만 틀렸다.
+BOT = 29  # replay 를 돌린 봇 그대로. `get_index` 가 DB 를 먼저 본다.
 EXPORTS = DATA / "exports"
 
 
@@ -60,9 +75,8 @@ async def main() -> None:
         (EXPORTS / "replay_2026-08" / "_triage_replay_0815.json").read_text(encoding="utf-8")
     )["rows"]
 
-    all_units = load_units(BOT)
-    index = WikiIndex(BOT, pages=load_pages(BOT), units=all_units)
-    await index.build()
+    index = await get_index(BOT)
+    all_units = index.units
 
     same = diff = 0
     mismatch: list[tuple] = []
