@@ -161,10 +161,23 @@ class RetrievalTrace:
     `answer_with_wiki` 가 `tuple[RAGResponse, Retrieved]` 를 돌려주는데 지금은 두 번째를
     버린다. 점수가 살아 있는 유일한 줄이라 여기로 받는다 — 다만 **점수는 안 쓴다.**
     쓰는 것은 `units`(2층 판정기가 읽을 원문)와 `reasons`(관찰된 사실)뿐이다.
+
+    ⚠ **모델이 받는 근거는 `units` 만이 아니다.** `answer_with_wiki` 는 `raw`·`raw_budget`
+    에서 `# 규정 원문`(units) 뒤에 `# 참고 정리`(`_wiki_block`)를 함께 넣는다. 위키 페이지의
+    `## 사실` 에는 `> 원문 인용` 이 붙어 있어(생성 규약) **units 에 없는 조문의 원문이
+    프롬프트에 들어간다.** 그것을 정확히 인용한 답변을 units 하고만 대조하면 「지어냄」이
+    된다 — replay R0085 는 제17조를 축자 재현하고 정확히 인용했는데 units 에 reg-17 이 없어
+    `fabricated_loc=['조17']` 로 찍혔다. 그래서 페이지가 실어 온 근거도 같이 남긴다.
+
+    **기록만 한다 — 게이트 판정은 아직 이것을 읽지 않는다.** 읽게 하면 라이브 차단량이
+    바뀌므로 STEP 3 파일럿 동결 하에서는 손대지 않는다.
     """
 
     reasons: list[str] = field(default_factory=list)
     units: list[SourceUnit] = field(default_factory=list)
+    # 위키 페이지 슬러그와 그 페이지들이 실어 온 원문 참조. 본문은 넣지 않는다(규칙 1).
+    pages: list[str] = field(default_factory=list)
+    page_src_ids: list[str] = field(default_factory=list)
 
     def mark(self, reason: str) -> None:
         if reason not in self.reasons:
