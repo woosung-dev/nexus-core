@@ -2,7 +2,7 @@
 RAG(Retrieval-Augmented Generation) 관련 API 스키마.
 """
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class RAGCitation(BaseModel):
@@ -26,6 +26,12 @@ class RAGCitation(BaseModel):
     # content 중 실제 근거가 된 구절 — 형광펜 대상. **반드시 content 의 부분문자열**이다
     # (LLM 이 제안하더라도 원문 대조로 스냅한 뒤 저장하므로 모델이 지어낸 문자는 들어올 수 없다).
     evidence: list[str] = []
+    # 판정 전용 — **절단하지 않은** 청크 원문. `content` 의 800자 상한은 화면 표시·DB 저장을
+    # 위한 값이지 판정용이 아니다(300→800 은 스니펫이 3줄로 잘리던 UI 문제 때문, `a0d13e1`).
+    # 그 창 안에 `제N조` 표제가 안 들어오면 「답변이 짚은 조문 ↔ 검색이 물어온 조문」 대조가
+    # 거짓 불일치를 낸다 — 실측 7건이 전부 인접 조문이었다(`232f518`, `_fs_ruler.py`).
+    # `exclude=True` 라 `model_dump()` 에 안 실린다 → DB·API 응답 크기 영향 0.
+    full_content: str | None = Field(default=None, exclude=True)
 
 
 class RAGResponse(BaseModel):

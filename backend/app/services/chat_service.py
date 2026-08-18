@@ -378,6 +378,13 @@ class ChatService:
                 # (측정 하네스도 같은 방식으로 바깥에서 부른다).
                 if retrieved is not None:
                     trace.units = _select_units(retrieved, "raw_budget")
+                    # 프롬프트에는 `# 참고 정리` 로 위키 페이지도 함께 들어간다. 그 페이지가
+                    # 실어 온 조문은 units 에 없어도 모델이 본 근거다 — 안 남기면 정확한
+                    # 인용이 「지어냄」으로 집계된다(RetrievalTrace docstring).
+                    trace.pages = [page.slug for page, _ in retrieved.pages]
+                    trace.page_src_ids = sorted(
+                        {src for page, _ in retrieved.pages for src in page.sources}
+                    )
                 # 어휘 검색은 동의어·구어체 질문에서 빈손이 될 수 있다(핸드오프 §5 #13).
                 # 그때 answer_with_wiki 는 빈 답변을 돌려주는데, 빈 답변을 그대로 내보내면
                 # 사용자에게는 그냥 고장이다. 의미 검색으로 되돌린다.
@@ -631,6 +638,10 @@ class ChatService:
                     mode=retrieval_mode,
                     units=len(trace.units) or None,
                     unit_refs=unit_refs(trace.units) or None,
+                    # 위키 채널. `unit_refs` 만 남기면 「모델이 본 근거」를 절반만 적는 것이라
+                    # 정확한 인용이 지어냄으로 집계된다.
+                    pages=list(trace.pages) or None,
+                    page_srcs=list(trace.page_src_ids) or None,
                     reasons=list(trace.reasons) or None,
                     answer_len=len((rag_response.answer or "").strip()),
                     citations=len(rag_response.citations),

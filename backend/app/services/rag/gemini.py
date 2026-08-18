@@ -160,6 +160,8 @@ def _citation_from_retrieved_context(ctx) -> RAGCitation:
     return RAGCitation(
         title=ctx.title,
         content=ctx.text[:800] if ctx.text else None,
+        # 판정용 원문. 표시·저장은 위 `content` 가 그대로 맡는다(직렬화에서 제외되는 필드).
+        full_content=ctx.text or None,
         uri=ctx.uri,
         page_number=ctx.page_number,
     )
@@ -242,6 +244,7 @@ def _citations_from_interaction(interaction, *, approximate: bool) -> list[RAGCi
                     RAGCitation(
                         title=annotation.get("file_name"),
                         content=source[:800] if source else None,
+                        full_content=source or None,
                         uri=annotation.get("document_uri"),
                         page_number=annotation.get("page_number"),
                         approximate=approximate,
