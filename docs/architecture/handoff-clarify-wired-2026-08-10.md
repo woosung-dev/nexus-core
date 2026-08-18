@@ -164,6 +164,23 @@ git ls-files exports/ | head        # 그런데 _run.py·_audit.py 는 추적된
 **프로덕션 경로(`judge_answerability`)에는 타임아웃이 없다** — 되묻기를 라이브에 켜기 전에
 이걸 봐야 한다.
 
+> **2026-08-18 — 이 항목은 닫혔다. 코드가 없어졌다.**
+> `되묻기 걷어내기`(#68, `b62b34b`)가 `clarification_trigger.py` 를 포함해 되묻기를 런타임·
+> 화면·컬럼까지 전부 제거했다. 상한을 넣으려던 PR #62 는 그래서 닫았다(대상 파일 부재).
+>
+> **되묻기를 다시 켠다면 그때 이 실측값을 쓴다** — 같은 워크로드 45문항 · n=152
+> (`exports/clarify_eval/_run.log`):
+>
+> ```
+> 중앙값 1,474ms · p90 1,773ms · p95 1,929ms · 최대 4,189ms
+> ```
+>
+> #62 는 **20초**를 골랐다(관측 최대의 4.8배). 더 길게 잡을 이유가 없다 —
+> 타임아웃은 **fail-open** 이라 평소 답변으로 돌아갈 뿐인데, 이 판정은 응답을 보내기
+> **전에** 부르므로 매달린 시간이 그대로 사용자 대기가 된다.
+> `clarification_service.CLARIFICATION_TIMEOUT_SEC`(150초)를 재사용하면 안 된다 —
+> 그건 File Search 계획 호출용이고 사용자를 막지 않는다.
+
 ### 3-6. `min_score=15` 는 n=6 스윕이다
 
 `chat_service.CLARIFICATION_MIN_SCORE` 와 `_run.py` 의 `MIN_SCORE` 가 **같아야 한다.**
