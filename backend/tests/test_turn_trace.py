@@ -186,3 +186,22 @@ def test_None_인_사실은_안_남는다():
     t = TurnTrace()
     t.stage("strict", "off", cited=None, units=None)
     assert set(t.stages[0]) == {"stage", "decision", "ms"}
+
+
+@pytest.mark.asyncio
+async def test_file_search_턴은_지어냄을_안_쟀다고_남긴다(monkeypatch):
+    """**「지어냄 0」과 「안 쟀음」은 다르다.**
+
+    `fabricated_citations` 는 `if not units: return set(), set()` 로 시작하고
+    `trace.units` 는 어휘 분기에서만 채워진다 → file_search·both·폴백 턴은 언제나
+    0으로 찍힌다. 그걸 0으로 읽어 「이 경로는 안전하다」고 집계한 적이 있다.
+    무보호가 아니라 **무측정**이라는 것이 데이터에 남아야 한다.
+    """
+    bot = _bot(evidence_policy_mode="strict", retrieval_mode="file_search")
+    _, trace = await _run(bot, monkeypatch, answer="제99조에 따르면 그렇습니다.")
+    strict = next(s for s in trace["stages"] if s["stage"] == "strict")
+
+    assert strict["fabricated_checked"] is False
+    # 안 쟀으므로 「지어냄 없음」으로도 적으면 안 된다 (None 은 기록에서 빠진다).
+    assert "fabricated" not in strict
+    assert "fabricated_loc" not in strict

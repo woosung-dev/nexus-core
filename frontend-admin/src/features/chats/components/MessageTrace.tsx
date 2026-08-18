@@ -307,6 +307,10 @@ function StageFacts({
       text = "준 근거를 짚지 못해 답변을 고정 문구로 바꿨습니다";
     } else if (s.decision === "off") {
       text = `근거 게이트가 꺼져 있어 표기 ${cited}건을 검사하지 않았습니다`;
+    } else if (s.fabricated_checked === false) {
+      // 「지어냄 0」과 「안 쟀음」을 화면에서도 갈라야 한다. 이 경로는 주입 목록이 없어
+      // 대조 자체가 성립하지 않는다 — 0으로 읽으면 안전하다고 오해한다.
+      text = `표기 ${cited}건. 이 경로는 주입 목록이 없어 근거 대조를 하지 않았습니다 (안전하다는 뜻이 아닙니다)`;
     } else if (cited === 0) {
       text = "답변이 근거를 하나도 표기하지 않았습니다";
     } else {
@@ -314,7 +318,6 @@ function StageFacts({
       text = `표기 ${cited}건 중 ${ok}건이 준 근거와 맞아 통과시켰습니다`;
       if (evidence.viaPage.length)
         text += ` (${evidence.viaPage.length}건은 참고 정리로 받은 것)`;
-      if (evidence.ghost.length) text += `. 나머지 ${evidence.ghost.length}건은 확인하지 않습니다`;
     }
   } else if (s.stage === "strip") {
     text = n("removed_chars")
