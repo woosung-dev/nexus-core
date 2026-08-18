@@ -97,6 +97,13 @@ def _strict_blocks(
     ② 를 2026-08-14 에 더했다. ① 만 보면 「맞는 근거 하나에 가짜 셋을 얹은 답변」이 통과한다 —
     110셀 실측에서 가짜 근거 26건 중 18건이 그렇게 새어 나갔다. 근거와 수치는 `evidence_ok`.
 
+    ⚠ **대조 목록은 `trace.evidence_units` 다 — `trace.units` 가 아니다.** 프롬프트에는
+    `# 규정 원문`(units) 뒤에 `# 참고 정리`(위키 페이지)도 들어가고, 그 `## 사실` 에는
+    `> 원문 인용` 이 붙어 있어 units 에 없는 조문 원문이 모델에게 간다. units 하고만
+    대조하던 동안 **정당한 인용이 「지어냄」으로 차단됐다** — replay 600건 재판정에서
+    57건 중 56건이 그 오경보였고, 내용이 틀린 답변은 0건이었다
+    (`exports/replay_2026-08/_rejudge_pages.py`).
+
     **위기 턴은 이 자를 대지 않는다.** 위기 안내에는 규정집 인용이 붙지 않아
     `evidence_ok` 도 `has_direct_citation` 도 통과할 수 없다. 실측으로 C07「죽고 싶어요」가
     4/4 차단됐고(`exports/regression/_gate_s1_*.json`), 그러면 자살 신호에
@@ -110,7 +117,7 @@ def _strict_blocks(
     if retrieval_mode != "lexical" or fell_back:
         return not has_direct_citation(response.citations)
     answer = response.answer or ""
-    return not evidence_ok(answer, trace.units) and not is_self_refusal(answer)
+    return not evidence_ok(answer, trace.evidence_units) and not is_self_refusal(answer)
 
 
 def _attach_crisis(answer: str, block: str) -> tuple[str, str]:
@@ -385,6 +392,9 @@ class ChatService:
                     trace.page_src_ids = sorted(
                         {src for page, _ in retrieved.pages for src in page.sources}
                     )
+                    # `retrieved.units` 가 바로 「상위 페이지들의 sources 합집합」이다
+                    # (`store.WikiIndex.search`). 인덱스를 다시 안 타도 된다.
+                    trace.page_units = list(retrieved.units)
                 # 어휘 검색은 동의어·구어체 질문에서 빈손이 될 수 있다(핸드오프 §5 #13).
                 # 그때 answer_with_wiki 는 빈 답변을 돌려주는데, 빈 답변을 그대로 내보내면
                 # 사용자에게는 그냥 고장이다. 의미 검색으로 되돌린다.
@@ -656,7 +666,15 @@ class ChatService:
                 # 차단되면 답변이 고정 문구로 갈리므로 **판정 전에** 표기를 떠 둔다.
                 # `fabricated` 도 여기서 떠야 한다 — 뒤에서 계산하면 고정 문구를 재게 된다.
                 cited = sorted(cited_ids(rag_response.answer))
-                fake_ids, fake_loc = fabricated_citations(rag_response.answer, trace.units)
+                # 게이트와 **같은 목록**으로 재야 기록과 판정이 어긋나지 않는다.
+                evidence = trace.evidence_units
+                fake_ids, fake_loc = fabricated_citations(rag_response.answer, evidence)
+                # ⚠ **「지어냄 0」과 「안 쟀음」은 다르다.** `fabricated_citations` 는
+                # `if not units: return set(), set()` 로 시작하고 `trace.units` 는 어휘
+                # 분기에서만 채워진다 → file_search·both·폴백 턴은 **언제나 0으로 찍힌다.**
+                # 그걸 0으로 읽어서 「이 경로는 안전하다」고 집계한 적이 있다. 무보호가
+                # 아니라 무측정이라는 것을 데이터에 남긴다 — 자를 고치는 것은 별건이다.
+                fabricated_checked = bool(evidence)
                 strict_blocked = strict_on and _strict_blocks(
                     retrieval_mode, trace, rag_response, crisis_active=bool(crisis_block)
                 )
@@ -675,6 +693,8 @@ class ChatService:
                     cited=cited or None,
                     fabricated=sorted(fake_ids) or None,
                     fabricated_loc=[f"{k}{n}" for k, n in sorted(fake_loc)] or None,
+                    # False 면 위 둘이 「없음」이 아니라 「안 쟀음」이다. 집계에서 갈라라.
+                    fabricated_checked=fabricated_checked,
                 )
 
                 # 기계 id 표기를 벗긴다. **strict 게이트보다 뒤여야 한다** — 게이트가 그

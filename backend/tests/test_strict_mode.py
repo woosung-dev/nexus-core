@@ -176,6 +176,48 @@ def test_strict_uses_the_old_rule_off_the_lexical_path():
     )
 
 
+# ── 위키 채널 (`# 참고 정리`) ────────────────────────────────────────────────
+# 프롬프트는 `# 규정 원문`(units) 뒤에 `# 참고 정리`(위키 페이지)를 함께 넣는다. 페이지의
+# `## 사실` 에는 `> 원문 인용` 이 붙어 있어 units 에 없는 조문 원문이 모델에게 간다.
+# 아래 문자열은 replay R0085 실측이다 — 제17조를 축자 재현하고 정확히 인용했는데
+# units 에 reg-17 이 없어 「지어냄」으로 차단됐다. 600건 중 56건이 같은 오경보였다.
+
+_PAGE_UNITS = [
+    SourceUnit(src_id="reg-17", doc="규정집v20", locator="제17조(3일행사)", text="…"),
+]
+
+_VIA_PAGE = "3일행사는 가정출발 이후에 진행합니다. (근거: 규정집v20 제17조)"
+
+
+def test_gate_accepts_evidence_that_arrived_through_the_wiki_page():
+    """위키 페이지가 실어 온 조문을 인용한 답변은 막지 않는다.
+
+    **이 테스트가 없으면 회귀를 못 잡는다** — `evidence_units` 대신 `units` 를 다시
+    쓰기 시작해도 다른 테스트는 전부 통과한다.
+    """
+    trace = RetrievalTrace(units=list(_UNITS), page_units=list(_PAGE_UNITS))
+    assert not chat_service._strict_blocks("lexical", trace, RAGResponse(answer=_VIA_PAGE))
+
+    # 같은 답변인데 페이지 채널을 빼면 막힌다. 그것이 고치기 전의 동작이다.
+    blind = RetrievalTrace(units=list(_UNITS))
+    assert chat_service._strict_blocks("lexical", blind, RAGResponse(answer=_VIA_PAGE))
+
+
+def test_gate_still_blocks_what_no_channel_supplied():
+    """넓힌 것은 「위키로 준 것」까지다. 어디로도 안 준 조문은 그대로 막는다."""
+    trace = RetrievalTrace(units=list(_UNITS), page_units=list(_PAGE_UNITS))
+    ghost = RAGResponse(answer="처음부터 다시 진행합니다. (근거: 규정집v20 제99조)")
+    assert chat_service._strict_blocks("lexical", trace, ghost)
+
+
+def test_evidence_units_merges_without_duplicating():
+    """두 채널이 같은 조문을 실어 와도 한 번만 센다 — 대조 목록이지 집계가 아니다."""
+    dup = RetrievalTrace(units=list(_UNITS), page_units=list(_UNITS) + list(_PAGE_UNITS))
+    assert [u.src_id for u in dup.evidence_units] == ["reg-55", "reg-56", "glo-2", "reg-17"]
+    # 위키를 안 탄 경로에서는 `units` 그대로다.
+    assert RetrievalTrace(units=list(_UNITS)).evidence_units == _UNITS
+
+
 def _strict_bot() -> Bot:
     bot = Bot(name="축복 챗봇", description="test", evidence_policy_mode="strict")
     bot.id = 11

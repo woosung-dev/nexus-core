@@ -169,8 +169,8 @@ class RetrievalTrace:
     된다 — replay R0085 는 제17조를 축자 재현하고 정확히 인용했는데 units 에 reg-17 이 없어
     `fabricated_loc=['조17']` 로 찍혔다. 그래서 페이지가 실어 온 근거도 같이 남긴다.
 
-    **기록만 한다 — 게이트 판정은 아직 이것을 읽지 않는다.** 읽게 하면 라이브 차단량이
-    바뀌므로 STEP 3 파일럿 동결 하에서는 손대지 않는다.
+    **게이트도 이것을 읽는다**(`chat_service._strict_blocks`). 안 읽던 동안 replay 600건에서
+    정당한 인용 56건이 「지어냄」으로 차단됐다.
     """
 
     reasons: list[str] = field(default_factory=list)
@@ -178,6 +178,20 @@ class RetrievalTrace:
     # 위키 페이지 슬러그와 그 페이지들이 실어 온 원문 참조. 본문은 넣지 않는다(규칙 1).
     pages: list[str] = field(default_factory=list)
     page_src_ids: list[str] = field(default_factory=list)
+    # 위 `page_src_ids` 중 **인덱스에서 실제로 해석된** 유닛. 게이트가 대조하는 것은 이쪽이다.
+    # 둘을 나눈 이유: `page_src_ids` 는 페이지가 「인용했다고 적은 것」이라 코퍼스에 없는 id
+    # 도 섞일 수 있다(기록으로는 그게 맞다). 대조에는 원문이 있어야 `locator` 를 볼 수 있다.
+    page_units: list[SourceUnit] = field(default_factory=list)
+
+    @property
+    def evidence_units(self) -> list[SourceUnit]:
+        """**모델이 실제로 본 근거 전부.** 판정은 반드시 이것으로 해라.
+
+        `units`(`# 규정 원문`)만 보면 근거의 절반만 보는 것이다 — `# 참고 정리` 로 들어간
+        위키 페이지의 `## 사실` 에도 `> 원문 인용` 이 붙어 있다.
+        """
+        seen = {u.src_id for u in self.units}
+        return self.units + [u for u in self.page_units if u.src_id not in seen]
 
     def mark(self, reason: str) -> None:
         if reason not in self.reasons:
