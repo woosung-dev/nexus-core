@@ -8,7 +8,9 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-URL = "postgresql://neondb_owner:npg_l8Xgu2JIxnVA@ep-icy-wave-amjjo0k9-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require"
+# 라이브 DSN 은 `backend/.env` 에서 읽는다 — 코드에 박지 않는다.
+from _neon import neon_url
+
 KST = ZoneInfo("Asia/Seoul")
 EXCLUDE_EMAIL = "woosung@test.com"
 START = "2026-05-21"   # 포함
@@ -28,7 +30,7 @@ def kst(ts):
 
 
 async def fetch():
-    conn = await asyncpg.connect(URL)
+    conn = await asyncpg.connect(neon_url())
     try:
         rows = await conn.fetch(
             """

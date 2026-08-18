@@ -1,0 +1,10 @@
+#!/bin/sh
+# staged 파일에 크리덴셜이 있으면 커밋을 막는다.
+#
+# **켜는 법 (머신마다 1회):**
+#
+#     git config core.hooksPath .githooks
+#
+# CI 는 push 이후에 걸린다 — 그때는 이미 GitHub 서버에 올라간 뒤라 되돌리려면
+# 이력을 고쳐야 한다. 그래서 커밋 시점에도 본다.
+exec python3 scripts/scan_secrets.py --staged

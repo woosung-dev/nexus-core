@@ -9,7 +9,9 @@ from zoneinfo import ZoneInfo
 import asyncpg
 from openai import OpenAI
 
-URL = "postgresql://neondb_owner:npg_l8Xgu2JIxnVA@ep-icy-wave-amjjo0k9-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require"
+# 라이브 DSN 은 `backend/.env` 에서 읽는다 — 코드에 박지 않는다.
+from _neon import neon_url
+
 OPENAI_KEY = os.environ["OPENAI_API_KEY"]
 BASE = "/Users/woosung/project/agy-project/nexus-core/exports"
 OUT = f"{BASE}/_chat_v2_records.json"
@@ -55,7 +57,7 @@ def kst_date(ts):
 
 
 async def fetch_pairs():
-    conn = await asyncpg.connect(URL)
+    conn = await asyncpg.connect(neon_url())
     try:
         rows = await conn.fetch(
             """
