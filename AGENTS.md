@@ -91,11 +91,23 @@ cd backend && .venv/bin/python ../exports/<dir>/<script>.py
 회수 방법: `list_documents` 의 `size_bytes` + Gemini `custom_metadata` 의 `content_sha256` 으로
 버킷을 대조한다. 실제로 통한다(`exports/branch_ablation_2026-08-04/_glossary_etl.py` 주석 참조).
 
-### 3-6. 산출물은 `exports/` 에 둔다
+### 3-6. `exports/` — **스크립트는 추적되고 데이터는 안 된다**
 
-`/exports` 는 gitignore 다(`git ls-files exports/` = 0). 레드팀 문항 원문·라이브 응답 등
-민감 자료가 커밋되지 않는다. 조사·실험 스크립트도 관례상 여기 둔다
-(`exports/regression/`, `exports/branch_ablation_2026-08-04/` 가 선례).
+조사·실험 스크립트는 여기 둔다(`exports/regression/`, `exports/branch_ablation_2026-08-04/`
+가 선례). 2026-08-18 부터 `.py`·`.sh` 만 git 이 추적한다. 인계문서가 참조하는 명령이
+다른 머신에서 안 돌던 문제 때문이다. 결과물(JSON·XLSX·HTML)과 레드팀 문항 원문·라이브
+응답은 계속 빠진다.
+
+⚠ **그래서 크리덴셜을 여기 박으면 이제 진짜로 커밋된다.** 예전에는 `/exports` ignore 가
+우연히 막아 줬다 — 그 방어막은 없다.
+
+```bash
+git config core.hooksPath .githooks     # 머신마다 1회. 커밋 전에 검사한다
+python3 scripts/scan_secrets.py         # 손으로 볼 때
+```
+
+라이브 DSN 이 필요하면 `exports/_neon.py` 의 `neon_url()` 을 써라. GitHub push protection
+은 Gemini 키도 Neon 접속 문자열도 **못 잡는다**(둘 다 실측).
 
 ### 3-7. 채점·판정은 codex CLI 로
 
