@@ -37,15 +37,15 @@ def _chat_session() -> ChatSession:
     return s
 
 
-def _rag_response(answer="제55조에 따르면 그렇습니다."):
-    return RAGResponse(
-        answer=answer,
-        citations=[RAGCitation(title="규정집v20 제55조", content="제 55 조 …", uri="reg-55")],
-        followups=["다음 질문"],
-    )
+def _rag_response(answer="제55조에 따르면 그렇습니다.", citations=None):
+    if citations is None:
+        citations = [RAGCitation(title="규정집v20 제55조", content="제 55 조 …", uri="reg-55")]
+    return RAGResponse(answer=answer, citations=citations, followups=["다음 질문"])
 
 
-async def _run(bot, monkeypatch, *, answer="제55조에 따르면 그렇습니다.", faq=None):
+async def _run(
+    bot, monkeypatch, *, answer="제55조에 따르면 그렇습니다.", faq=None, citations=None
+):
     """한 턴 돌리고 (응답, 저장된 trace) 를 돌려준다."""
     saved: dict = {}
     session = MagicMock()
@@ -60,7 +60,7 @@ async def _run(bot, monkeypatch, *, answer="제55조에 따르면 그렇습니�
     monkeypatch.setattr(
         chat_service, "get_rag_service",
         lambda provider=None: SimpleNamespace(
-            generate_with_rag=AsyncMock(return_value=_rag_response(answer))
+            generate_with_rag=AsyncMock(return_value=_rag_response(answer, citations))
         ),
     )
     monkeypatch.setattr(chat_service, "load_runtime_facts", AsyncMock(return_value=[]))
@@ -189,16 +189,34 @@ def test_None_인_사실은_안_남는다():
 
 
 @pytest.mark.asyncio
-async def test_file_search_턴은_지어냄을_안_쟀다고_남긴다(monkeypatch):
-    """**「지어냄 0」과 「안 쟀음」은 다르다.**
+async def test_file_search_턴도_grounding에_조문이_있으면_잰다(monkeypatch):
+    """2026-08-22 확장 — FS 경로 무측정(관문 ②)이 닫혔다.
 
-    `fabricated_citations` 는 `if not units: return set(), set()` 로 시작하고
-    `trace.units` 는 어휘 분기에서만 채워진다 → file_search·both·폴백 턴은 언제나
-    0으로 찍힌다. 그걸 0으로 읽어 「이 경로는 안전하다」고 집계한 적이 있다.
-    무보호가 아니라 **무측정**이라는 것이 데이터에 남아야 한다.
+    grounding 청크(제목·원문)에 조문 키가 있으면 그걸 대조 목록으로 지어냄을 재고,
+    `fabricated_checked=True` 로 남긴다. 헬퍼의 청크는 「규정집v20 제55조」이므로
+    제99조 인용은 지어냄으로 기록돼야 한다.
     """
     bot = _bot(evidence_policy_mode="strict", retrieval_mode="file_search")
     _, trace = await _run(bot, monkeypatch, answer="제99조에 따르면 그렇습니다.")
+    strict = next(s for s in trace["stages"] if s["stage"] == "strict")
+
+    assert strict["fabricated_checked"] is True
+    assert strict["fabricated_loc"] == ["조99"]
+
+
+async def test_file_search_턴_조문_없는_청크는_여전히_안_쟀다고_남긴다(monkeypatch):
+    """**「지어냄 0」과 「안 쟀음」은 다르다.**
+
+    청크 제목·원문에 조문·항목 형태가 하나도 없으면 대조가 성립하지 않는다 —
+    그때는 예전처럼 무측정으로 남긴다. 0으로 읽어 「안전하다」고 집계하면 안 된다.
+    """
+    bot = _bot(evidence_policy_mode="strict", retrieval_mode="file_search")
+    _, trace = await _run(
+        bot,
+        monkeypatch,
+        answer="제99조에 따르면 그렇습니다.",
+        citations=[RAGCitation(title="가이드북.pdf", content="일반 안내 문단")],
+    )
     strict = next(s for s in trace["stages"] if s["stage"] == "strict")
 
     assert strict["fabricated_checked"] is False

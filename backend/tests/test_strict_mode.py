@@ -306,3 +306,97 @@ def test_차단_문구는_사람에게로_넘긴다():
     assert "02-3271-0502" in STRICT_EVIDENCE_MESSAGE
     for jargon in ("직접 인용", "grounding", "citation", "src_id"):
         assert jargon not in STRICT_EVIDENCE_MESSAGE, f"내부 용어 누출: {jargon}"
+
+
+# ── file_search·both 경로 ② 지어냄 검사 (2026-08-22) ─────────────────────────
+# grounding 청크를 대조 목록으로 쓴다. 문자열은 봇 29 실측 답변·규정집v20 원문 형태.
+
+
+def _chunk(title: str, content: str = "", approximate: bool = False) -> RAGCitation:
+    return RAGCitation(title=title, content=content, approximate=approximate)
+
+
+def test_grounding_지어냄_가짜_조문을_잡는다():
+    from app.services.strict_mode import fabricated_vs_grounding
+
+    chunks = [_chunk("규정집v20 제55조", "축복감사헌금은 …")]
+    fake = fabricated_vs_grounding("헌금은 (근거: 규정집v20 제99조) 에 따릅니다.", chunks)
+    assert ("조", 99) in fake
+
+
+def test_grounding_청크_본문에_있는_조문은_정당하다():
+    from app.services.strict_mode import fabricated_vs_grounding
+
+    # 청크 본문이 다른 조문을 언급하면(원문 교차 참조) 그 조문 인용은 지어냄이 아니다
+    chunks = [_chunk("규정집v20 제55조", "제 56 조의 납부 기준을 따른다.")]
+    assert fabricated_vs_grounding("(근거: 제56조)", chunks) == set()
+
+
+def test_grounding_재인용은_거짓양성이_아니다():
+    """규정집v20 원문은 조문 끝에 원전 각주를 내장한다 — 그 재인용을 막으면 안 된다.
+
+    실사례: 제65조 청크의 「근거: [2022_ver.] 축복행정 국제 규정집 03. …」 을 모델이
+    옮겼고, 조문 키(제65조)는 청크 제목·본문에 실재했다(§10-2 사후 판독)."""
+    from app.services.strict_mode import fabricated_vs_grounding
+
+    chunks = [
+        _chunk(
+            "규정집v20 제65조",
+            "탈선문제 판단 기준 … 근거: [2022_ver.] 축복행정 국제 규정집 03. 각종 성적문제 및 지도",
+        )
+    ]
+    answer = "(근거: 규정집v20 제65조, [2022_ver.] 축복행정 국제 규정집 03. 각종 성적문제 및 지도)"
+    assert fabricated_vs_grounding(answer, chunks) == set()
+
+
+def test_grounding_조문_형태가_없으면_판정_불가로_빈값():
+    from app.services.strict_mode import fabricated_vs_grounding, grounding_locators
+
+    chunks = [_chunk("가이드북.pdf", "일반 안내 문단 — 조문 번호 없음")]
+    assert grounding_locators(chunks) == set()
+    # 「안 쟀음」이지 「지어냄 0」이 아니다 — 막지 않는다
+    assert fabricated_vs_grounding("(근거: 제12조)", chunks) == set()
+
+
+def test_grounding_근사_백필_청크는_대조_목록에서_뺀다():
+    from app.services.strict_mode import grounding_locators
+
+    assert grounding_locators([_chunk("규정집v20 제55조", approximate=True)]) == set()
+
+
+def test_strict_blocks_FS경로_가짜_조문이면_막고_재인용이면_통과():
+    from app.services.chat_service import _strict_blocks
+
+    trace = RetrievalTrace()
+    chunks = [_chunk("규정집v20 제55조", "축복감사헌금 …")]
+    fake = RAGResponse(answer="(근거: 제99조) 에 따라 납부합니다.", citations=chunks)
+    ok = RAGResponse(answer="(근거: 제55조) 에 따라 납부합니다.", citations=chunks)
+    unmarked = RAGResponse(answer="납부 절차는 다음과 같습니다.", citations=chunks)
+    assert _strict_blocks("file_search", trace, fake) is True
+    assert _strict_blocks("file_search", trace, ok) is False
+    # 본문 표기가 없어도 grounding 이 있으면 막지 않는다 — ①을 새로 요구하지 않는다
+    assert _strict_blocks("file_search", trace, unmarked) is False
+
+
+def test_strict_blocks_FS경로_자체_거절은_그대로_둔다():
+    from app.services.chat_service import _strict_blocks
+
+    trace = RetrievalTrace()
+    chunks = [_chunk("규정집v20 제55조", "…")]
+    refusal = RAGResponse(
+        answer="제99조 관련 내용은 확인되지 않아 답변드리기 어렵습니다.", citations=chunks
+    )
+    assert _strict_blocks("file_search", trace, refusal) is False
+
+
+def test_grounding_판정은_절단_전_원문으로_한다():
+    """`content` 는 표시용 800자 절단본이다(`rag/gemini.py:162`) — 절단 뒤의 조문을
+    인용했다고 지어냄으로 몰면 안 된다. 판정은 `full_content` 가 맡는다."""
+    from app.services.strict_mode import fabricated_vs_grounding
+
+    chunk = RAGCitation(
+        title="규정집v20.txt",
+        content="제 18 조 앞부분만 저장…",           # 절단본에는 제19조가 없다
+        full_content="제 18 조 … (긴 원문) … 제 19 조 접수 시기는 …",
+    )
+    assert fabricated_vs_grounding("(근거: 규정집v20 제19조)", [chunk]) == set()

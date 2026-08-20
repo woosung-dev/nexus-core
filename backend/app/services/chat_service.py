@@ -36,6 +36,8 @@ from app.services.strict_mode import (
     cited_ids,
     evidence_ok,
     fabricated_citations,
+    fabricated_vs_grounding,
+    grounding_locators,
     has_direct_citation,
     is_refusal_faq,
     strip_source_markers,
@@ -115,7 +117,14 @@ def _strict_blocks(
         return False
     fell_back = bool({Reason.LEXICAL_EMPTY, Reason.CORPUS_UNAVAILABLE} & set(trace.reasons))
     if retrieval_mode != "lexical" or fell_back:
-        return not has_direct_citation(response.citations)
+        if not has_direct_citation(response.citations):
+            return True
+        # ② 지어냄 검사 (2026-08-22 추가) — grounding 청크를 대조 목록으로 쓴다.
+        # ①(본문 표기 요구)은 넣지 않는다: 이 경로의 ①은 grounding 존재이고, 표기를
+        # 새로 요구하면 지금까지 통과하던 무표기 답변이 통째로 죽는다.
+        answer = response.answer or ""
+        fake = fabricated_vs_grounding(answer, response.citations)
+        return bool(fake) and not is_self_refusal(answer)
     answer = response.answer or ""
     return not evidence_ok(answer, trace.evidence_units) and not is_self_refusal(answer)
 
@@ -675,6 +684,13 @@ class ChatService:
                 # 그걸 0으로 읽어서 「이 경로는 안전하다」고 집계한 적이 있다. 무보호가
                 # 아니라 무측정이라는 것을 데이터에 남긴다 — 자를 고치는 것은 별건이다.
                 fabricated_checked = bool(evidence)
+                # file_search·both — grounding 청크가 조문 형태를 담고 있으면 그걸 자로
+                # 쟀다(`_strict_blocks` 의 ②와 같은 판정). 판정과 기록이 어긋나면 안 된다.
+                if not evidence and grounding_locators(rag_response.citations):
+                    fake_loc = fabricated_vs_grounding(
+                        rag_response.answer, rag_response.citations
+                    )
+                    fabricated_checked = True
                 strict_blocked = strict_on and _strict_blocks(
                     retrieval_mode, trace, rag_response, crisis_active=bool(crisis_block)
                 )
