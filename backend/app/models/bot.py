@@ -48,6 +48,10 @@ class Bot(SQLModel, table=True):
     #   file_search  Gemini file_search 단독      57.9% · 7.0초   커버리지 최고 (기본값)
     #   lexical      BM25 원문 주입 단독           40.2% · 1.6초   덜 맞히고 덜 틀린다
     #   both         file_search + BM25 원문      50.4% · 6.1초   중간
+    #   fs_fusion    file_search 검색 + 재작성     46.7% · 15초    2호출. 근거 없는 단정이 가장 적다
+    # fs_fusion 은 replay 150 실측(2026-08-21)의 팔 B2v2 다. 답변률은 file_search 와 같고
+    # (46.7%) 값어치는 안전축이다 — codex 블라인드 위험신호 5 → 1. 지연이 아픈 화면에서는
+    # file_search 로 되돌려라(`docs/architecture/handoff-launch-week-2026-08-22.md` §2-b).
     # DB enum 이 아니라 String 이다 — 값 추가·롤백이 컬럼 변경 없이 되고, 열거는 스키마의
     # Literal 이 강제한다. evidence_policy_mode 와 같은 규약.
     retrieval_mode: str = Field(default="file_search", max_length=20)

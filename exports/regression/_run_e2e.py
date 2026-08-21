@@ -269,7 +269,8 @@ if __name__ == "__main__":
     ap.add_argument("--limit", type=int, default=0, help="앞 N건만 (스모크용)")
     ap.add_argument("--reps", type=int, default=1)
     ap.add_argument("--throttle", type=float, default=4.0, help="호출 간 대기(초)")
-    ap.add_argument("--retrieval-mode", default="", choices=["", "lexical", "file_search", "both"])
+    ap.add_argument("--retrieval-mode", default="",
+                    choices=["", "lexical", "file_search", "both", "fs_fusion"])
     ap.add_argument("--only-cid", default="",
                     help="C07 처럼 cid 로 고른다(쉼표 구분). --limit 은 앞에서 자를 뿐이라 못 고른다")
     ap.add_argument("--policy", default="", choices=["", "legacy", "strict"],

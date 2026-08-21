@@ -182,6 +182,10 @@ class RetrievalTrace:
     # 둘을 나눈 이유: `page_src_ids` 는 페이지가 「인용했다고 적은 것」이라 코퍼스에 없는 id
     # 도 섞일 수 있다(기록으로는 그게 맞다). 대조에는 원문이 있어야 `locator` 를 볼 수 있다.
     page_units: list[SourceUnit] = field(default_factory=list)
+    # `fs_fusion` 2단을 실제로 돌렸나. None 이면 융합 경로가 아니다.
+    # **False 를 남기는 것이 요점이다** — 청크가 빈손이면 융합을 건너뛰는데, 그 턴을
+    # 「융합했는데 이 모양」과 못 가르면 라이브에서 원인을 못 푼다.
+    fused: bool | None = None
 
     @property
     def evidence_units(self) -> list[SourceUnit]:

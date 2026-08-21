@@ -140,13 +140,69 @@ def evidence_ok(answer: str, units: list[SourceUnit]) -> bool:
     잘못 나간 답은 회수가 안 된다. 그 비대칭이 이 결정의 전부다.
 
     ⚠ **file_search·both 경로에는 못 쓴다.** 주입 목록이 없어 대조가 성립하지 않는다.
-      그 경로는 `has_direct_citation` 만 보고 있고 실측에서 strict 를 켜도 유보가
-      +0.9p 밖에 안 늘었다(사실상 무보호). 별도 기전이 필요하다 — 미해결.
+      그 경로의 ②는 `fabricated_vs_grounding` 이 맡는다(2026-08-22 추가) — grounding
+      청크를 대조 목록으로 쓴다. ①은 여전히 `has_direct_citation`(grounding 존재)이다.
     """
     if not has_grounded_citation(answer, units):
         return False
     fake_ids, fake_loc = fabricated_citations(answer, units)
     return not (fake_ids or fake_loc)
+
+
+# ── file_search·both 경로 전용 게이트 ──────────────────────────────────────
+#
+# 이 경로는 주입 목록(units)이 없어 위의 자가 성립하지 않았고, `has_direct_citation`
+# (grounding 존재)만 보는 반쪽이었다 — strict 를 켜도 유보 +0.9p(사실상 무보호).
+# 대신 **grounding 청크 자체를 대조 목록으로** 쓴다. 청크는 모델이 실제로 받은
+# 원문이므로, 어휘 경로의 「주입 목록」과 같은 지위다.
+
+
+def grounding_locators(
+    citations: list[RAGCitation], extra_units: list[SourceUnit] | None = None
+) -> set[tuple[str, int]]:
+    """grounding 청크(제목+본문)에 등장하는 조문·항목 키. file_search 계열의 대조 목록.
+
+    `extra_units` 는 **청크 말고도 모델이 본 원문**이다. `fs_fusion` 2단 프롬프트에는
+    청크 뒤에 `# 참고 정리`(위키 페이지)가 함께 들어가고, 그 페이지의 `## 사실` 에는
+    `> 원문 인용` 이 붙어 있다 — 청크에 없는 조문의 원문이 모델에게 간다. 청크하고만
+    대조하면 그 정확한 인용이 「지어냄」이 된다(어휘 경로에서 replay R0085 로 이미 겪은
+    거짓 양성. `RetrievalTrace.evidence_units` docstring).
+
+    ⚠ `content` 는 표시용 800자 절단본이다(`rag/gemini.py:162`). 절단 뒤에서 조문 키가
+    떨어져 나가면 정당한 인용이 지어냄으로 몰린다 — 그래서 **판정은 `full_content`
+    (절단 전 원문 · 직렬화 제외 필드)로** 한다. 저장된 옛 데이터를 오프라인으로 재판정할
+    때는 full_content 가 없으므로 content 로 폴백하고, 그 수치는 부풀 수 있음을 감안하라.
+    """
+    keys: set[tuple[str, int]] = set()
+    for c in citations:
+        if c.approximate:
+            continue
+        keys |= _locator_keys(c.title or "") | _locator_keys(c.full_content or c.content or "")
+    return keys | _injected_locators(extra_units or [])
+
+
+def fabricated_vs_grounding(
+    answer: str, citations: list[RAGCitation], extra_units: list[SourceUnit] | None = None
+) -> set[tuple[str, int]]:
+    """file_search·both 경로의 ② — 답변의 조문 표기가 grounding 청크 어디에도 없는가.
+
+    어휘 경로 `fabricated_citations` 와 같은 죄(내용은 그럴듯한데 **출처만 가짜**)를
+    이 경로에서 잡는다. ①(표기 요구)은 일부러 넣지 않는다 — 이 경로의 ①은 grounding
+    존재(`has_direct_citation`)이고, 본문 표기를 새로 요구하면 지금까지 통과하던
+    무표기 답변이 통째로 죽는다(어휘 경로에서 겪은 표기 누락 과차단의 재발).
+
+    **청크 본문까지 대조에 넣는 것이 핵심이다.** 규정집v20 원문은 조문 끝에 원전 각주
+    (`근거: [2022_ver.] 축복행정 국제 규정집 …`)를 내장하므로, 모델이 그 각주를 옮기는
+    것은 재인용이지 지어냄이 아니다. 제목만 대조하면 그 재인용이 거짓 양성이 된다
+    (실사례 판독: docs/architecture/research-wiki-plus-file-search-2026-08-19.md §10-2).
+
+    청크에 조문·항목 형태가 하나도 없으면 **판정 불가**로 보고 빈 값을 돌려준다 —
+    「안 쟀음」이지 「지어냄 0」이 아니다. 그 구분은 trace 의 `fabricated_checked` 가 남긴다.
+    """
+    keys = grounding_locators(citations, extra_units)
+    if not keys:
+        return set()
+    return _locator_keys(answer) - keys
 
 
 # ── 화면 표시 — 기계 id 벗기기 ──────────────────────────────────────────────
