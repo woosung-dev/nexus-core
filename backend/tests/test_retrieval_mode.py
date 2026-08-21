@@ -388,3 +388,24 @@ async def test_fs_fusion_은_위키_페이지를_얹고_그_원문을_trace_에_
     assert "# 참고 정리" in rag_service.generate_plain.await_args.kwargs["prompt"]
     assert seen["pages"] == ["fasting"]
     assert seen["units"] == [unit]
+
+
+@pytest.mark.asyncio
+async def test_fs_fusion_은_2단을_돌렸는지_trace_에_남긴다(monkeypatch):
+    """청크 빈손이라 건너뛴 턴과 「융합했는데 이 모양」을 못 가르면 원인을 못 푼다."""
+    seen = []
+    real = chat_service.TurnTrace.stage
+
+    def spy(self, stage, decision, **kw):
+        if stage == "retrieval":
+            seen.append(kw.get("fused"))
+        return real(self, stage, decision, **kw)
+
+    monkeypatch.setattr(chat_service.TurnTrace, "stage", spy)
+
+    await _run_fusion(monkeypatch, _fusion_rag())
+    assert seen == [True]
+
+    seen.clear()
+    await _run_fusion(monkeypatch, _fusion_rag(citations=[]))
+    assert seen == [False]

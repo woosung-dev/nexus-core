@@ -516,8 +516,10 @@ class ChatService:
         **막을 수 없는** 지어냄이 된다.
         """
         if not draft.citations:
+            trace.fused = False
             return draft, trace
 
+        trace.fused = True
         wiki_block = await self._fusion_wiki(bot.id, message, trace)
         answer = await rag_service.generate_plain(
             prompt=_fusion_prompt(message, draft.citations, wiki_block),
@@ -784,6 +786,8 @@ class ChatService:
                     # 그 판정을 **나중에 오프라인으로 재현**하려면 근사 백필이 아닌 인용이
                     # 있었는지가 남아야 한다. 개수만으로는 못 푼다.
                     direct_citation=has_direct_citation(rag_response.citations),
+                    # fs_fusion 2단을 돌렸나. 건너뛴 턴(청크 빈손)과 가르려면 필요하다.
+                    fused=trace.fused,
                     history_turns=len(history) or None,
                 )
 
