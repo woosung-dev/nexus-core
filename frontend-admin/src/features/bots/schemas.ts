@@ -85,6 +85,13 @@ export const RETRIEVAL_MODE_OPTIONS = [
     detail:
       "의미 검색에 규정 원문을 얹는다. 커버리지는 중간인데 원문과 어긋나는 답(모순)이 가장 많았다.",
   },
+  {
+    value: "fs_fusion",
+    label: "의미 검색 + 재작성 (2단)",
+    summary: "답변률 46.7% · 15초 · 근거 없는 단정 최소",
+    detail:
+      "의미 검색을 검색기로만 쓰고, 찾아 온 원문으로 답을 다시 쓴다. 답변률은 의미 검색과 같고 근거 없는 단정이 가장 적다. 대신 호출이 2회라 두 배 느리다. (봇 29 · replay 150문항 · 2026-08-21 측정 — 위 셋과 다른 실행이다)",
+  },
 ] as const;
 
 export type RetrievalMode = (typeof RETRIEVAL_MODE_OPTIONS)[number]["value"];
@@ -116,6 +123,14 @@ export const ANSWER_PRESETS = [
     retrieval_mode: "both",
     evidence_policy_mode: "legacy",
     note: "커버리지는 중간인데 원문과 어긋나는 답이 가장 많다(6건 vs 정확 우선 3건) — 권장하지 않는다.",
+  },
+  {
+    key: "grounded",
+    label: "근거 우선",
+    for: "규정 안내형 봇 (기본 권장)",
+    retrieval_mode: "fs_fusion",
+    evidence_policy_mode: "strict",
+    note: "정확 우선과 같은 만큼 답하면서 근거 없는 단정이 가장 적다(위험신호 1건 vs 5건). 대신 응답이 두 배 느리다.",
   },
 ] as const;
 
@@ -168,7 +183,7 @@ export const botEditFormSchema = z.object({
     .int({ message: "정수를 입력해 주세요." })
     .min(0, { message: "0 이상이어야 합니다." }),
   evidence_policy_mode: z.enum(["legacy", "strict"]),
-  retrieval_mode: z.enum(["file_search", "lexical", "both"]),
+  retrieval_mode: z.enum(["file_search", "lexical", "both", "fs_fusion"]),
 });
 
 export type BotEditFormValues = z.infer<typeof botEditFormSchema>;

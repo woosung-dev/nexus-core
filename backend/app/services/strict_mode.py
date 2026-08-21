@@ -157,8 +157,16 @@ def evidence_ok(answer: str, units: list[SourceUnit]) -> bool:
 # 원문이므로, 어휘 경로의 「주입 목록」과 같은 지위다.
 
 
-def grounding_locators(citations: list[RAGCitation]) -> set[tuple[str, int]]:
-    """grounding 청크(제목+본문)에 등장하는 조문·항목 키. file_search·both 의 대조 목록.
+def grounding_locators(
+    citations: list[RAGCitation], extra_units: list[SourceUnit] | None = None
+) -> set[tuple[str, int]]:
+    """grounding 청크(제목+본문)에 등장하는 조문·항목 키. file_search 계열의 대조 목록.
+
+    `extra_units` 는 **청크 말고도 모델이 본 원문**이다. `fs_fusion` 2단 프롬프트에는
+    청크 뒤에 `# 참고 정리`(위키 페이지)가 함께 들어가고, 그 페이지의 `## 사실` 에는
+    `> 원문 인용` 이 붙어 있다 — 청크에 없는 조문의 원문이 모델에게 간다. 청크하고만
+    대조하면 그 정확한 인용이 「지어냄」이 된다(어휘 경로에서 replay R0085 로 이미 겪은
+    거짓 양성. `RetrievalTrace.evidence_units` docstring).
 
     ⚠ `content` 는 표시용 800자 절단본이다(`rag/gemini.py:162`). 절단 뒤에서 조문 키가
     떨어져 나가면 정당한 인용이 지어냄으로 몰린다 — 그래서 **판정은 `full_content`
@@ -170,11 +178,11 @@ def grounding_locators(citations: list[RAGCitation]) -> set[tuple[str, int]]:
         if c.approximate:
             continue
         keys |= _locator_keys(c.title or "") | _locator_keys(c.full_content or c.content or "")
-    return keys
+    return keys | _injected_locators(extra_units or [])
 
 
 def fabricated_vs_grounding(
-    answer: str, citations: list[RAGCitation]
+    answer: str, citations: list[RAGCitation], extra_units: list[SourceUnit] | None = None
 ) -> set[tuple[str, int]]:
     """file_search·both 경로의 ② — 답변의 조문 표기가 grounding 청크 어디에도 없는가.
 
@@ -191,7 +199,7 @@ def fabricated_vs_grounding(
     청크에 조문·항목 형태가 하나도 없으면 **판정 불가**로 보고 빈 값을 돌려준다 —
     「안 쟀음」이지 「지어냄 0」이 아니다. 그 구분은 trace 의 `fabricated_checked` 가 남긴다.
     """
-    keys = grounding_locators(citations)
+    keys = grounding_locators(citations, extra_units)
     if not keys:
         return set()
     return _locator_keys(answer) - keys

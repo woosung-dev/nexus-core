@@ -254,3 +254,137 @@ async def test_both_은_기존_대화기록_앞에_원문을_둔다(monkeypatch)
         _chat_session(),
     )
     assert rag_service.generate_with_rag.await_args.kwargs["history"] == turns + history
+
+
+# ---- fs_fusion — file_search 를 검색기로 쓰고 답을 다시 쓴다 ---------------------
+#
+# 팔 B2v2. replay 150 실측(2026-08-21): 답 받음 38.0%(현행) → 46.7%, codex 위험신호 5 → 1.
+# 여기서 재는 것은 **호출 구조**다 — 1단은 기존 호출 그대로, 2단은 도구 없이 청크로만.
+
+
+def _fusion_rag(answer="원문에 따르면 그렇습니다.", citations=None):
+    resp = _rag_response(answer)
+    if citations is not None:
+        resp.citations = citations
+    return SimpleNamespace(
+        generate_with_rag=AsyncMock(return_value=resp),
+        generate_plain=AsyncMock(return_value="다시 쓴 답변 (근거: 규정집v20 제33조)"),
+    )
+
+
+async def _run_fusion(monkeypatch, rag_service, *, wiki=None, stream=False):
+    """위키 채널은 기본으로 없다 — 코퍼스가 없는 배포 이미지가 기본 상태다."""
+    from app.services.wiki.store import WikiCorpusUnavailable
+
+    async def no_corpus(bot_id):
+        raise WikiCorpusUnavailable("코퍼스 없음")
+
+    monkeypatch.setattr("app.services.wiki.store.get_index", wiki or no_corpus, raising=True)
+    _patch_common(monkeypatch, rag_service)
+    resp = await ChatService(_session_mock()).process_chat_request(
+        ChatCompletionRequest(bot_id=11, message="금식은 며칠인가요?", use_rag=True, stream=stream),
+        _bot(retrieval_mode="fs_fusion"),
+        _chat_session(),
+    )
+    return resp
+
+
+def test_fs_fusion_은_스키마와_폴백_규칙을_탄다():
+    assert BotUpdateRequest(retrieval_mode="fs_fusion").retrieval_mode == "fs_fusion"
+    assert _effective_retrieval_mode(_bot(retrieval_mode="fs_fusion")) == "fs_fusion"
+    # 비 Gemini 봇은 file_search — 2단도 Gemini 클라이언트를 쓴다.
+    assert _effective_retrieval_mode(
+        _bot(retrieval_mode="fs_fusion", llm_model="gpt-4o-mini")) == "file_search"
+
+
+@pytest.mark.asyncio
+async def test_fs_fusion_은_1단_인용을_원문으로_넣고_다시_쓴다(monkeypatch):
+    rag_service = _fusion_rag()
+    resp = await _run_fusion(monkeypatch, rag_service)
+
+    # 1단은 기본값 봇과 **한 글자도 같은** 호출이어야 한다.
+    rag_service.generate_with_rag.assert_awaited_once_with(
+        bot_id=11,
+        prompt="금식은 며칠인가요?",
+        system_prompt="",
+        model_name="gemini-3.5-flash-lite",
+        history=None,
+    )
+    prompt = rag_service.generate_plain.await_args.kwargs["prompt"]
+    assert "# 규정 원문(검색 결과)" in prompt
+    assert "[규정집v20 제33조]" in prompt
+    assert "# 작성 지시" in prompt
+    assert prompt.rstrip().endswith("# 질문\n금식은 며칠인가요?")
+    # 인용·followups 는 1단 것을 물려준다 — 2단은 검색을 안 한다.
+    assert resp.content == "다시 쓴 답변 (근거: 규정집v20 제33조)"
+    assert resp.followups == ["다음 질문"]
+    assert [c.title for c in resp.citations] == ["규정집v20 제33조"]
+
+
+@pytest.mark.asyncio
+async def test_fs_fusion_은_인용이_없으면_2단을_돌리지_않는다(monkeypatch):
+    """넣을 원문이 없는데 다시 쓰게 하면 모델이 기억으로 답한다 — 막을 수 없는 지어냄이다."""
+    rag_service = _fusion_rag(answer="확인이 어렵습니다.", citations=[])
+    resp = await _run_fusion(monkeypatch, rag_service)
+
+    rag_service.generate_plain.assert_not_awaited()
+    assert resp.content == "확인이 어렵습니다."
+
+
+@pytest.mark.asyncio
+async def test_fs_fusion_은_2단이_빈손이면_1단_답을_그대로_낸다(monkeypatch):
+    rag_service = _fusion_rag()
+    rag_service.generate_plain = AsyncMock(return_value="")
+    resp = await _run_fusion(monkeypatch, rag_service)
+    assert resp.content == "원문에 따르면 그렇습니다."
+
+
+@pytest.mark.asyncio
+async def test_fs_fusion_2단은_절단본이_아니라_full_content_를_넣는다(monkeypatch):
+    """`content` 는 표시용 800자 절단본이다. 자른 원문을 주면 조문 중간이 사라진다."""
+    cited = RAGCitation(
+        title="규정집v20 제33조", content="제 33 조 …(절단)", uri="reg-33",
+        full_content="제 33 조 전문 — 자르지 않은 원문",
+    )
+    rag_service = _fusion_rag(citations=[cited])
+    await _run_fusion(monkeypatch, rag_service)
+
+    prompt = rag_service.generate_plain.await_args.kwargs["prompt"]
+    assert "제 33 조 전문 — 자르지 않은 원문" in prompt
+    assert "(절단)" not in prompt
+
+
+@pytest.mark.asyncio
+async def test_fs_fusion_은_stream_요청이어도_비스트리밍으로_답한다(monkeypatch):
+    resp = await _run_fusion(monkeypatch, _fusion_rag(), stream=True)
+    assert resp.__class__.__name__ == "ChatCompletionResponse"
+
+
+@pytest.mark.asyncio
+async def test_fs_fusion_은_위키_페이지를_얹고_그_원문을_trace_에_남긴다(monkeypatch):
+    """게이트가 grounding 청크하고만 대조하면 위키 원문을 정확히 옮긴 답이 차단된다."""
+    from app.services.wiki.store import Retrieved, SourceUnit, WikiPage
+
+    unit = SourceUnit(src_id="reg-17", doc="규정집v20", locator="제17조", text="제 17 조 …")
+    page = WikiPage(slug="fasting", title="금식", summary="", facts="> 제 17 조 …",
+                    sources=["reg-17"])
+    retrieved = Retrieved(pages=[(page, 1.0)], units=[unit])
+
+    async def fake_index(bot_id):
+        return SimpleNamespace(search=AsyncMock(return_value=retrieved))
+
+    seen = {}
+    real = chat_service.ChatService._fusion_wiki
+
+    async def spy(self, bot_id, message, trace):
+        out = await real(self, bot_id, message, trace)
+        seen["pages"], seen["units"] = list(trace.pages), list(trace.page_units)
+        return out
+
+    monkeypatch.setattr(ChatService, "_fusion_wiki", spy)
+    rag_service = _fusion_rag()
+    await _run_fusion(monkeypatch, rag_service, wiki=fake_index)
+
+    assert "# 참고 정리" in rag_service.generate_plain.await_args.kwargs["prompt"]
+    assert seen["pages"] == ["fasting"]
+    assert seen["units"] == [unit]

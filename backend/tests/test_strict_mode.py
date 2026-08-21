@@ -400,3 +400,36 @@ def test_grounding_판정은_절단_전_원문으로_한다():
         full_content="제 18 조 … (긴 원문) … 제 19 조 접수 시기는 …",
     )
     assert fabricated_vs_grounding("(근거: 규정집v20 제19조)", [chunk]) == set()
+
+
+def test_융합이_얹은_위키_원문은_지어냄이_아니다():
+    """`fs_fusion` 2단 프롬프트에는 청크 뒤에 `# 참고 정리`(위키 페이지)도 들어간다.
+
+    그 `## 사실` 의 `> 원문 인용` 은 청크에 없는 조문의 원문이다. 청크하고만 대조하면
+    그것을 정확히 옮긴 답변이 「지어냄」이 된다 — 어휘 경로에서 replay 600건 중 56건이
+    그 오경보였다(`_rejudge_pages.py`).
+    """
+    from app.services.strict_mode import fabricated_vs_grounding
+    from app.services.wiki.store import SourceUnit
+
+    chunks = [_chunk("규정집v20 제55조", "제 55 조 …")]
+    page_unit = SourceUnit(src_id="reg-17", doc="규정집v20", locator="제17조", text="제 17 조 …")
+    answer = "(근거: 규정집v20 제17조) 에 따릅니다."
+
+    assert fabricated_vs_grounding(answer, chunks) == {("조", 17)}          # 청크만 보면 지어냄
+    assert fabricated_vs_grounding(answer, chunks, [page_unit]) == set()   # 위키 원문까지 보면 아니다
+    # 어느 목록에도 없는 조문은 여전히 지어냄이다.
+    assert fabricated_vs_grounding("(근거: 제99조)", chunks, [page_unit]) == {("조", 99)}
+
+
+def test_융합_턴은_위키_원문을_대조에_넣고_게이트를_통과시킨다():
+    from app.services.chat_service import _strict_blocks
+    from app.services.wiki.store import SourceUnit
+
+    chunks = [_chunk("규정집v20 제55조", "제 55 조 …")]
+    response = RAGResponse(answer="(근거: 규정집v20 제17조) 에 따릅니다.", citations=chunks)
+
+    trace = RetrievalTrace()
+    assert _strict_blocks("fs_fusion", trace, response) is True
+    trace.page_units = [SourceUnit(src_id="reg-17", doc="규정집v20", locator="제17조", text="…")]
+    assert _strict_blocks("fs_fusion", trace, response) is False

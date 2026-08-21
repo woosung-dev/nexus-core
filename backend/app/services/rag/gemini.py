@@ -635,6 +635,43 @@ class GeminiRAGService(BaseRAGService):
         )
         return result, citations
 
+    async def generate_plain(
+        self,
+        *,
+        prompt: str,
+        system_prompt: str,
+        model_name: str,
+        temperature: float | None = None,
+        max_tokens: int = 2048,
+    ) -> str:
+        """도구 없이 본문만 받는다. 호출자가 이미 원문을 들고 있을 때 쓴다.
+
+        `fs_fusion` 2단이 이것을 부른다 — 1단(`generate_with_rag`)이 물어 온 grounding
+        청크를 프롬프트에 그대로 넣고 다시 쓰게 한다. **여기서 file_search 를 다시 켜면
+        안 된다.** 켜면 모델이 새로 검색해 온 것으로 답을 갈아 쓰는데, 그러면 게이트가
+        대조하는 청크(1단의 것)와 답변이 본 원문이 갈라져 판정이 무의미해진다
+        (`generate_structured` 가 같은 이유로 도구를 뺀다).
+
+        followups 는 안 받는다 — `fs_fusion` 은 1단의 것을 그대로 물려준다(호출 1회 절약).
+        """
+        settings = get_settings()
+        if temperature is None:
+            temperature = settings.RAG_TEMPERATURE
+
+        t_gen = time.perf_counter()
+        resp = await self._client.aio.models.generate_content(
+            model=model_name or "gemini-2.5-flash",
+            contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt or None,
+                temperature=temperature,
+                max_output_tokens=max_tokens,
+            ),
+        )
+        gen_ms = (time.perf_counter() - t_gen) * 1000
+        logger.info("gemini plain(no-tool) elapsed=%.1fms model=%s", gen_ms, model_name)
+        return (resp.text or "").strip()
+
     async def generate_structured(
         self,
         *,

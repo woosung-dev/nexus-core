@@ -18,7 +18,7 @@ from app.models.bot import Bot
 from app.models.chat import ChatSession
 from app.models.enums import MessageRole
 from app.schemas.chat import ChatCompletionRequest, ChatCompletionResponse
-from app.schemas.rag import RAGResponse
+from app.schemas.rag import RAGCitation, RAGResponse
 from app.services.faq_service import search_faq_override
 from app.services.followup_service import generate_followups
 from app.services.llm.factory import get_llm_service
@@ -115,18 +115,30 @@ def _strict_blocks(
     """
     if crisis_active:
         return False
-    fell_back = bool({Reason.LEXICAL_EMPTY, Reason.CORPUS_UNAVAILABLE} & set(trace.reasons))
-    if retrieval_mode != "lexical" or fell_back:
+    if _uses_grounding_ruler(retrieval_mode, trace):
         if not has_direct_citation(response.citations):
             return True
         # ② 지어냄 검사 (2026-08-22 추가) — grounding 청크를 대조 목록으로 쓴다.
         # ①(본문 표기 요구)은 넣지 않는다: 이 경로의 ①은 grounding 존재이고, 표기를
         # 새로 요구하면 지금까지 통과하던 무표기 답변이 통째로 죽는다.
         answer = response.answer or ""
-        fake = fabricated_vs_grounding(answer, response.citations)
+        fake = fabricated_vs_grounding(answer, response.citations, trace.evidence_units)
         return bool(fake) and not is_self_refusal(answer)
     answer = response.answer or ""
     return not evidence_ok(answer, trace.evidence_units) and not is_self_refusal(answer)
+
+
+def _uses_grounding_ruler(retrieval_mode: str, trace: RetrievalTrace) -> bool:
+    """이 턴을 grounding 청크로 재는가(참), 주입 목록으로 재는가(거짓).
+
+    답변을 **무엇이 만들었나**로 갈린다. 어휘 1단이 빈손이라 file_search 로 폴백했으면
+    주입 목록은 답변과 무관하다 — 그때도 참이다.
+
+    **판정(`_strict_blocks`)과 기록(`turn.stage(STRICT, ...)`)이 같은 자를 써야 한다.**
+    어긋나 있던 동안 관리자 화면의 `fabricated_loc` 이 게이트가 안 본 목록으로 찍혔다.
+    """
+    fell_back = bool({Reason.LEXICAL_EMPTY, Reason.CORPUS_UNAVAILABLE} & set(trace.reasons))
+    return retrieval_mode != "lexical" or fell_back
 
 
 def _attach_crisis(answer: str, block: str) -> tuple[str, str]:
@@ -149,13 +161,45 @@ def _attach_crisis(answer: str, block: str) -> tuple[str, str]:
     return f"{text}\n\n{block}", "appended"
 
 
+# `fs_fusion` 2단에 붙이는 작성 지시. 스케일 150 실측에서 codex 위험신호를 5→1 로
+# 낮춘 것이 이 두 줄이다(`docs/architecture/handoff-launch-week-2026-08-22.md` §2-b).
+# ⚠ **표기율은 이 지시로 안 오른다** — (근거:) 표기 55% 로 현행 56% 와 같았다. 지시가
+# 사는 곳은 「근거 없는 단정을 안 한다」와 「유형을 안 물어보고 단정하지 않는다」 쪽이다.
+FUSION_WRITE_INSTRUCTION = (
+    "# 작성 지시\n"
+    "- 본문에서 근거로 삼은 대목마다 (근거: 문서·조항) 표기를 붙여라. 위 자료에 있는 내용만 근거로 써라.\n"
+    "- 규정이 축복 유형(미혼 1세 편성·기성축복·축복자녀 간 등)에 따라 다르면 어느 유형 기준인지 명시하라. "
+    "사용자의 유형을 모르면 단정하지 말고 유형을 확인하라.\n"
+)
+
+
+def _fusion_prompt(question: str, citations: list[RAGCitation], wiki_block: str) -> str:
+    """1단이 물어 온 청크를 원문으로 깔고 다시 쓰게 하는 2단 프롬프트.
+
+    측정 러너 `exports/replay_2026-08/_run_scale.py:_gen_b2v2` 와 **같은 순서·같은 문구**다.
+    바꾸면 실측치(답변률 46.7% · 위험신호 1)와 프로덕션이 갈라진다.
+
+    청크 본문은 표시용 800자 절단본(`content`)이 아니라 `full_content` 를 쓴다 — 모델에게
+    자르지 않은 원문을 줘야 조문 중간이 잘려 나가지 않는다.
+    """
+    chunks = "\n\n".join(
+        f"[{c.title}]\n{c.full_content or c.content}" for c in citations
+    )
+    return (
+        f"# 규정 원문(검색 결과)\n{chunks}\n\n"
+        + (f"# 참고 정리\n{wiki_block}\n\n" if wiki_block else "")
+        + f"{FUSION_WRITE_INSTRUCTION}\n"
+        + f"# 질문\n{question}"
+    )
+
+
 def _effective_retrieval_mode(bot: Bot) -> str:
     """봇 설정을 실제로 탈 수 있는 조달 방식으로 바꾼다.
 
     미설정(기존 봇)은 `file_search` 다 — 컬럼 server_default 와 같아서 **기존 동작과 동일**하다.
     """
     mode = getattr(bot, "retrieval_mode", None) or "file_search"
-    if mode not in ("file_search", "lexical", "both"):
+    if mode not in ("file_search", "lexical", "both", "fs_fusion"):
         logger.warning("알 수 없는 retrieval_mode=%r bot_id=%s — file_search 로 처리", mode, bot.id)
         return "file_search"
     if mode != "file_search" and not (bot.llm_model or "").startswith(_LEXICAL_PROVIDER_PREFIX):
@@ -442,7 +486,79 @@ class ChatService:
             model_name=bot.llm_model,
             history=history or None,
         )
+
+        if retrieval_mode == "fs_fusion":
+            return await self._fuse(rag_service, bot, message, system_prompt, response, trace)
         return response, trace
+
+    async def _fuse(
+        self,
+        rag_service,
+        bot: Bot,
+        message: str,
+        system_prompt: str,
+        draft: RAGResponse,
+        trace: RetrievalTrace,
+    ) -> tuple[RAGResponse, RetrievalTrace]:
+        """팔 B2v2 — file_search 를 **검색기로만** 쓰고, 물어 온 청크로 답을 다시 쓴다.
+
+        1단은 위의 `generate_with_rag` 그대로다(인자 한 글자도 안 바꾼다). 2단은 도구 없이
+        청크 + 위키 페이지 + 작성 지시를 넣고 본문만 받는다. 인용·followups 는 1단 것을
+        물려준다 — 2단은 검색을 안 하므로 새 인용이 나올 수 없고, followups 를 다시 받으면
+        호출이 하나 더 는다.
+
+        replay 150 실측(2026-08-21): 답 받음 38.0%(현행) → 46.7%, 자체 거절 39.3% → 10.0%.
+        **답변률은 A(file_search 단독)와 같다** — 2호출의 값어치는 안전축이다
+        (codex 위험신호 5 → 1). 지연은 2배(9초 → 15초 안팎).
+
+        ⚠ **빈손이면 융합하지 않는다.** 청크가 없으면 넣을 원문이 없고, 그 상태로 2단을
+        돌리면 모델이 기억으로 답을 쓴다 — 게이트가 막을 수 있는 지어냄이 아니라
+        **막을 수 없는** 지어냄이 된다.
+        """
+        if not draft.citations:
+            return draft, trace
+
+        wiki_block = await self._fusion_wiki(bot.id, message, trace)
+        answer = await rag_service.generate_plain(
+            prompt=_fusion_prompt(message, draft.citations, wiki_block),
+            system_prompt=system_prompt,
+            model_name=bot.llm_model,
+        )
+        return (
+            RAGResponse(
+                answer=answer or draft.answer,
+                citations=draft.citations,
+                followups=draft.followups,
+            ),
+            trace,
+        )
+
+    async def _fusion_wiki(self, bot_id: int, message: str, trace: RetrievalTrace) -> str:
+        """2단 프롬프트에 얹을 `# 참고 정리` 블록. 없으면 빈 문자열이다.
+
+        **페이지가 실어 온 원문을 trace 에 남기는 것이 핵심이다.** 게이트가
+        grounding 청크하고만 대조하면, 위키 페이지의 `> 원문 인용` 을 정확히 옮긴 답변이
+        「지어냄」으로 차단된다(`strict_mode.grounding_locators` 의 `extra_units`).
+
+        코퍼스가 없어도 융합은 그대로 간다 — 위키는 보조 채널이지 근거 조달 경로가 아니다.
+        `Reason.CORPUS_UNAVAILABLE` 을 찍지 않는 이유가 이것이다. 그 이유코드는
+        「폴백했다」는 뜻이라 결손 집계에서 어휘 경로의 폴백과 섞인다.
+        """
+        from app.services.wiki.service import _wiki_block
+        from app.services.wiki.store import WikiCorpusUnavailable, get_index
+
+        try:
+            index = await get_index(bot_id)
+            retrieved = await index.search(message, top_k=3)
+        except WikiCorpusUnavailable as e:
+            logger.info("융합 위키 채널 없음 bot_id=%s — 청크만으로 진행: %s", bot_id, e)
+            return ""
+        if not retrieved.pages:
+            return ""
+        trace.pages = [page.slug for page, _ in retrieved.pages]
+        trace.page_src_ids = sorted({src for page, _ in retrieved.pages for src in page.sources})
+        trace.page_units = list(retrieved.units)
+        return _wiki_block(retrieved)
 
     async def _load_history(
         self, session_id: int, bot: Bot, current_message: str
@@ -677,20 +793,22 @@ class ChatService:
                 cited = sorted(cited_ids(rag_response.answer))
                 # 게이트와 **같은 목록**으로 재야 기록과 판정이 어긋나지 않는다.
                 evidence = trace.evidence_units
-                fake_ids, fake_loc = fabricated_citations(rag_response.answer, evidence)
-                # ⚠ **「지어냄 0」과 「안 쟀음」은 다르다.** `fabricated_citations` 는
-                # `if not units: return set(), set()` 로 시작하고 `trace.units` 는 어휘
-                # 분기에서만 채워진다 → file_search·both·폴백 턴은 **언제나 0으로 찍힌다.**
-                # 그걸 0으로 읽어서 「이 경로는 안전하다」고 집계한 적이 있다. 무보호가
-                # 아니라 무측정이라는 것을 데이터에 남긴다 — 자를 고치는 것은 별건이다.
-                fabricated_checked = bool(evidence)
-                # file_search·both — grounding 청크가 조문 형태를 담고 있으면 그걸 자로
-                # 쟀다(`_strict_blocks` 의 ②와 같은 판정). 판정과 기록이 어긋나면 안 된다.
-                if not evidence and grounding_locators(rag_response.citations):
+                # ⚠ **「지어냄 0」과 「안 쟀음」은 다르다.** 두 자 모두 대조 목록이 비면
+                # 빈 값을 돌려준다 — 그걸 0으로 읽어서 「이 경로는 안전하다」고 집계한 적이
+                # 있다. 무보호가 아니라 무측정이라는 것을 `fabricated_checked` 로 남긴다.
+                if _uses_grounding_ruler(retrieval_mode, trace):
+                    # file_search·both·fs_fusion·폴백 — grounding 청크(+ 융합이 얹은 위키
+                    # 원문)가 대조 목록이다. id 표기는 이 경로에 주입 라벨이 없어 안 잰다.
+                    fake_ids = set()
                     fake_loc = fabricated_vs_grounding(
-                        rag_response.answer, rag_response.citations
+                        rag_response.answer, rag_response.citations, evidence
                     )
-                    fabricated_checked = True
+                    fabricated_checked = bool(
+                        grounding_locators(rag_response.citations, evidence)
+                    )
+                else:
+                    fake_ids, fake_loc = fabricated_citations(rag_response.answer, evidence)
+                    fabricated_checked = bool(evidence)
                 strict_blocked = strict_on and _strict_blocks(
                     retrieval_mode, trace, rag_response, crisis_active=bool(crisis_block)
                 )
